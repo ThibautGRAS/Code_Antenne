@@ -1,0 +1,114 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+
+"""
+Fonctions de rappel pré-implémentées pour déployer facilement des applications basées les systèmes Megamicros.
+"""
+
+
+from os import makedirs
+from datetime import datetime
+#from h5py import File
+import numpy as np
+from .core import osp
+
+
+class Callbacks():
+    
+    data = None
+
+    def receive(self, *args, **kwargs):
+        self.call(**kwargs)
+
+
+class PrintData(Callbacks):
+    """Classe test pour l'ajout de callbacks"""
+
+    def call(self, data):
+        print(data)
+
+
+# class LiveRecording(Callbacks):
+#     """Classe pour la gestion des fichiers d'acquisition au format H5.
+
+#     Args:
+#         dirpath (str, optional): chemin vers le dossier de sauvegarde. Par défaut `dirpath="."`
+#     """
+#     __allowed_extensions = [".h5", ".hdf5"]
+
+#     def __init__(self, dirpath="./recording"):
+#         self.dirpath = dirpath
+#         makedirs(dirpath, exist_ok=True)
+#         self._file = None
+#         self.is_recording = False
+#         self.iframe = 0
+
+#     def open(self, filepath=None):
+#         today = datetime.now()
+#         date = today.strftime("%Y_%m_%d_%H:%M:%S.Mµ")
+#         if filepath is None:
+#             filepath = "".join(["mesure_", date])
+#         new_filepath = self.__change_ext(osp.basename(filepath))
+#         self._file = File(osp.join(self.dirpath, new_filepath), "w")
+#         self._file.create_dataset(
+#             "/parameters/datetime", data=date,
+#         )
+
+#     def open_stream(self):
+#         self.is_recording = True
+    
+#     def close_stream(self):
+#         self.is_recording = False
+
+#     def close(self):
+#         if self._file is not None:
+#             self._file.close()
+#             self.iframe = 0
+
+#     def __del__(self):
+#         self.close()
+
+#     def call(self, data):
+#         """Ecrit des données dans le fichier HDF5 ouvert
+
+#         Args:
+#             data (np.array) : matrice de données sonores
+#         """
+#         if self._file is not None:
+#             if self.is_recording:
+#                 # print("hello live recording")
+#                 self._file.create_dataset(
+#                     '/data/frame%d' % self.iframe, 
+#                     data=data.astype(np.int32), 
+#                 )
+#                 self._file.flush()
+#                 self.iframe += 1
+
+#     @staticmethod
+#     def __change_ext(filepath):
+#         filepath_without, _ = filepath.rsplit('.', 1)
+#         return filepath_without + ".Mµ"
+
+
+# def read(path, mode="r"):
+#     """Read a file obtained from a live recording.
+
+#     Parameters
+#     ----------
+#     path : str
+#         absolute path to the acquisition file. Must be in .Mµ format.
+#     mode : str, optional
+#         Mode of reading, by default "w"
+#     """
+#     with File(path, mode=mode) as fin:
+#         n_items = len(fin["data"])
+#         for i in range(n_items):
+#             if not i:
+#                 data = fin["data"]["frame%d" % i]
+#             else:
+#                 data = np.vstack((
+#                     data, fin["data"]["frame%d" % i],
+#                 ))
+#     n_samples = len(data)
+#     return n_samples, data

@@ -1,0 +1,65 @@
+[DEFAULT]
+
+[Date]
+Date = 3/11/2025
+Heure = 13:44:0
+
+[Voies]
+Nb_faisceaux = 32
+Nb_voies = 256
+Nb_micros_actifs = 256
+Nb_voies_analogiques = 0
+Nb_compteurs = 1
+
+[Micros actifs]
+Faisceau_  0 =   1  1  1  1  1  1  1  1
+Faisceau_  1 =   1  1  1  1  1  1  1  1
+Faisceau_  2 =   1  1  1  1  1  1  1  1
+Faisceau_  3 =   1  1  1  1  1  1  1  1
+Faisceau_  4 =   1  1  1  1  1  1  1  1
+Faisceau_  5 =   1  1  1  1  1  1  1  1
+Faisceau_  6 =   1  1  1  1  1  1  1  1
+Faisceau_  7 =   1  1  1  1  1  1  1  1
+Faisceau_  8 =   1  1  1  1  1  1  1  1
+Faisceau_  9 =   1  1  1  1  1  1  1  1
+Faisceau_ 10 =   1  1  1  1  1  1  1  1
+Faisceau_ 11 =   1  1  1  1  1  1  1  1
+Faisceau_ 12 =   1  1  1  1  1  1  1  1
+Faisceau_ 13 =   1  1  1  1  1  1  1  1
+Faisceau_ 14 =   1  1  1  1  1  1  1  1
+Faisceau_ 15 =   1  1  1  1  1  1  1  1
+Faisceau_ 16 =   1  1  1  1  1  1  1  1
+Faisceau_ 17 =   1  1  1  1  1  1  1  1
+Faisceau_ 18 =   1  1  1  1  1  1  1  1
+Faisceau_ 19 =   1  1  1  1  1  1  1  1
+Faisceau_ 20 =   1  1  1  1  1  1  1  1
+Faisceau_ 21 =   1  1  1  1  1  1  1  1
+Faisceau_ 22 =   1  1  1  1  1  1  1  1
+Faisceau_ 23 =   1  1  1  1  1  1  1  1
+Faisceau_ 24 =   1  1  1  1  1  1  1  1
+Faisceau_ 25 =   1  1  1  1  1  1  1  1
+Faisceau_ 26 =   1  1  1  1  1  1  1  1
+Faisceau_ 27 =   1  1  1  1  1  1  1  1
+Faisceau_ 28 =   1  1  1  1  1  1  1  1
+Faisceau_ 29 =   1  1  1  1  1  1  1  1
+Faisceau_ 30 =   1  1  1  1  1  1  1  1
+Faisceau_ 31 =   1  1  1  1  1  1  1  1
+
+[VA actives]
+Bloc_A =   0  0  0  0
+Bloc_B =   0  0  0  0
+Bloc_C =   0  0  0  0
+Bloc_D =   0  0  0  0
+
+[Compteurs actifs]
+Compteurs =   1  0  0  0
+
+[Acquisition]
+Freq = 50000 (Hz)
+Duree = 5.09952 (s)
+Nb_ech = 254976
+Type = int32
+
+
+[OPTIONNAL]
+Produced by MµBoard
