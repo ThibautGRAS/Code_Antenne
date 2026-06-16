@@ -44,7 +44,7 @@ class LiveState:
         # OBF : mode/source affiche
         # ------------------------------------------------------------
         self.obf_mode_index = 0
-        self.obf_n_modes = 2
+        self.obf_n_modes = int(getattr(config, "obf_n_modes", 2))
 
         # ------------------------------------------------------------
         # Modes d'affichage

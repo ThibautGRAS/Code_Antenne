@@ -29,6 +29,7 @@ SHORTCUTS = [
     ("w/x", "Dynamique"),
     ("+/-", "Transparence"),
     ("t/y", "Trigger"),
+    ("d", "croix max"),
     ("j", "Colormap"),
     ("m", "Miroir"),
 ]
@@ -259,16 +260,16 @@ def compose_live_dashboard(
 
     draw_bottom_level_bar(
         frame,
-        x=8,
-        y=bottom_y + 6,
-        w=total_w - 16,
-        h=bottom_h - 12,
+        x=0,
+        y=header_h + cam_h,
+        w=total_w,
+        h=bottom_h,
         level_db=Lp_mean,
         trigger_db=config.level_threshold_dB,
         bf_active=bf_active,
-        dyn_dB=dyn_dB,
-        label="Niveau bande f (dB)",
+        dyn_dB=state.dyn_dB,
         colorbar_width_ratio=float(getattr(config, "ui_colorbar_width_ratio", 0.52)),
+        map_max_db=getattr(state, "last_map_max_db", None),
     )
 
     # ------------------------------------------------------------

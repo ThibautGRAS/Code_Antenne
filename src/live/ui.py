@@ -806,14 +806,18 @@ def draw_bottom_level_bar(
     dyn_dB=3.0,
     label="Niveau bande f (dB)",
     colorbar_width_ratio=0.52,
+    map_max_db=None,
 ):
     """
     Barre bas :
-        Niveau bande f (dB)  11.5 dB    -3 dB [barre couleur] 0 dB    TRIG OFF
+        Niveau bande f (dB)  11.5 dB    -3 dB [barre couleur] 0 dB    Max BF 42.1 dB    TRIG OFF
 
     La barre couleur indique la dynamique relative :
         gauche = -dyn_dB
         droite = 0 dB
+
+    Max BF correspond au niveau maximum de la carte beamforming
+    avant normalisation graphique de l'overlay.
     """
     x, y, w, h = int(x), int(y), int(w), int(h)
 
@@ -838,7 +842,9 @@ def draw_bottom_level_bar(
     # Axe vertical commun : tous les textes et la barre sont centres dessus.
     mid_y = y + h // 2
 
-    # Texte "Niveau bande" et valeur jaune.
+    # ------------------------------------------------------------
+    # 1) Niveau bande f
+    # ------------------------------------------------------------
     label_x = x + 20
 
     draw_text_pil(
@@ -868,7 +874,9 @@ def draw_bottom_level_bar(
         anchor="lm",
     )
 
-    # Libelles de dynamique relative.
+    # ------------------------------------------------------------
+    # 2) Barre couleur relative : -dyn_dB -> 0 dB
+    # ------------------------------------------------------------
     dyn_left_txt = f"-{float(dyn_dB):.1f} dB"
 
     if abs(float(dyn_dB) - round(float(dyn_dB))) < 1e-6:
@@ -876,11 +884,14 @@ def draw_bottom_level_bar(
 
     dyn_right_txt = "0 dB"
 
-    # Zone trigger decalee a droite.
+    # Trigger decale a droite.
     trig_x = x + w - 185
-    max_bar_right = trig_x - 40
 
-    # Zone barre couleur.
+    # On reserve une zone entre le 0 dB et TRIG pour Max BF.
+    max_bf_area_w = 145
+    max_bar_right = trig_x - max_bf_area_w - 35
+
+    # La barre démarre comme avant apres le niveau bande.
     colorbar_area_x = level_x + 145
 
     left_w, _ = text_size_pil(dyn_left_txt, size=14, bold=False)
@@ -939,7 +950,45 @@ def draw_bottom_level_bar(
         anchor="lm",
     )
 
-    # Trigger : texte + bouton decales ensemble a droite.
+    # ------------------------------------------------------------
+    # 3) Niveau max BF apres la barre couleur
+    # ------------------------------------------------------------
+    bf_label = "Max BF"
+
+    if map_max_db is None:
+        bf_txt = "-- dB"
+    else:
+        bf_txt = f"{map_max_db:.1f} dB"
+
+    bf_label_x = right_txt_x + right_w + 28
+
+    draw_text_pil(
+        img,
+        bf_label,
+        x=bf_label_x,
+        y=mid_y,
+        color=text_color,
+        size=15,
+        bold=False,
+        anchor="lm",
+    )
+
+    bf_label_w, _ = text_size_pil(bf_label, size=15, bold=False)
+
+    draw_text_pil(
+        img,
+        bf_txt,
+        x=bf_label_x + bf_label_w + 10,
+        y=mid_y,
+        color=yellow,
+        size=17,
+        bold=False,
+        anchor="lm",
+    )
+
+    # ------------------------------------------------------------
+    # 4) Trigger : texte + bouton decales ensemble a droite
+    # ------------------------------------------------------------
     draw_text_pil(
         img,
         "TRIG",
