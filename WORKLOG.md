@@ -19,6 +19,25 @@ Code de recherche : on privilégie la **lisibilité** à l'abstraction.
 
 ---
 
+## Prochaine étape (à reprendre plus tard)
+**Retrait de l'UI OpenCV** — objectif : supprimer `src/live/ui.py` (dernier reste du legacy OpenCV).
+
+- **Blocage actuel :** `src/live/ui_qt.py` importe `src/live/display.py` (pour `SHORTCUTS` et
+  `process_keyboard_from_key`), et `display.py` fait `from src.live.ui import (handle_key,
+  draw_header_bar, …)`. Donc `ui_qt` dépend **transitivement** de `ui.py`.
+- **À faire :**
+  1. Repérer ce que `ui_qt` utilise réellement : `SHORTCUTS` (liste) + `process_keyboard_from_key`
+     (qui s'appuie sur `handle_key` de `ui.py`).
+  2. Reloger ça dans un module **sans dépendance OpenCV** (la logique clavier + la liste des
+     raccourcis, p. ex. dans `ui_qt` ou un petit `live/shortcuts.py`).
+  3. Couper le `from src.live.ui import …` de `display.py` (ou sortir `display.py` du chemin Qt
+     s'il ne sert plus qu'à l'OpenCV).
+  4. Vérifier que `ui_qt` importe et tourne, **puis supprimer `ui.py`**.
+- **Prudence :** ça touche l'appli live → faire un **plan détaillé d'abord**, et tester
+  l'import de `ui_qt` après chaque étape.
+
+---
+
 ## 2026-06-28
 
 ### Live allégé : `beamforming/__init__` paresseux + imports morts retirés
