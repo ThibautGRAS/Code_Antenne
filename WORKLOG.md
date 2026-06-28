@@ -8,6 +8,15 @@
 
 ## 2026-06-28
 
+### Nettoyage : retrait des artefacts vendorés de `ldsfdatareader`
+- **Quoi :** suppression de `src/ldsfdatareader/{build,dist}` (dont l'installeur
+  `.exe`) et du dossier imbriqué dupliqué `ldsfdatareader/ldsfdatareader/`.
+- **Conservé :** `src/ldsfdatareader/__init__.py` — le SEUL fichier importé (via
+  `import src.ldsfdatareader` dans `read_info`) — ainsi que `setup.py`/`README`/`install.bat`.
+- **Vérifié :** `import src.read_info.read_info` OK avant ET après. Le `import
+  ldsfdatareader` (top-level, ligne 6 du `__init__`) ne charge rien (échoue
+  silencieusement) → le dossier imbriqué n'était pas nécessaire.
+
 ### Packaging : ajout de `pyproject.toml` — installable via `pip install -e .`
 - **Quoi :** `pyproject.toml` minimal (setuptools) exposant `src` et `data` comme
   packages tels quels (rien déplacé) ; `.gitignore` ignore l'artefact `*.egg-info/`.
@@ -61,7 +70,8 @@
 - [ ] **requirements** : choisir une source de vérité unique entre
       `requirements_antennemu.txt` (à jour) et les `dependencies` du `pyproject.toml`
       (aujourd'hui dupliqués).
-- [ ] **Libs vendorées** : retirer `src/ldsfdatareader/{build,dist}` (+ le `.exe`).
+- [x] **Libs vendorées** : `src/ldsfdatareader/{build,dist}` + dossier imbriqué retirés (2026-06-28).
+      Reste éventuellement `src/megamicros` (pilote MU32) à examiner — non touché ici.
 - [ ] **god-`Config`** : 3 classes `Config` + `getattr(..., default)` partout →
       schéma explicite (dataclasses par domaine).
 - [ ] **Points d'entrée** : unifier les `main_*` (idéalement via l'abstraction
