@@ -6,6 +6,19 @@
 
 ---
 
+## Conventions (philosophie du code)
+Code de recherche : on privilégie la **lisibilité** à l'abstraction.
+1. **Main lisible de haut en bas** : params en tête (Python, `Config(overrides=...)`),
+   puis le flux visible (charger → calculer → visualiser).
+2. **Réutiliser le lourd via des fonctions simples** + objet de résultats explicite :
+   `compute_xxx(config) -> res` une fois, puis `plot_a(res)`, `plot_b(res)`.
+3. **Noyau pur partagé** (`signal_process`, `beamforming`) : pas d'I/O, pas d'UI,
+   pas de god-config qui fuit dedans.
+4. **Règle de trois** : n'abstraire (classe, couche, framework) qu'au 3ᵉ besoin réel.
+   `src/pipelines/` est laissé **dormant** — ni étendu, ni supprimé (framework pour 1 seul usage).
+
+---
+
 ## 2026-06-28
 
 ### Fix : erreurs « Exception ignored in __del__ » de PyVista à la fermeture
