@@ -22,3 +22,7 @@ __pycache__/
 # Windows / Mac
 Thumbs.db
 .DS_Store
+
+# Packaging (artefacts d'install editable)
+*.egg-info/
+/build/

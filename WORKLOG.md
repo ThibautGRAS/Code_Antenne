@@ -8,6 +8,19 @@
 
 ## 2026-06-28
 
+### Packaging : ajout de `pyproject.toml` — installable via `pip install -e .`
+- **Quoi :** `pyproject.toml` minimal (setuptools) exposant `src` et `data` comme
+  packages tels quels (rien déplacé) ; `.gitignore` ignore l'artefact `*.egg-info/`.
+- **Pourquoi :** les imports `from src…` / `from data.config import Config`
+  dépendaient du répertoire courant (cassaient hors de la racine). `pip install -e .`
+  les rend valides depuis n'importe où.
+- **Vérifié :** `pip install -e . --no-deps` OK ; un import lancé depuis `src/live/`
+  (qui échouait avant) fonctionne désormais.
+- **Note :** `requirements_antennemu.txt` était périmé (listait PyQt5 mais pas
+  PySide6, et pas pyvista) ; **mis à jour** (ajout de PySide6 et pyvista aux versions
+  du venv, regroupement par thème) en parallèle des `dependencies` du `pyproject.toml`.
+  Reste à choisir une source de vérité unique (cf. backlog).
+
 ### Correctif : fuite matplotlib hors de la couche calcul — `2f9d5e1`
 - **Quoi :** plus aucun module ne fait `matplotlib.use('Qt5Agg')`.
   - Couche calcul (`signal_process`, `beamforming_signal`, `beamforming_process`,
@@ -44,8 +57,10 @@
   ont été faits. L'architecture (packages, points d'entrée, `Config`) est intacte.
 
 ## Backlog structurel (revue d'archi — NON fait, à planifier)
-- [ ] **Packaging** : ajouter un `pyproject.toml` (`pip install -e .`) pour fiabiliser
-      les imports `from src...` / `from data...` (gain rapide, faible risque).
+- [x] **Packaging** : `pyproject.toml` ajouté, `pip install -e .` fonctionnel (2026-06-28).
+- [ ] **requirements** : choisir une source de vérité unique entre
+      `requirements_antennemu.txt` (à jour) et les `dependencies` du `pyproject.toml`
+      (aujourd'hui dupliqués).
 - [ ] **Libs vendorées** : retirer `src/ldsfdatareader/{build,dist}` (+ le `.exe`).
 - [ ] **god-`Config`** : 3 classes `Config` + `getattr(..., default)` partout →
       schéma explicite (dataclasses par domaine).
