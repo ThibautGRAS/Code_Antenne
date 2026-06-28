@@ -34,10 +34,26 @@ class PyVistaWrapper:
         self.plotter = plotter
 
     def show(self, title=None):
-        if title:
-            self.plotter.show(title=title)
-        else:
-            self.plotter.show()
+        # Appels multiples tolérés : une fois affiché/fermé, c'est un no-op
+        # (gère le cas où le main appelle show() deux fois).
+        if self.plotter is None:
+            return
+        try:
+            if title:
+                self.plotter.show(title=title)
+            else:
+                self.plotter.show()
+        finally:
+            # Ferme et désenregistre le plotter PENDANT que VTK est encore chargé,
+            # puis lâche la référence : il est collecté immédiatement (et non au
+            # shutdown, ce qui déclenchait les "Exception ignored in __del__ ...
+            # 'NoneType' object has no attribute 'check_attribute'").
+            try:
+                import pyvista as pv
+                pv.close_all()
+            except Exception:
+                pass
+            self.plotter = None
 
 
 class MatplotlibWrapper:

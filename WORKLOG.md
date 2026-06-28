@@ -8,6 +8,18 @@
 
 ## 2026-06-28
 
+### Fix : erreurs « Exception ignored in __del__ » de PyVista à la fermeture
+- **Quoi :** `PyVistaWrapper.show()` (`beamforming_visu.py`) ferme et désenregistre le
+  plotter (`pv.close_all()` + `self.plotter = None`) dès que la fenêtre se ferme, et
+  ignore un 2ᵉ appel (garde `if self.plotter is None`).
+- **Pourquoi :** le `__del__` de PyVista appelle toujours `deep_clean()` ; si le Plotter
+  survit jusqu'au shutdown (retenu par le registre global `_ALL_PLOTTERS`), ce
+  `deep_clean` tourne après le démontage de VTK → `AttributeError 'NoneType'`. En lâchant
+  les références tout de suite, le Plotter est collecté pendant que VTK est encore vivant.
+- **Bonus :** neutralise le double `plotter.show()` des mains cube (fenêtre PyVista
+  ouverte une seule fois). Matplotlib inchangé ; mains non touchées.
+- **Vérifié :** confirmé par l'utilisateur (plus d'erreurs à la fermeture).
+
 ### Config : override propre depuis le main (params en Python) — pilote + réplication
 - **Quoi :** `data/config.py` accepte `Config(overrides=dict)` : UNE construction qui
   valide les clés (clé absente de `config.yaml` → `KeyError` clair), applique les
