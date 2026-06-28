@@ -14,16 +14,13 @@ LiveEngine (aucun algorithme ici).
 import os
 
 # ------------------------------------------------------------------
-# matplotlib : forcer le backend non-interactif AVANT d'importer le moteur.
-# Des modules (signal_process, visu) appellent matplotlib.use('Qt5Agg') a
-# l'import ; comme on n'affiche aucune figure matplotlib, on neutralise ces
-# bascules pour eviter de charger un second binding Qt a cote de PySide6.
-# (Doit s'executer avant l'import de live_engine, qui tire la chaine moteur.)
+# matplotlib : la chaine de calcul live (signal_process, beamforming) est
+# purement numerique et n'importe plus matplotlib. Par defense, si une
+# dependance l'importait malgre tout, on impose le backend non-interactif
+# Agg (l'app live n'affiche aucune figure matplotlib) via la variable
+# d'environnement -- sans importer ni monkeypatcher matplotlib ici.
 # ------------------------------------------------------------------
 os.environ.setdefault("MPLBACKEND", "Agg")
-import matplotlib
-matplotlib.use("Agg")
-matplotlib.use = lambda *a, **k: None  # noqa: E731 (neutralisation volontaire)
 
 import time
 

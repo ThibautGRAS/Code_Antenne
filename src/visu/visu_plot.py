@@ -5,9 +5,12 @@ Created on Wed Nov 26 10:50:07 2025
 @author: gras
 """
 
+import os
+
 import numpy as np
-import matplotlib
-matplotlib.use('Qt5Agg')
+
+# Backend interactif par defaut (sans ecraser un choix amont, ex. live -> Agg).
+os.environ.setdefault("MPLBACKEND", "Qt5Agg")
 import matplotlib.pyplot as plt
 from matplotlib.colors import Normalize
 from matplotlib.widgets import Button

@@ -7,8 +7,6 @@ Created on Fri Apr  3 14:19:23 2026
 
 import numpy as np
 import pandas as pd
-import matplotlib
-matplotlib.use('Qt5Agg')
 
 
 from src.visu import (

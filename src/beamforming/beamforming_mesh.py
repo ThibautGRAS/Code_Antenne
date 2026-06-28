@@ -7,13 +7,13 @@ Created on Wed Nov 26 10:50:07 2025
 
 import numpy as np
 
-import matplotlib
-matplotlib.use('Qt5Agg')
+import os
 
+# Backend interactif par defaut (sans ecraser un choix amont, ex. live -> Agg).
+os.environ.setdefault("MPLBACKEND", "Qt5Agg")
 
 from stl import mesh
 import pyvista as pv
-import os
 
 from src.visu import (
     get_cube_bounds,

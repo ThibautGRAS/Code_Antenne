@@ -7,12 +7,6 @@ Created on Wed Nov 26 10:50:07 2025
 
 import numpy as np
 import pandas as pd
-import matplotlib
-matplotlib.use('Qt5Agg')
-import matplotlib.pyplot as plt
-
-from matplotlib.widgets import Button
-from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 
 from scipy.signal import spectrogram
 

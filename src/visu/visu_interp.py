@@ -5,9 +5,12 @@ Created on Fri Apr  3 15:02:04 2026
 @author: gras
 """
 
+import os
+
 import numpy as np
-import matplotlib
-matplotlib.use('Qt5Agg')
+
+# Backend interactif par defaut (sans ecraser un choix amont, ex. live -> Agg).
+os.environ.setdefault("MPLBACKEND", "Qt5Agg")
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 

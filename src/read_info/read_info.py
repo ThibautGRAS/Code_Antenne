@@ -14,8 +14,6 @@ Created on Wed Nov 26 10:50:07 2025
 
 import numpy as np
 import pandas as pd
-import matplotlib
-matplotlib.use('Qt5Agg')
 
 from pathlib import Path
 import glob
