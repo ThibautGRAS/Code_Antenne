@@ -21,6 +21,12 @@ Code de recherche : on privilégie la **lisibilité** à l'abstraction.
 
 ## 2026-06-28
 
+### Dépendances : suppression de `requirements_antennemu.txt` (pyproject = source unique)
+- **Quoi :** `requirements_antennemu.txt` supprimé ; `pyproject.toml` est la seule source
+  des dépendances. Installation = `pip install -e .` (venv activé, depuis la racine).
+- **Pourquoi :** le fichier doublonnait les `dependencies` du pyproject (risque de dérive).
+  Commentaire du `pyproject.toml` mis à jour (ne référence plus le fichier supprimé).
+
 ### Config offline : cohérence légère (`config_calib` aligné sur `config`) + YAML en UTF-8
 - **Quoi :** `config_calib.py` reçoit le même `Config(overrides=...)` validé que `config.py`
   (variante légère, **sans** base partagée — règle de trois : seulement 2 configs offline).
@@ -116,9 +122,8 @@ Code de recherche : on privilégie la **lisibilité** à l'abstraction.
 
 ## Backlog structurel (revue d'archi — NON fait, à planifier)
 - [x] **Packaging** : `pyproject.toml` ajouté, `pip install -e .` fonctionnel (2026-06-28).
-- [ ] **requirements** : choisir une source de vérité unique entre
-      `requirements_antennemu.txt` (à jour) et les `dependencies` du `pyproject.toml`
-      (aujourd'hui dupliqués).
+- [x] **requirements** : `requirements_antennemu.txt` supprimé ; `pyproject.toml` = source
+      unique des dépendances. Install : `pip install -e .` (2026-06-28).
 - [x] **Libs vendorées** : `src/ldsfdatareader/{build,dist}` + dossier imbriqué retirés (2026-06-28).
       Reste éventuellement `src/megamicros` (pilote MU32) à examiner — non touché ici.
 - [x] **Config offline** : `config` + `config_calib` cohérents (`Config(overrides=...)`
