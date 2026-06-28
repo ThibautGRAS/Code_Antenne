@@ -3,7 +3,7 @@ from pathlib import Path
 import yaml
 
 class Config:
-    def __init__(self):
+    def __init__(self, overrides=None):
         # ============================================================
         # 📁 Dossiers internes du package
         # ============================================================
@@ -25,12 +25,32 @@ class Config:
         with open(self.yaml_file, "r") as f:
             params = yaml.safe_load(f)
 
+        # Cles valides = celles du YAML, pour valider les overrides (anti-typo).
+        self._yaml_keys = set(params.keys())
+
         # Injection dynamique
         for key, value in params.items():
             setattr(self, key, value)
 
+        # Overrides du main (prioritaires sur le YAML), valides et appliques
+        # une seule fois, AVANT le calcul des derives.
+        if overrides:
+            self._apply_overrides(overrides)
+
         # Calcul des dérivés
         self._compute_derived()
+
+    def _apply_overrides(self, overrides):
+        """Applique les overrides du main en validant les cles (anti-typo)."""
+        unknown = sorted(k for k in overrides if k not in self._yaml_keys)
+        if unknown:
+            raise KeyError(
+                "Override(s) inconnu(s), absent(s) de config.yaml : "
+                + ", ".join(unknown)
+                + ". Corrige la faute de frappe ou ajoute le parametre dans config.yaml."
+            )
+        for key, value in overrides.items():
+            setattr(self, key, value)
 
     # ============================================================
     # 🔄 Fonction UPDATE

@@ -82,3 +82,4 @@ smooth_resolution: 50              # Résolution du lissage du mesh (plus grand =
 # ============================================================
 dyn: 10                   # Dynamique dB
 n_subdiv: 4               # Subdivision mesh BF
+df_band_bf: 1             # Largeur de bande BF (Hz) - override possible dans le main

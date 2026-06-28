@@ -8,6 +8,20 @@
 
 ## 2026-06-28
 
+### Config : override propre depuis le main (params en Python) — pilote + réplication
+- **Quoi :** `data/config.py` accepte `Config(overrides=dict)` : UNE construction qui
+  valide les clés (clé absente de `config.yaml` → `KeyError` clair), applique les
+  overrides, puis calcule les dérivés. Remplace `config = Config(); config.update(...)`
+  (qui rechargeait le YAML + `setattr` silencieux → double source de vérité).
+- **Mains migrés** (bloc `params_main` visible en tête, en Python, + `Config(overrides=...)`) :
+  `main_BEAMFORMING_cube.py`, `main_BEAMFORMING_cube_ASPI.py`, `main_SPL_POWER_cube.py`.
+- **config.yaml :** ajout de `df_band_bf` (seul param du main absent du registre),
+  appendé en cp1252 (encodage du fichier) pour ne pas le corrompre.
+- **Non touché :** `update()` (gardé pour compat), `config_calib`/`config_live`,
+  `main_CALIB`/`main_pipeline`.
+- **Vérifié :** syntaxe des 3 mains OK ; tous leurs params valident ; un typo lève une
+  erreur explicite ; `Config()` par défaut inchangé.
+
 ### Nettoyage : retrait des artefacts vendorés de `ldsfdatareader`
 - **Quoi :** suppression de `src/ldsfdatareader/{build,dist}` (dont l'installeur
   `.exe`) et du dossier imbriqué dupliqué `ldsfdatareader/ldsfdatareader/`.
@@ -62,8 +76,9 @@
 
 ## État actuel
 - **Dépôt :** `ThibautGRAS/Code_Antenne` (GitHub, HTTPS) — branche `master`.
-- **Structure non modifiée :** seuls des correctifs *intra-fichiers* + du nettoyage
-  ont été faits. L'architecture (packages, points d'entrée, `Config`) est intacte.
+- **Convention config (offline)** : les mains cube/power suivent désormais un patron
+  unique — bloc `params_main` en tête (Python) + `Config(overrides=...)` validé. Le
+  reste de l'architecture (packages, autres points d'entrée) est inchangé.
 
 ## Backlog structurel (revue d'archi — NON fait, à planifier)
 - [x] **Packaging** : `pyproject.toml` ajouté, `pip install -e .` fonctionnel (2026-06-28).
@@ -72,8 +87,9 @@
       (aujourd'hui dupliqués).
 - [x] **Libs vendorées** : `src/ldsfdatareader/{build,dist}` + dossier imbriqué retirés (2026-06-28).
       Reste éventuellement `src/megamicros` (pilote MU32) à examiner — non touché ici.
-- [ ] **god-`Config`** : 3 classes `Config` + `getattr(..., default)` partout →
-      schéma explicite (dataclasses par domaine).
+- [~] **god-`Config`** : override propre fait sur `data.config` (`Config(overrides=...)`
+      + validation des clés ; mains cube/power migrés). Reste : unifier les 3 classes
+      `Config` et un schéma explicite (dataclasses) pour tuer les `getattr(..., default)`.
 - [ ] **Points d'entrée** : unifier les `main_*` (idéalement via l'abstraction
       `src/pipelines/`, aujourd'hui inachevée).
 - [ ] **`beamforming/__init__.py`** : stoppe l'import en cascade de la visu

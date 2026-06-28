@@ -22,15 +22,16 @@ if __name__=="__main__":
     visu.print_section("Lancement du code de calcul de beamforming du cube MEMS")
     visu.print_section("Chargement des données")
     
-    config=Config()
+    # config : construit plus bas avec les overrides du run (voir params_main)
     
     ###################################################
     # Chargement des données
     ###################################################
     
-    # ============================
-    # Paramètres spectre / bande BEAMFORMING
-    # ============================
+    # ====================================================================
+    # PARAMETRES DE CE RUN — editer ici. Override des defauts de config.yaml.
+    # Une cle inconnue (absente de config.yaml) leve une erreur (anti-typo).
+    # ====================================================================
     params_main = {
         "mesh_name": "Source_3D_centre_m.stl",   # → fichier STL utilisé
     
@@ -71,8 +72,8 @@ if __name__=="__main__":
         "chosen_index": 1,                  # → index du fichier à analyser
     }
 
-    # Mise à jour dynamique
-    config.update(params_main)
+    # Defauts du YAML + overrides du run, en UNE seule construction (valide les cles).
+    config = Config(overrides=params_main)
     
     print("Méthode BF :", config.method)
     print("Mesh utilisé :", config.file_mesh)

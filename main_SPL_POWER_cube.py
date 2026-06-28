@@ -22,14 +22,24 @@ if __name__=="__main__":
     plot_power = True 
     plot_multi_mic = True 
     
-    config=Config()
+    # ====================================================================
+    # PARAMETRES DE CE RUN — editer ici. Override des defauts de config.yaml.
+    # Une cle inconnue (absente de config.yaml) leve une erreur (anti-typo).
+    # ====================================================================
+    params_main = {
+        "chosen_index": 0,     # index du fichier/mesure a analyser
+        "chosen_band": 800,    # frequence d'affichage des niveaux (Hz)
+        "dyn": None,           # dynamique dB des cartes (None = auto)
+        "n_subdiv": 4,         # subdivision mesh pour la puissance
+    }
+    config = Config(overrides=params_main)
     
     ###################################################
     # Chargement des données
     ###################################################
     
-    config.chosen_index = 0
-    
+    # chosen_index / chosen_band / dyn / n_subdiv : definis en tete (params_main)
+
     bands_corr, diff_corr = read_info.load_band_corrections(config)    
     Sigs_val, config = read_info.load_validation_data(config)    
     geo_positions = read_info.load_geo_positions(config)
@@ -41,7 +51,6 @@ if __name__=="__main__":
     
     all_results, chan_to_pos = signal_process.compute_all_mems_spectra(Sigs_val, geo_positions, config, window_type='hann') 
     
-    config.chosen_band = 800 # Sélection de la fréquence d'affichage
     db_vals = signal_process.extract_chosen_band_levels(all_results, config)
     
     chan_to_pos_sub = signal_process.select_mics_every_n(chan_to_pos, n=1) #Selection des micros à afficher
@@ -51,7 +60,6 @@ if __name__=="__main__":
     ###################################################
     if plot_level:
         visu.print_section("Visualisation 3D - Niveaux dB ")
-        config.dyn = None 
         
         #Visualisation 3D - Niveaux dB - Mesh IDW
         fig,ax=visu.plot_mems_3d(db_vals,chan_to_pos_sub,geo_positions,config,mode='mesh',show_mics=False,alphaa=0.95, 
@@ -73,7 +81,6 @@ if __name__=="__main__":
     if plot_power: 
         visu.print_section("Puissance - Niveaux dB  ")
         # Tracé du cube 
-        config.n_subdiv = 4
         fig, ax, face_db, total_db = power_acoustic.plot_acoustic_power_on_cube(
             db_vals, chan_to_pos, geo_positions, config, config.n_subdiv 
         )
