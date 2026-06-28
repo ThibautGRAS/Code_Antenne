@@ -6,20 +6,7 @@ Created on Wed Nov 26 10:50:07 2025
 """
 
 import numpy as np
-import pandas as pd
-
-from scipy.signal import spectrogram
-
-from stl import mesh
-
 import os
-
-from src.visu import (
-    get_cube_bounds,
-    plot_cube_edges,
-    add_view_buttons,
-    plot_sphere
-)
     
 
 

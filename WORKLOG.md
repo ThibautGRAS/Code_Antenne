@@ -21,6 +21,16 @@ Code de recherche : on privilégie la **lisibilité** à l'abstraction.
 
 ## 2026-06-28
 
+### Live allégé : `beamforming/__init__` paresseux + imports morts retirés
+- **Quoi :** `beamforming/__init__.py` devient paresseux (PEP 562 `__getattr__`) — plus
+  d'import en cascade des sous-modules de visu. `beamforming_signal` perd ses imports morts
+  (`pandas`, `scipy.signal.spectrogram`, `stl`, et un `from src.visu import …` jamais utilisé).
+- **Effet :** le chemin live (`live_processing` **et** `ui_qt`) ne charge plus **AUCUN**
+  module lourd (avant : matplotlib, pyvista, vtk, numpy-stl, mpl_toolkits) → démarrage Qt
+  allégé. Corrige aussi une violation de couche (compute `beamforming_signal` important la visu).
+- **Vérifié :** live → 0 module lourd ; API offline intacte (`beamforming.run_beamforming_pipeline`
+  / `plot_beamforming` résolus à la demande, import direct des Wrappers OK) ; 3 mains compilent.
+
 ### Dépendances : suppression de `requirements_antennemu.txt` (pyproject = source unique)
 - **Quoi :** `requirements_antennemu.txt` supprimé ; `pyproject.toml` est la seule source
   des dépendances. Installation = `pip install -e .` (venv activé, depuis la racine).
@@ -131,7 +141,7 @@ Code de recherche : on privilégie la **lisibilité** à l'abstraction.
       Schéma dataclasses non fait — non prioritaire vu la philosophie « research ».
 - [ ] **Points d'entrée** : unifier les `main_*` (idéalement via l'abstraction
       `src/pipelines/`, aujourd'hui inachevée).
-- [ ] **`beamforming/__init__.py`** : stoppe l'import en cascade de la visu
-      (lazy / `__getattr__`) pour que le live ne tire pas matplotlib.
+- [x] **`beamforming/__init__.py`** : import paresseux (`__getattr__`) — le live ne tire
+      plus aucun module lourd (matplotlib/pyvista/vtk/stl). Fait le 2026-06-28.
 - [ ] **Retrait UI OpenCV** : découpler `ui_qt`/`display` de `ui.py` avant de
       pouvoir supprimer `ui.py`.
