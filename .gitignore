@@ -1,0 +1,24 @@
+# Environnements Python
+.venv/
+venv/
+env/
+__pycache__/
+*.pyc
+
+# Données lourdes
+
+*.h5
+*.hdf5
+*.wav
+*.mp4
+*.avi
+*.mat
+*.dat
+*.ldsf
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Windows / Mac
+Thumbs.db
+.DS_Store
