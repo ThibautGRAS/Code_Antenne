@@ -21,6 +21,15 @@ Code de recherche : on privilégie la **lisibilité** à l'abstraction.
 
 ## 2026-06-28
 
+### Config offline : cohérence légère (`config_calib` aligné sur `config`) + YAML en UTF-8
+- **Quoi :** `config_calib.py` reçoit le même `Config(overrides=...)` validé que `config.py`
+  (variante légère, **sans** base partagée — règle de trois : seulement 2 configs offline).
+- **Encodage :** `config.yaml` réencodé cp1252 → UTF-8 (mojibake `�` corrigé) ; les `open()`
+  de `config.py` passent en `encoding="utf-8"` → mêmes conventions que `config_calib`.
+- **`config_live` : NON touché** (contexte appli Qt déployée, gardé séparé sur décision).
+- **Vérifié :** valeurs de `config.py` identiques au baseline (réencodage neutre) ; override
+  + validation typo OK sur les deux ; `main_CALIB` et mains cube compilent.
+
 ### Fix : erreurs « Exception ignored in __del__ » de PyVista à la fermeture
 - **Quoi :** `PyVistaWrapper.show()` (`beamforming_visu.py`) ferme et désenregistre le
   plotter (`pv.close_all()` + `self.plotter = None`) dès que la fenêtre se ferme, et
@@ -112,9 +121,9 @@ Code de recherche : on privilégie la **lisibilité** à l'abstraction.
       (aujourd'hui dupliqués).
 - [x] **Libs vendorées** : `src/ldsfdatareader/{build,dist}` + dossier imbriqué retirés (2026-06-28).
       Reste éventuellement `src/megamicros` (pilote MU32) à examiner — non touché ici.
-- [~] **god-`Config`** : override propre fait sur `data.config` (`Config(overrides=...)`
-      + validation des clés ; mains cube/power migrés). Reste : unifier les 3 classes
-      `Config` et un schéma explicite (dataclasses) pour tuer les `getattr(..., default)`.
+- [x] **Config offline** : `config` + `config_calib` cohérents (`Config(overrides=...)`
+      validé, YAML UTF-8). `config_live` gardé **séparé volontairement** (contexte appli Qt).
+      Schéma dataclasses non fait — non prioritaire vu la philosophie « research ».
 - [ ] **Points d'entrée** : unifier les `main_*` (idéalement via l'abstraction
       `src/pipelines/`, aujourd'hui inachevée).
 - [ ] **`beamforming/__init__.py`** : stoppe l'import en cascade de la visu

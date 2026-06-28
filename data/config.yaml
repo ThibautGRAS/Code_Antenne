@@ -1,84 +1,84 @@
 # ============================================================
-# PARAMÈTRES TECHNIQUES GÉNÉRAUX
+# PARAMÃˆTRES TECHNIQUES GÃ‰NÃ‰RAUX
 # ============================================================
-Fe: 50000                 # Fréquence d'échantillonnage (Hz)
+Fe: 50000                 # FrÃ©quence d'Ã©chantillonnage (Hz)
 NbMems: 256               # Nombre de MEMS
 
 # ============================================================
-# PARAMÈTRES TEMPORELS
+# PARAMÃˆTRES TEMPORELS
 # ============================================================
 tmin: 0                   # Temps minimum (s)
 tmax: 10                  # Temps maximum (s)
 
 # ============================================================
-# PARAMÈTRES SPECTRE / NIVEAUX / POWER
+# PARAMÃˆTRES SPECTRE / NIVEAUX / POWER
 # ============================================================
-df_band: 1                # Résolution spectrale (Hz)
+df_band: 1                # RÃ©solution spectrale (Hz)
 chosen_band: 1200.0       # Bande centrale (Hz)
 
 # ============================================================
-# PARAMÈTRES BEAMFORMING (SPECTRE / BANDE)
+# PARAMÃˆTRES BEAMFORMING (SPECTRE / BANDE)
 # ============================================================
 chosen_band_bf: 1200.0    # Bande centrale BF (Hz)
-fmin_bf: 1200             # Fréquence min BF (Hz)
-fmax_bf: 1250             # Fréquence max BF (Hz)
-delta_f: 100              # Résolution MIScalc
+fmin_bf: 1200             # FrÃ©quence min BF (Hz)
+fmax_bf: 1250             # FrÃ©quence max BF (Hz)
+delta_f: 100              # RÃ©solution MIScalc
 
 method: "bartlett"        # bartlett / music / obf
 n_sources: 1              # Nb sources MUSIC
 diag_remove: false        # Suppression diagonale CSM
-z: null                   # Plan réfléchissant (null = off)
-R: 1.0                    # Coefficient réflexion sol
+z: null                   # Plan rÃ©flÃ©chissant (null = off)
+R: 1.0                    # Coefficient rÃ©flexion sol
 nmodei: null              # Nb modes OBF (null = tous)
 
 max_angle_deg: null       # Angle max pour filtrage micros
-plot_visibility: false    # Affichage visibilité micros
+plot_visibility: false    # Affichage visibilitÃ© micros
 
 # ============================================================
-# PARAMÈTRES MESH STL (BEAMFORMING)
+# PARAMÃˆTRES MESH STL (BEAMFORMING)
 # ============================================================
 mesh_name: "Source_3D_centre_m.stl"
-factor: 1.0               # Échelle du mesh STL
-rotation_deg: [0, 0, 0]   # Rotation STL (°)
+factor: 1.0               # Ã‰chelle du mesh STL
+rotation_deg: [0, 0, 0]   # Rotation STL (Â°)
 offsetx: 0.0              # Offset X (m)
 offsety: 0.0              # Offset Y (m)
 offsetz: 0.0              # Offset Z (m)
 
 # ============================================================
-# PARAMÈTRES OBJ SCANNÉ (OPTIONNEL)
+# PARAMÃˆTRES OBJ SCANNÃ‰ (OPTIONNEL)
 # ============================================================
-obj_name: null            # "scan.obj" si présent
+obj_name: null            # "scan.obj" si prÃ©sent
 use_grayscale_texture: true
 visual_mode: "pyvista"    # pyvista / matplotlib
 
 # ============================================================
-# PARAMÈTRES FICHIERS / DOSSIERS
+# PARAMÃˆTRES FICHIERS / DOSSIERS
 # ============================================================
 validation_name: "DATA_SOURCE"   # Dossier contenant les signaux bruts ou de validation
-calib_name: "CALIBN.txt"           # Fichier de calibration à charger 
-power_ref: "POWER_SOURCE9.txt"     # Fichier de référence pour la normalisation du niveau
+calib_name: "CALIBN.txt"           # Fichier de calibration Ã  charger 
+power_ref: "POWER_SOURCE9.txt"     # Fichier de rÃ©fÃ©rence pour la normalisation du niveau
 
 # ============================================================
-# PARAMÈTRES DE SÉLECTION
+# PARAMÃˆTRES DE SÃ‰LECTION
 # ============================================================
-chosen_index: 0                    # Index du fichier ou de la mesure à analyser
+chosen_index: 0                    # Index du fichier ou de la mesure Ã  analyser
 
 # ============================================================
-# PARAMÈTRES GÉOMÉTRIQUES (MICROS + MESH)
+# PARAMÃˆTRES GÃ‰OMÃ‰TRIQUES (MICROS + MESH)
 # ============================================================
 geo_name: "GEO_256_revised3.csv"   # Fichier CSV contenant les positions des MEMS
 
-offset_points_by_face: 0.2         # Décalage appliqué aux points projetés sur les faces (pour éviter les collisions)
-circle_radius: 0.005               # Rayon des cercles représentant les micros (visualisation)
-sphere_radius: 0.025               # Rayon des sphères représentant les micros (PyVista)
+offset_points_by_face: 0.2         # DÃ©calage appliquÃ© aux points projetÃ©s sur les faces (pour Ã©viter les collisions)
+circle_radius: 0.005               # Rayon des cercles reprÃ©sentant les micros (visualisation)
+sphere_radius: 0.025               # Rayon des sphÃ¨res reprÃ©sentant les micros (PyVista)
 mesh_size: 0.20                    # Taille cible des triangles lors du lissage / subdivision
-max_distance: 0.3                  # Distance max pour filtrer les points trop éloignés du mesh
-tol_face: 1e-4                     # Tolérance géométrique pour la détection des faces
-smooth_resolution: 50              # Résolution du lissage du mesh (plus grand = plus lisse)
+max_distance: 0.3                  # Distance max pour filtrer les points trop Ã©loignÃ©s du mesh
+tol_face: 1e-4                     # TolÃ©rance gÃ©omÃ©trique pour la dÃ©tection des faces
+smooth_resolution: 50              # RÃ©solution du lissage du mesh (plus grand = plus lisse)
 
 
 # ============================================================
-# PARAMÈTRES VISUALISATION
+# PARAMÃˆTRES VISUALISATION
 # ============================================================
 dyn: 10                   # Dynamique dB
 n_subdiv: 4               # Subdivision mesh BF

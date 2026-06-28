@@ -22,7 +22,7 @@ class Config:
         # 📄 Chargement du fichier YAML
         # ============================================================
         self.yaml_file = self.base_dir / "config.yaml"
-        with open(self.yaml_file, "r") as f:
+        with open(self.yaml_file, "r", encoding="utf-8") as f:
             params = yaml.safe_load(f)
 
         # Cles valides = celles du YAML, pour valider les overrides (anti-typo).
@@ -62,7 +62,7 @@ class Config:
         """
     
         # 1) Recharger le YAML (valeurs par défaut)
-        with open(self.yaml_file, "r") as f:
+        with open(self.yaml_file, "r", encoding="utf-8") as f:
             yaml_params = yaml.safe_load(f)
     
         for key, value in yaml_params.items():
