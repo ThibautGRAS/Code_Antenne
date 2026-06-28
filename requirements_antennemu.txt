@@ -1,0 +1,14 @@
+numpy==2.1.2
+scipy==1.14.1
+pandas==2.2.3
+opencv-python==4.10.0.84
+matplotlib==3.10.0
+plotly==5.24.1
+h5py==3.12.1
+PyQt5==5.15.11
+numpy-stl==3.1.2
+ipython
+libusb1==3.1.0
+pydispatch==1.1.0
+python-dispatch==0.2.2
+PyYAML==6.0.2

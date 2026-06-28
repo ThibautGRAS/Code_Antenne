@@ -10,7 +10,11 @@ Traitements live :
 import numpy as np
 
 from src.signal_process.signal_process import MIScalc
-from src.beamforming.beamforming_signal import Bartlett_plane, OBF_plane
+from src.beamforming.beamforming_signal import (
+    Bartlett_plane,
+    OBF_plane,
+    PlaneSteering,
+)
 
 
 def compute_live_csm(sigbuf, config, f_center):
@@ -63,6 +67,25 @@ def is_beamforming_active(Lp_mean, config):
     )
 
 
+def _get_plane_steering(theta, phi, geo_positions, config, state):
+    """
+    Récupère (ou crée) le steering ondes planes mis en cache sur state.
+
+    Le steering ne dépend que de la géométrie micros et de la grille
+    angulaire, fixes sur toute la session : il est donc construit une seule
+    fois puis réutilisé. Si state est None, un steering transitoire est créé
+    (pas de cache inter-frames, mais résultat identique).
+    """
+    steering = getattr(state, "plane_steering", None)
+
+    if steering is None:
+        steering = PlaneSteering(theta, phi, geo_positions, c=config.c0)
+        if state is not None:
+            state.plane_steering = steering
+
+    return steering
+
+
 def compute_beamforming_map(
     algorithm,
     f_center,
@@ -82,6 +105,10 @@ def compute_beamforming_map(
     """
     algorithm = algorithm.upper()
 
+    # Steering ondes planes : constant sur la session, mis en cache sur state
+    # (la matrice A n'est recalculée que lorsque f_center change).
+    steering = _get_plane_steering(theta, phi, geo_positions, config, state)
+
     if algorithm == "BARTLETT_PLANE":
         return Bartlett_plane(
             f_center=f_center,
@@ -90,6 +117,7 @@ def compute_beamforming_map(
             phi_deg=phi,
             mic_positions=geo_positions,
             c=config.c0,
+            steering=steering,
         ).astype(np.float32)
 
     if algorithm == "OBF_PLANE":
@@ -104,6 +132,7 @@ def compute_beamforming_map(
             mic_positions=geo_positions,
             c=config.c0,
             n_modes=n_modes,
+            steering=steering,
         )
 
         mode_index = int(np.clip(mode_index, 0, S_modes.shape[0] - 1))

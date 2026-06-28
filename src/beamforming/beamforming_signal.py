@@ -204,6 +204,9 @@ def OBF_cart(
         eigvals = eigvals[:n_modes]
         eigvecs = eigvecs[:, :n_modes]
 
+    # Sécurité : valeurs propres négatives (CSM non PSD) bornées à 0.
+    eigvals = np.clip(eigvals, 0.0, None)
+
     Nm = eigvals.shape[0]
 
     # --------------------------------------------------
@@ -242,6 +245,68 @@ def OBF_cart(
 
     return S_map, S_modes
 
+class PlaneSteering:
+    """
+    Steering ondes planes pré-calculé et mis en cache par fréquence.
+
+    La géométrie (positions micros) et la grille de directions sont fixes
+    sur toute une session : seul ``k0 = 2*pi*f/c`` dépend de la fréquence.
+    On pré-calcule donc le produit constant ``B = mic_positions @ dir.T`` une
+    seule fois, puis on ne recalcule ``A = exp(1j*k0*B)`` que lorsque
+    ``f_center`` change réellement.
+
+    Convention :
+    - theta : angle polaire depuis +Z, en degrés
+    - phi   : azimut depuis +X dans le plan XY, en degrés
+    """
+
+    def __init__(self, theta_deg, phi_deg, mic_positions, c=340.0):
+        mic_positions = np.asarray(mic_positions, dtype=np.float64)
+
+        theta = np.deg2rad(theta_deg)
+        phi = np.deg2rad(phi_deg)
+
+        self.n_theta = len(theta)
+        self.n_phi = len(phi)
+        self.c = float(c)
+
+        Theta, Phi = np.meshgrid(theta, phi, indexing="ij")
+
+        ux = np.sin(Theta) * np.cos(Phi)
+        uy = np.sin(Theta) * np.sin(Phi)
+        uz = np.cos(Theta)
+
+        directions = np.stack(
+            (ux, uy, uz),
+            axis=-1,
+        ).reshape(-1, 3)
+
+        # Partie constante : (M, Ndir)
+        self.B = mic_positions @ directions.T
+
+        # Cache de la matrice de steering, indexé par fréquence
+        self._f_cached = None
+        self._A = None
+        self.norm2 = None
+        self.valid = None
+
+    def steering(self, f_center):
+        """
+        Retourne la matrice de steering A (M, Ndir) pour f_center.
+
+        Recalcul de exp(1j*k0*B) uniquement si la fréquence a changé.
+        """
+        if self._A is None or f_center != self._f_cached:
+            k0 = 2.0 * np.pi * f_center / self.c
+
+            self._A = np.exp(1j * k0 * self.B)
+            self.norm2 = np.sum(np.abs(self._A) ** 2, axis=0)
+            self.valid = self.norm2 > 1e-12
+            self._f_cached = f_center
+
+        return self._A
+
+
 def Bartlett_plane(
     f_center,
     MIS,
@@ -249,6 +314,7 @@ def Bartlett_plane(
     phi_deg,
     mic_positions,
     c=340.0,
+    steering=None,
 ):
     """
     Beamforming Bartlett en ondes planes.
@@ -277,48 +343,31 @@ def Bartlett_plane(
     c : float
         Vitesse du son en m/s.
 
+    steering : PlaneSteering, optionnel
+        Steering pré-calculé/mis en cache. Si None, il est construit à la
+        volée (comportement identique, sans cache inter-frames).
+
     Returns
     -------
     S_map : ndarray, shape (Ntheta, Nphi)
         Carte beamforming Bartlett linéaire.
     """
-    mic_positions = np.asarray(mic_positions, dtype=np.float64)
+    if steering is None:
+        steering = PlaneSteering(theta_deg, phi_deg, mic_positions, c)
 
-    theta = np.deg2rad(theta_deg)
-    phi = np.deg2rad(phi_deg)
-
-    n_theta = len(theta)
-    n_phi = len(phi)
-
-    k0 = 2.0 * np.pi * f_center / c
-
-    Theta, Phi = np.meshgrid(theta, phi, indexing="ij")
-
-    ux = np.sin(Theta) * np.cos(Phi)
-    uy = np.sin(Theta) * np.sin(Phi)
-    uz = np.cos(Theta)
-
-    directions = np.stack(
-        (ux, uy, uz),
-        axis=-1,
-    ).reshape(-1, 3)
-
-    # Steering matrix : shape (M, Ndir)
-    A = np.exp(1j * k0 * mic_positions @ directions.T)
+    A = steering.steering(f_center)
+    norm2 = steering.norm2
+    valid = steering.valid
 
     AMA = np.sum(
         np.conj(A) * (MIS @ A),
         axis=0,
     )
 
-    norm2 = np.sum(np.abs(A) ** 2, axis=0)
-
     S_map = np.zeros_like(AMA.real)
-
-    valid = norm2 > 1e-12
     S_map[valid] = np.real(AMA[valid] / norm2[valid] ** 2)
 
-    return S_map.reshape(n_theta, n_phi)
+    return S_map.reshape(steering.n_theta, steering.n_phi)
 
 def OBF_plane(
     f_center,
@@ -328,6 +377,7 @@ def OBF_plane(
     mic_positions,
     c=340.0,
     n_modes=2,
+    steering=None,
 ):
     """
     Orthogonal Beamforming en ondes planes.
@@ -339,21 +389,21 @@ def OBF_plane(
     Convention :
     - theta : angle polaire depuis +Z, en degrés
     - phi : azimut depuis +X dans le plan XY, en degrés
+
+    steering : PlaneSteering, optionnel
+        Steering pré-calculé/mis en cache (cf. Bartlett_plane). La matrice A
+        ne dépend que de f_center ; seule l'eigendécomposition de la CSM est
+        recalculée à chaque appel.
     """
-    from scipy.linalg import eigh
+    if steering is None:
+        steering = PlaneSteering(theta_deg, phi_deg, mic_positions, c)
 
-    mic_positions = np.asarray(mic_positions, dtype=np.float64)
-
-    theta = np.deg2rad(theta_deg)
-    phi = np.deg2rad(phi_deg)
-
-    n_theta = len(theta)
-    n_phi = len(phi)
-
-    k0 = 2.0 * np.pi * f_center / c
+    A = steering.steering(f_center)
+    norm2 = steering.norm2
+    valid = steering.valid
 
     # --------------------------------------------------
-    # Décomposition spectrale de la CSM
+    # Décomposition spectrale de la CSM (dépend des données -> chaque frame)
     # --------------------------------------------------
     eigvals, eigvecs = eigh(MIS)
 
@@ -366,29 +416,10 @@ def OBF_plane(
     eigvals = eigvals[:n_modes]
     eigvecs = eigvecs[:, :n_modes]
 
-    # --------------------------------------------------
-    # Directions onde plane
-    # --------------------------------------------------
-    Theta, Phi = np.meshgrid(
-        theta,
-        phi,
-        indexing="ij",
-    )
-
-    ux = np.sin(Theta) * np.cos(Phi)
-    uy = np.sin(Theta) * np.sin(Phi)
-    uz = np.cos(Theta)
-
-    directions = np.stack(
-        (ux, uy, uz),
-        axis=-1,
-    ).reshape(-1, 3)
-
-    # Steering matrix : shape (M, Ndir)
-    A = np.exp(1j * k0 * mic_positions @ directions.T)
-
-    norm2 = np.sum(np.abs(A) ** 2, axis=0)
-    valid = norm2 > 1e-12
+    # Sécurité : une CSM non semi-définie positive (ex. diag_remove=True, ou
+    # bruit numérique) peut produire des valeurs propres négatives, donc des
+    # puissances modales négatives. On les borne à 0.
+    eigvals = np.clip(eigvals, 0.0, None)
 
     VH = eigvecs.conj().T  # shape (n_modes, M)
 
@@ -407,7 +438,7 @@ def OBF_plane(
             / norm2[valid] ** 2
         )
 
-    S_modes = S_modes_flat.reshape(n_modes, n_theta, n_phi)
+    S_modes = S_modes_flat.reshape(n_modes, steering.n_theta, steering.n_phi)
     S_sum = np.sum(S_modes, axis=0)
 
     return S_sum, S_modes

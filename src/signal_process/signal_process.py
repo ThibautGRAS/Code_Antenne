@@ -73,6 +73,11 @@ def MIScalc(data, config, batch_size=32, verbose= True):
     fs        = config.Fe
     diagremov = config.diag_remove
 
+    # Recouvrement des trames du spectrogramme, en fraction de la fenetre.
+    # 0.5 = 50 % (defaut historique). Borne a [0, 0.95].
+    overlap = float(getattr(config, "overlap", 0.5))
+    overlap = min(max(overlap, 0.0), 0.95)
+
     # f_min / f_max peuvent être absents ou None
     f_min = getattr(config, "fmin_bf", None)
     f_max = getattr(config, "fmax_bf", None)
@@ -84,7 +89,8 @@ def MIScalc(data, config, batch_size=32, verbose= True):
         data = np.pad(data, ((0, 0), (0, lenframe - N)), constant_values=0)
         N = data.shape[1]
 
-    noverlap = lenframe // 2
+    # scipy exige noverlap < nperseg
+    noverlap = min(int(round(overlap * lenframe)), lenframe - 1)
 
     Sxx_list = []
     f = None

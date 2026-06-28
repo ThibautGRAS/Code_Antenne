@@ -1362,10 +1362,13 @@ def handle_key(
     # ; = frequence suivante
     # ------------------------------------------------------------
     elif key == ord(","):
-        f_center = max(config.f_min, f_center - config.f_step)
+        # Borne basse commune avec le slider (f_min_live), repli f_min.
+        f_min_live = getattr(config, "f_min_live", config.f_min)
+        f_center = max(f_min_live, f_center - config.f_step)
         print(f"[INFO] Frequence={f_center:.0f} Hz")
 
     elif key == ord(";"):
+        # Borne haute commune avec le slider : f_max (= f_max_factor * Fe).
         f_center = min(config.f_max, f_center + config.f_step)
         print(f"[INFO] Frequence={f_center:.0f} Hz")
 

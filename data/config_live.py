@@ -145,6 +145,11 @@ class Config:
         self.theta_max = None
 
         # ----------------------------
+        # Beamforming
+        # ----------------------------
+        self.obf_n_modes = int(getattr(self, "obf_n_modes", 2))
+
+        # ----------------------------
         # Caméra
         # ----------------------------
         self.cam_offset = np.array(self.cam_offset, dtype=np.float64)

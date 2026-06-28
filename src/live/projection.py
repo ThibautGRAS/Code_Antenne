@@ -10,6 +10,7 @@ Rôle :
 
 import math
 import numpy as np
+import cv2
 
 
 class CameraBFProjection:
@@ -125,18 +126,13 @@ class CameraBFProjection:
         wp = np.clip(wp, 0.0, 1.0)
 
         # ----------------------------
-        # Indices dans WB_lin.ravel()
+        # Cartes de coordonnees pour cv2.remap (theta = ligne, phi = colonne).
+        # phi est circulaire -> on echantillonne dans [0, Lphi], la colonne Lphi
+        # (copie de la colonne 0) etant ajoutee au moment du remap. Memes poids
+        # bilineaires que l'ancien gather (wt entre t0/t0+1, wp entre p0/p0+1).
         # ----------------------------
-        base0 = t0 * self.config.Lphi
-        base1 = t1 * self.config.Lphi
-
-        self.idx00 = (base0 + p0).astype(np.int64).ravel()
-        self.idx01 = (base0 + p1).astype(np.int64).ravel()
-        self.idx10 = (base1 + p0).astype(np.int64).ravel()
-        self.idx11 = (base1 + p1).astype(np.int64).ravel()
-
-        self.wt_f = wt.ravel()
-        self.wp_f = wp.ravel()
+        self.map_y = (t0.astype(np.float32) + wt).astype(np.float32)
+        self.map_x = (p0.astype(np.float32) + wp).astype(np.float32)
 
     def interpolate_to_pixels(self, WB_lin):
         """
@@ -152,22 +148,22 @@ class CameraBFProjection:
         overlay_lin : ndarray, shape (h, w)
             Carte interpolée sur l'image caméra.
         """
-        WBf = WB_lin.ravel()
+        wb = np.ascontiguousarray(WB_lin, dtype=np.float32)
 
-        v00 = WBf[self.idx00]
-        v01 = WBf[self.idx01]
-        v10 = WBf[self.idx10]
-        v11 = WBf[self.idx11]
+        # Padding circulaire d'une colonne en phi pour gerer le wrap.
+        wb_pad = np.empty((wb.shape[0], wb.shape[1] + 1), dtype=np.float32)
+        wb_pad[:, :-1] = wb
+        wb_pad[:, -1] = wb[:, 0]
 
-        v0 = v00 * (1.0 - self.wp_f) + v01 * self.wp_f
-        v1 = v10 * (1.0 - self.wp_f) + v11 * self.wp_f
+        # Echantillonnage bilineaire optimise (C/SIMD).
+        out = cv2.remap(
+            wb_pad, self.map_x, self.map_y,
+            interpolation=cv2.INTER_LINEAR,
+            borderMode=cv2.BORDER_REPLICATE,
+        )
 
-        overlay_lin = v0 * (1.0 - self.wt_f) + v1 * self.wt_f
-
-        overlay_lin[~self.mask_f] = 0.0
-        overlay_lin = overlay_lin.reshape((self.h, self.w))
-
-        return overlay_lin
+        out[~self.mask] = 0.0
+        return out
 
     def doa_to_pixel(self, theta_deg, phi_deg):
         """

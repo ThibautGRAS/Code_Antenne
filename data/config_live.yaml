@@ -8,15 +8,26 @@ session_name: "test_live32"
 # ============================================================
 Fe: 10000
 
-Tw: 0.20       # longueur fenêtre glissante en s
-Th: 0.05       # pas de mise à jour en s
+Tw: 0.25      # fenêtre glissante en s (= mode Normal au démarrage)
+Th: 0.05      # pas de mise à jour en s
+overlap: 0.5   # recouvrement des trames du spectrogramme (0..0.95)
+delta_f: 20.0
+
+# Modes d'acquisition selectionnables dans l'UI : (Tw, Th, delta_f).
+# delta_f adapte la fenetre FFT (nperseg = Fe/delta_f) pour garder un bon
+# moyennage (>= 2 fenetres -> >= 3 trames) meme en mode rapide.
+modes:
+  - {label: "Lent",   Tw: 0.5,  Th: 0.1,  delta_f: 20}   # 10 fps - fenetre 0.5 s (~19 moy.), res 20 Hz, max moyennage
+  - {label: "Normal", Tw: 0.25, Th: 0.05, delta_f: 20}   # 20 fps - fenetre 0.25 s (~9 moy.), res 20 Hz, equilibre
+  - {label: "Rapide", Tw: 0.1,  Th: 0.05, delta_f: 40}   # 20 fps - fenetre 0.1 s (~7 moy.), reactif (transitoires), res 40 Hz
 
 # ============================================================
 # Fréquence live
 # ============================================================
 f_start: 2000.0
-f_step: 100.0
-delta_f: 20.0
+f_step: 100.0          # pas du clavier ( , / ; )
+f_slider_step: 50.0    # pas du slider PySide (defaut = moitie de f_step)
+
 
 f_min: 100.0
 f_max_factor: 0.45
@@ -31,14 +42,14 @@ obf_n_modes: 3
 # ============================================================
 # Fichiers
 # ============================================================
-geo_name: "32mu.csv"
+geo_name: "32mu2.csv"
 calib_name: "calib_camera.npz"
 
 # ============================================================
 # Grille beamforming angulaire
 # ============================================================
-Ltheta: 120
-Lphi: 240
+Ltheta: 72
+Lphi: 120
 
 phi_min: 0.0
 phi_max: 360.0
@@ -53,7 +64,7 @@ cam_index: 1
 cam_w: 640
 cam_h: 480
 
-cam_offset: [0.02, 0.02, 0.00]
+cam_offset: [0.0, 0.0, 0.00]
 proj_distance_m: 1.0
 
 flip_x: false
@@ -67,7 +78,6 @@ alpha_scale: 0.85
 alpha_gamma: 0.85
 
 show_hud: true
-show_footer: true
 use_trackbar: false
 
 # ============================================================
@@ -108,17 +118,14 @@ show_shortcuts_overlay: true
 show_logo_cetim: true
 cetim_logo_file: "logo-cetim.png"
 
-level_bar_min_db: 0.0
-level_bar_max_db: 100.0
-
 # =========================
-# Réglages live visibles
-# =========================
-show_alpha_controls: false
-show_dyn_controls: false
-
-# =========================
-# Fréquences live
+# Frequence live : borne basse commune au clavier et au slider.
+# La borne haute = f_max (derive : f_max_factor * Fe), plafonnee a Fe/2.
 # =========================
 f_min_live: 500.0
-f_max_live: 10000.0
+
+# =========================
+# Simulation (GUI PySide6) : repli auto si materiel absent
+# =========================
+force_sim_audio: false
+force_sim_camera: false
