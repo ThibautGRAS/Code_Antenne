@@ -40,6 +40,18 @@ Code de recherche : on privilégie la **lisibilité** à l'abstraction.
 
 ## 2026-06-28
 
+### App — thèmes harmonisés (inspectés via captures offscreen)
+- **Bug corrigé** : la règle `QWidget{background}` du thème écrasait `QLabel{background:transparent}`
+  (même spécificité, déclarée après) → **tous les labels peignaient le fond de fenêtre** (invisible
+  sur cartes blanches, mais boîte claire sur la sidebar navy en thème clair). Transparence des
+  labels remise **en dernier** (`_TAIL` appliqué aux deux thèmes).
+- **Bloc marque** : labels ajoutés directement au layout de la sidebar (plus de conteneur — un
+  `QWidget`/`QFrame` intermédiaire ne se laissait pas rendre transparent).
+- **Sombre** : contraste relevé — cartes/topbar/menu `#1A2C48` sur fond `#0B1626`, champs `#243B60`,
+  bordures `#3A537C` → les surfaces se détachent nettement.
+- **Méthode** : captures offscreen (`widget.grab()`) des deux thèmes + menu, inspectées pour ajuster
+  (le rendu 3D pyvista, lui, exige un vrai contexte OpenGL).
+
 ### App — logo lisible sur fond sombre + vues caméra déplacées dans la carte 3
 - **Logo CETIM** : plaque blanche arrondie en thème sombre (transparent en clair) → contraste OK.
 - **Vues caméra** (Haut / Face / Gauche / Droite / Iso) déplacées du menu vers la **carte 3

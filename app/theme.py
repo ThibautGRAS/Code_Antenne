@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Themes de l'appli (charte : encre navy, rouge accent). Sombre (defaut) + Clair.
 
-Barre laterale navy et console de logs sombre dans les deux, seule la zone de contenu
+Barre laterale navy et console de logs sombre dans les deux ; seule la zone de contenu
 bascule clair/sombre.
 """
 
@@ -14,6 +14,7 @@ QLabel#AppEyebrow { color: #EF3346; font-size: 10px; font-weight: 700; letter-sp
 QLabel#AppTitle { font-size: 17px; font-weight: 700; }
 
 QFrame#Sidebar { background: #0A1524; border: none; }
+QWidget#SideHead { background: #0A1524; }
 QLabel#Brand { color: #FFFFFF; font-size: 15px; font-weight: 700; letter-spacing: 2px; }
 QLabel#BrandSub { color: #6E86A8; font-size: 10px; font-weight: 700; letter-spacing: 2px; }
 QPushButton#Nav { text-align: left; border: none; border-radius: 8px; padding: 11px 14px;
@@ -31,7 +32,7 @@ QPushButton#Run { background: #EF3346; color: #FFFFFF; border: none; border-radi
                   padding: 10px 14px; font-weight: 700; }
 QPushButton#Run:hover { background: #D92435; }
 
-QPlainTextEdit { background: #0A1524; color: #CFE0F2; border: 1px solid #26384F;
+QPlainTextEdit { background: #071120; color: #CFE0F2; border: 1px solid #24374E;
                  border-radius: 10px; font-family: Consolas, "Cascadia Mono", monospace;
                  font-size: 12px; padding: 6px; }
 QProgressBar { border: none; border-radius: 3px; background: #22344F; max-height: 6px; }
@@ -54,48 +55,48 @@ QScrollBar::add-page:horizontal, QScrollBar::sub-page:horizontal { background: t
 """
 
 QSS_DARK = _COMMON + """
-QMainWindow, QWidget { background-color: #0E1B2E; color: #E7EEF7; font-size: 13px; }
-QFrame#TopBar { background: #16273F; }
+QMainWindow, QWidget { background-color: #0B1626; color: #E7EEF7; font-size: 13px; }
+QFrame#TopBar { background: #1A2C48; }
 QLabel#AppTitle { color: #FFFFFF; }
 QLabel#TopInfo { color: #93A6C0; font-size: 12px; }
 QLabel#Logo { background: #FFFFFF; border-radius: 6px; padding: 4px 9px; }
 
-QFrame#Card { background: #16273F; border: 1px solid #26384F; border-radius: 12px; }
+QFrame#Card { background: #1A2C48; border: 1px solid #2E466E; border-radius: 12px; }
 QLabel#CardTitle { color: #FFFFFF; font-size: 14px; font-weight: 700; }
 QLabel#CardSub { color: #93A6C0; font-size: 11px; }
 
-QPushButton { background: #1C2F4C; color: #E7EEF7; border: 1px solid #33486A;
+QPushButton { background: #243B60; color: #E7EEF7; border: 1px solid #3A537C;
               border-radius: 8px; padding: 8px 14px; }
-QPushButton:hover { border-color: #3B82F6; background: #223A5C; }
+QPushButton:hover { border-color: #3B82F6; background: #2C4670; }
 QPushButton:pressed { padding-top: 9px; padding-bottom: 7px; }
-QPushButton:disabled { color: #5E718C; border-color: #24374E; background: #142335; }
-QPushButton#Run:disabled { background: #3E4A5E; color: #93A6C0; }
-QPushButton#Ghost { background: transparent; border: 1px solid #33486A; color: #C9D6EA; padding: 7px 12px; }
-QPushButton#Ghost:hover { background: #1C2F4C; border-color: #3B82F6; }
+QPushButton:disabled { color: #66798F; border-color: #2A3E57; background: #172740; }
+QPushButton#Run:disabled { background: #46536B; color: #A9B6C9; }
+QPushButton#Ghost { background: transparent; border: 1px solid #3A537C; color: #C9D6EA; padding: 7px 12px; }
+QPushButton#Ghost:hover { background: #243B60; border-color: #3B82F6; }
 
 QLineEdit, QSpinBox, QDoubleSpinBox, QComboBox {
-    background: #1C2F4C; color: #E7EEF7; border: 1px solid #33486A; border-radius: 8px;
+    background: #243B60; color: #E7EEF7; border: 1px solid #3A537C; border-radius: 8px;
     padding: 6px 8px; min-height: 18px; }
 QLineEdit:focus, QSpinBox:focus, QDoubleSpinBox:focus, QComboBox:focus { border: 2px solid #3B82F6; }
-QLineEdit:disabled, QSpinBox:disabled, QComboBox:disabled { background: #142335; color: #5E718C; }
+QLineEdit:disabled, QSpinBox:disabled, QComboBox:disabled { background: #172740; color: #66798F; }
 QComboBox::drop-down { border: none; width: 22px; }
-QComboBox QAbstractItemView { background: #16273F; color: #E7EEF7; border: 1px solid #33486A;
-    border-radius: 8px; selection-background-color: #223A5C; selection-color: #FFFFFF; outline: none; }
+QComboBox QAbstractItemView { background: #1A2C48; color: #E7EEF7; border: 1px solid #3A537C;
+    border-radius: 8px; selection-background-color: #2C4670; selection-color: #FFFFFF; outline: none; }
 QSpinBox::up-button, QSpinBox::down-button,
 QDoubleSpinBox::up-button, QDoubleSpinBox::down-button { width: 16px; border: none; background: transparent; }
 
 QCheckBox { color: #E7EEF7; spacing: 8px; }
-QCheckBox::indicator { width: 18px; height: 18px; border: 1px solid #33486A; border-radius: 5px; background: #1C2F4C; }
+QCheckBox::indicator { width: 18px; height: 18px; border: 1px solid #3A537C; border-radius: 5px; background: #243B60; }
 QCheckBox::indicator:hover { border-color: #3B82F6; }
 
-QMenuBar { background: #16273F; color: #E7EEF7; }
+QMenuBar { background: #1A2C48; color: #E7EEF7; }
 QMenuBar::item { padding: 6px 12px; background: transparent; }
-QMenuBar::item:selected { background: #223A5C; border-radius: 6px; }
-QMenu { background: #16273F; color: #E7EEF7; border: 1px solid #33486A; border-radius: 8px; }
+QMenuBar::item:selected { background: #2C4670; border-radius: 6px; }
+QMenu { background: #1A2C48; color: #E7EEF7; border: 1px solid #3A537C; border-radius: 8px; }
 QMenu::item { padding: 6px 22px; }
-QMenu::item:selected { background: #223A5C; }
-QMenu::separator { height: 1px; background: #33486A; margin: 4px 8px; }
-QToolTip { background: #16273F; color: #E7EEF7; border: 1px solid #33486A; padding: 4px 6px; }
+QMenu::item:selected { background: #2C4670; }
+QMenu::separator { height: 1px; background: #3A537C; margin: 4px 8px; }
+QToolTip { background: #1A2C48; color: #E7EEF7; border: 1px solid #3A537C; padding: 4px 6px; }
 """
 
 QSS_LIGHT = _COMMON + """
@@ -142,6 +143,12 @@ QMenu::item:selected { background: #EEF4FB; }
 QMenu::separator { height: 1px; background: #E3E8EE; margin: 4px 8px; }
 QToolTip { background: #FFFFFF; color: #001E50; border: 1px solid #C7CED8; padding: 4px 6px; }
 """
+
+# Priorite : QLabel transparent DOIT venir apres la regle QWidget{background} du theme
+# (meme specificite -> la derniere gagne), sinon les labels peignent le fond de fenetre.
+_TAIL = "\nQLabel { background: transparent; }\n"
+QSS_DARK = QSS_DARK + _TAIL
+QSS_LIGHT = QSS_LIGHT + _TAIL
 
 THEMES = {"Sombre": QSS_DARK, "Clair": QSS_LIGHT}
 QSS = QSS_DARK  # defaut / compat

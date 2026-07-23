@@ -58,17 +58,16 @@ class MainWindow(QMainWindow):
         sl.setContentsMargins(0, 0, 0, 0)
         sl.setSpacing(0)
 
-        brand = QWidget()
-        bl = QVBoxLayout(brand)
-        bl.setContentsMargins(20, 22, 18, 20)
-        bl.setSpacing(2)
+        head = QVBoxLayout()
+        head.setContentsMargins(20, 22, 18, 20)
+        head.setSpacing(2)
         name = QLabel("ANTENNEMU")
         name.setObjectName("Brand")
         sub = QLabel("POSTE OFFLINE")
         sub.setObjectName("BrandSub")
-        bl.addWidget(name)
-        bl.addWidget(sub)
-        sl.addWidget(brand)
+        head.addWidget(name)
+        head.addWidget(sub)
+        sl.addLayout(head)
 
         self.stack = QStackedWidget()
         self._pages = [
