@@ -40,6 +40,17 @@ Code de recherche : on privilégie la **lisibilité** à l'abstraction.
 
 ## 2026-06-28
 
+### App — fix affichage embarqué : réutilise `plot_beamforming` (rendu correct)
+- **Problème :** la 1ʳᵉ version de l'embarqué **réimplémentait** un nuage de points → perdait
+  le maillage reconstruit et le centrage sur l'objet (on voyait « les micros, pas centré »).
+- **Fix :** on **réutilise `src.plot_beamforming`** (rendu exact : maillage triangulé, centrage,
+  OBJ…) et on embarque sa sortie — matplotlib : la `Figure` dans un `FigureCanvas` (`plt.show`
+  neutralisé le temps de l'appel) ; pyvista : `pv.Plotter` remplacé temporairement par un
+  `QtInteractor` (pyvistaqt) pour construire **dans** le widget. Les `print` (dont la coche `✔`)
+  sont capturés vers les logs (évite aussi le crash cp1252 de stdout).
+- **Vérifié (offscreen) :** chemin matplotlib OK (figure embarquée via `plot_beamforming`, coche
+  capturée). Chemin pyvista (`QtInteractor`) nécessite un écran → à tester en réel.
+
 ### App — affichage embarqué (matplotlib + pyvista) + logs en bas
 - **Quoi :** l'étape ③ n'ouvre plus une fenêtre séparée : le résultat s'affiche **dans** le GUI
   (nuage de points du maillage coloré par le niveau dB + micros), au choix en **matplotlib**

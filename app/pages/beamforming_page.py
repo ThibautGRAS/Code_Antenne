@@ -185,21 +185,23 @@ class BeamformingPage(QWidget):
         self.runner.run(script, self._params())
 
     def _show_result(self):
-        """Etape 3 : affichage EMBARQUE (in-process) depuis le cache bf.npz."""
+        """Etape 3 : affichage EMBARQUE (in-process) via src.plot_beamforming."""
         import numpy as np
+        from data.config import Config
         bf_file = os.path.join(self._cache_dir, "bf.npz")
         if not os.path.exists(bf_file):
             self.log.append("[ERREUR] Aucune carte : lance d'abord l'etape 2.")
             return
         data = np.load(bf_file)
         bf = {k: data[k] for k in data.files}
-        mode = self.form_plot.values().get("visual_mode", "pyvista")
+        cfg_over = {k: v for k, v in self._params().items() if not k.startswith("_")}
+        config = Config(overrides=cfg_over)
+        mode = str(getattr(config, "visual_mode", "pyvista"))
         self.log.start(f"Affichage embarque ({mode})...")
         try:
-            if mode == "matplotlib":
-                self.result_view.show_matplotlib(bf)
-            else:
-                self.result_view.show_pyvista(bf)
+            logs = self.result_view.render(bf, config)
+            if logs and logs.strip():
+                self.log.append(logs)
             self.log.stop("Affichage OK.")
         except Exception:
             import traceback
