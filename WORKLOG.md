@@ -40,6 +40,14 @@ Code de recherche : on privilégie la **lisibilité** à l'abstraction.
 
 ## 2026-06-28
 
+### App + visu — sliders Transparence + Échelle mesh (carte Affichage)
+- **Slider « Transparence de la carte »** (0-100 %) → opacité de la carte SPL (`map_opacity` via
+  `cfg`), **re-rendu live**. Défaut 0 % (opaque). Remplace le choix opaque/fondu figé.
+- **Slider « Échelle mesh (STL / BF) »** (0.50-1.50) → `factor` (échelle du mesh de référence vs
+  grille BF). `factor` est **affichage seul** (uniquement dans `beamforming_visu`) → re-rendu **sans
+  recalcul**. Retiré du pop-up avancé (qui ne garde que les offsets), persisté dans le projet.
+- Nouveau widget `app/widgets/labeled_slider.py`. Câblage via `VIEW.opacity` + `refresh_view`.
+
 ### visu (fichier autorisé) — carte beamforming OPAQUE (visible en bartlett)
 - L'opacité de la carte suivait le niveau (`0.95·SPL_norm`) → en **bartlett** (un seul pic), tout le
   hors-pic devenait **transparent** et on ne voyait que l'objet gris dessous. Carte passée en

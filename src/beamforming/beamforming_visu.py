@@ -152,6 +152,7 @@ def plot_beamforming(cfg, SPL_values, points, coordinates_list, geo_positions,sh
             bg=getattr(cfg, "bg", "#16273F"),
             bg_top=getattr(cfg, "bg_top", "#0B1626"),
             fg=getattr(cfg, "fg", "#B8C4D6"),
+            map_opacity=getattr(cfg, "map_opacity", 1.0),
         )
         return PyVistaWrapper(plotter)
 
@@ -275,7 +276,7 @@ def plot_beamforming_3D_interactive_pyvista(
     method='bartlett', dynamic_dB=5,
     show_spheres=False, sphere_radius=0.01, factor=1,
     cmap="turbo", ssao=True, pbr=True, halo=True,
-    bg="#16273F", bg_top="#0B1626", fg="#B8C4D6",
+    bg="#16273F", bg_top="#0B1626", fg="#B8C4D6", map_opacity=1.0,
 ):
     """
     Version factorisée PyVista avec OBJ optionnel.
@@ -392,8 +393,7 @@ def plot_beamforming_3D_interactive_pyvista(
         show_edges=False,
         smooth_shading=True,          # surface lissee (pas de facettes)
         clim=[SPL_min, SPL_max],
-        opacity=1.0,   # carte OPAQUE : le beamforming s'affiche en plein (avant : fondu par le
-                       # niveau -> en bartlett tout le hors-pic devenait transparent = objet gris).
+        opacity=map_opacity,   # opacite globale de la carte (slider "Transparence" cote UI)
         # Colorbar verticale a droite (evite le chevauchement avec la grille d'axes en bas).
         scalar_bar_args=dict(
             title=scalar_name,

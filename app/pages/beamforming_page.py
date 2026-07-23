@@ -21,6 +21,7 @@ from PySide6.QtWidgets import (
 
 from app.view_settings import VIEW
 from app.widgets.collapsible import CollapsibleCard
+from app.widgets.labeled_slider import LabeledSlider
 from app.widgets.freq_slider import FreqBand
 from app.widgets.form import ParamForm
 from app.widgets.data_source import DataSourceWidget
@@ -55,10 +56,8 @@ _SPEC_BF_MAIN = [
      "base_dir": _DATA_MESH, "filter": "Mesh STL (*.stl)",
      "tip": "Fichier .stl (par defaut dans data/data_mesh)."},
 ]
-# Reglages avances (pop-up) : scale + offsets.
+# Reglages avances (pop-up) : offsets (l'echelle est un slider dans la carte Affichage).
 _SPEC_ADV = [
-    {"key": "factor", "label": "Echelle mesh", "type": "float",
-     "default": 0.95, "decimals": 3, "min": 0.0, "max": 10.0},
     {"key": "offsetx", "label": "Offset X (m)", "type": "float",
      "default": 0.765, "decimals": 3, "min": -10.0, "max": 10.0},
     {"key": "offsety", "label": "Offset Y (m)", "type": "float",
@@ -89,6 +88,8 @@ class BeamformingPage(QWidget):
         self.form_adv.changed.connect(lambda: self._invalidate(2))
         self.freq.changed.connect(lambda: self._invalidate(2))
         self.form_csm_freq.changed.connect(self._sync_freq_bounds)
+        self.sld_opacity.changed.connect(self._apply_display)   # transparence -> re-rendu
+        self.sld_scale.changed.connect(self._apply_display)      # echelle mesh -> re-rendu
         for c in self._cards:
             c.clicked.connect(self._expand)
         self.runner.started.connect(self._on_started)
@@ -189,6 +190,16 @@ class BeamformingPage(QWidget):
         c3 = CollapsibleCard(3, "Affichage", "Rendu 3D embarque (pyvista)")
         c3.add(self.btn_plot)
         c3.add(self.lbl_plot)
+        self.sld_opacity = LabeledSlider(0, 100, 0, decimals=0, suffix=" %")
+        self.sld_scale = LabeledSlider(0.5, 1.5, 0.95, decimals=2)
+        lbl_tr = QLabel("Transparence de la carte")
+        lbl_tr.setStyleSheet(_MUTED)
+        lbl_sc = QLabel("Echelle mesh (STL / BF)")
+        lbl_sc.setStyleSheet(_MUTED)
+        c3.add(lbl_tr)
+        c3.add(self.sld_opacity)
+        c3.add(lbl_sc)
+        c3.add(self.sld_scale)
         lbl_view = QLabel("Vue de la camera")
         lbl_view.setStyleSheet(_MUTED)
         c3.add(lbl_view)
@@ -274,6 +285,7 @@ class BeamformingPage(QWidget):
         p.update(self.form_csm_freq.values())
         p.update(self.form_bf_main.values())
         p.update(self.form_adv.values())
+        p["factor"] = self.sld_scale.value()   # echelle mesh (slider carte Affichage)
         p["_fsel_min"] = self.freq.low()    # bande a traiter dans la CSM precalculee
         p["_fsel_max"] = self.freq.high()
         return p
@@ -283,6 +295,8 @@ class BeamformingPage(QWidget):
         self.form_csm_freq.set_values(d)
         self.form_bf_main.set_values(d)
         self.form_adv.set_values(d)
+        if "factor" in d:
+            self.sld_scale.set_value(d["factor"])
         self._sync_freq_bounds()
         if "_fsel_min" in d and "_fsel_max" in d:
             self.freq.set_values(d["_fsel_min"], d["_fsel_max"], emit=False)
@@ -338,6 +352,11 @@ class BeamformingPage(QWidget):
         if getattr(self, "_maps", None) is not None and self._bf_ready:
             self._render_current(preserve_view=True)
 
+    def _apply_display(self):
+        """Sliders transparence / echelle -> re-rendu (affichage seul, pas de recalcul)."""
+        VIEW.opacity = 1.0 - self.sld_opacity.value() / 100.0
+        self.refresh_view()
+
     def _render_current(self, preserve_view=False):
         view = self.result_view.capture_view() if preserve_view else None
         self._config.cmap = VIEW.cmap      # palette + effets pilotes par le menu Affichage
@@ -347,6 +366,8 @@ class BeamformingPage(QWidget):
         self._config.bg = VIEW.bg          # fond/axes du viewport (suit le theme)
         self._config.bg_top = VIEW.bg_top
         self._config.fg = VIEW.fg
+        self._config.map_opacity = VIEW.opacity      # slider transparence
+        self._config.factor = self.sld_scale.value() # slider echelle mesh
         spl = self._maps[self._map_index]
         label = self._labels[self._map_index]
         self.lbl_source.setText(label if self._n_maps > 1 else "")
