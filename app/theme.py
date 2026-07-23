@@ -21,7 +21,16 @@ QPushButton#Nav { text-align: left; border: none; border-radius: 8px; padding: 1
 QPushButton#Nav:hover { background: rgba(255,255,255,0.06); color: #FFFFFF; }
 QPushButton#Nav:checked { background: #EF3346; color: #FFFFFF; font-weight: 700; }
 
+QWidget#CardHead { background: transparent; }
+QLabel#Chevron { color: #93A6C0; font-size: 13px; }
 QLabel#Eyebrow { color: #EF3346; font-size: 10px; font-weight: 700; letter-spacing: 1.5px; }
+
+QSlider::groove:horizontal { height: 4px; background: #46608A; border-radius: 2px; }
+QSlider::sub-page:horizontal { background: #EF3346; border-radius: 2px; }
+QSlider::add-page:horizontal { background: #46608A; border-radius: 2px; }
+QSlider::handle:horizontal { background: #FFFFFF; border: 2px solid #EF3346;
+                             width: 14px; height: 14px; margin: -6px 0; border-radius: 9px; }
+QSlider::handle:horizontal:hover { background: #FCD9E0; }
 QLabel#Badge { background: #EF3346; color: #FFFFFF; border-radius: 13px;
                min-width: 26px; max-width: 26px; min-height: 26px; max-height: 26px;
                font-size: 13px; font-weight: 700; }

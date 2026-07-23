@@ -43,10 +43,13 @@ def run(params):
     eps = 1e-6
     mask = (f_all >= fmin_sel - eps) & (f_all <= fmax_sel + eps)
     if not mask.any():
-        raise RuntimeError(
-            f"Aucune frequence de la CSM dans [{fmin_sel:.0f}, {fmax_sel:.0f}] Hz. "
-            f"Plage CSM disponible : [{float(f_all.min()):.0f}, {float(f_all.max()):.0f}] Hz "
-            f"-> elargis l'etape 1 (plage CSM) ou ajuste la bande.")
+        # Aucun bin exact dans la bande -> on prend le bin le plus proche du centre demande
+        # (le slider est borne a la plage CSM, donc ce bin est toujours pertinent).
+        center = 0.5 * (fmin_sel + fmax_sel)
+        j = int(np.argmin(np.abs(f_all - center)))
+        mask = np.zeros(f_all.shape, dtype=bool)
+        mask[j] = True
+        print(f"    (aucun bin exact -> bin le plus proche : {float(f_all[j]):.0f} Hz)", flush=True)
     f_sel = f_all[mask]
     csm = csm_all[mask]
     print(f"    {f_sel.size} frequence(s) dans [{fmin_sel:.0f}, {fmax_sel:.0f}] Hz "

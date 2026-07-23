@@ -20,6 +20,8 @@ from PySide6.QtWidgets import (
 )
 
 from app.widgets.card import Card
+from app.widgets.collapsible import CollapsibleCard
+from app.widgets.freq_slider import FreqSlider
 from app.widgets.form import ParamForm
 from app.widgets.data_source import DataSourceWidget
 from app.widgets.param_dialog import ParamDialog
@@ -44,13 +46,8 @@ _SPEC_CSM_FREQ = [
      "default": 100, "min": 1, "max": 10000},
     {"key": "diag_remove", "label": "Retrait diagonale CSM", "type": "bool", "default": True},
 ]
-# Etape 2 : frequence a traiter + methode + mesh (l'essentiel).
+# Etape 2 : methode + mesh (la frequence est geree par un slider dedie).
 _SPEC_BF_MAIN = [
-    {"key": "_fsel_min", "label": "Freq a traiter : min (Hz)", "type": "int",
-     "default": 2000, "min": 0, "max": 100000,
-     "tip": "Dans la plage CSM. La changer relance seulement le beamforming."},
-    {"key": "_fsel_max", "label": "Freq a traiter : max (Hz)", "type": "int",
-     "default": 2000, "min": 0, "max": 100000},
     {"key": "method", "label": "Methode", "type": "choice",
      "choices": ["bartlett", "music", "obf"], "default": "bartlett"},
     {"key": "n_sources", "label": "Nb sources", "type": "int", "default": 3, "min": 1, "max": 32},
@@ -90,6 +87,10 @@ class BeamformingPage(QWidget):
         self.form_csm_freq.changed.connect(lambda: self._invalidate(1))
         self.form_bf_main.changed.connect(lambda: self._invalidate(2))
         self.form_adv.changed.connect(lambda: self._invalidate(2))
+        self.freq.changed.connect(lambda: self._invalidate(2))
+        self.form_csm_freq.changed.connect(self._sync_freq_bounds)
+        for c in self._cards:
+            c.clicked.connect(self._expand)
         self.runner.started.connect(self._on_started)
         self.runner.output.connect(self.log.append)
         self.runner.finished.connect(self._on_finished)
@@ -99,6 +100,8 @@ class BeamformingPage(QWidget):
         if mw is not None:
             mw.currentTextChanged.connect(self._update_nsrc)
         self._update_nsrc()
+        self._sync_freq_bounds()
+        self._expand(self._cards[0])
         self._refresh()
 
     def _update_nsrc(self, *_):
@@ -107,6 +110,17 @@ class BeamformingPage(QWidget):
         nsrc = self.form_bf_main.widget("n_sources")
         if mw is not None and nsrc is not None:
             nsrc.setEnabled(mw.currentText() != "bartlett")
+
+    def _sync_freq_bounds(self):
+        """Borne le slider de frequence a la plage CSM (etape 1)."""
+        v = self.form_csm_freq.values()
+        self.freq.set_step(v.get("delta_f", 1))
+        self.freq.set_bounds(v.get("fmin_bf", 0), v.get("fmax_bf", 1), emit=False)
+
+    def _expand(self, card):
+        """Accordeon : n'ouvre qu'une etape a la fois."""
+        for c in self._cards:
+            c.set_expanded(c is card)
 
     # ------------------------------------------------------------------ UI
     def _build(self):
@@ -128,8 +142,7 @@ class BeamformingPage(QWidget):
         self.btn_csm.clicked.connect(lambda: self._launch(1))
         self.lbl_csm = QLabel()
         self.lbl_csm.setStyleSheet(_MUTED)
-        c1 = Card(step=1, title="Donnees + CSM",
-                  subtitle="Chargement du .dat + FFT (le plus long)")
+        c1 = CollapsibleCard(1, "Donnees + CSM", "Chargement du .dat + FFT (le plus long)")
         c1.add(self.data_source)
         c1.add(self.form_csm_freq)
         c1.add(self.btn_csm)
@@ -140,6 +153,9 @@ class BeamformingPage(QWidget):
         self.form_bf_main = ParamForm(_SPEC_BF_MAIN)
         self.form_adv = ParamForm(_SPEC_ADV)
         self._adv_dialog = ParamDialog("Reglages mesh (echelle / offsets)", self.form_adv, self)
+        self.freq = FreqSlider(1000, 3000, 2000, step=100)
+        lbl_freq = QLabel("Frequence a traiter")
+        lbl_freq.setStyleSheet(_MUTED)
         btn_adv = QPushButton("Reglages mesh avances...")
         btn_adv.setObjectName("Ghost")
         btn_adv.clicked.connect(self._adv_dialog.exec)
@@ -151,8 +167,9 @@ class BeamformingPage(QWidget):
         self.btn_bf.clicked.connect(lambda: self._launch(2))
         self.lbl_bf = QLabel()
         self.lbl_bf.setStyleSheet(_MUTED)
-        c2 = Card(step=2, title="Beamforming",
-                  subtitle="Reutilise la CSM (choix de la frequence)")
+        c2 = CollapsibleCard(2, "Beamforming", "Reutilise la CSM - glisse la frequence")
+        c2.add(lbl_freq)
+        c2.add(self.freq)
         c2.add(self.form_bf_main)
         row = QHBoxLayout()
         row.setSpacing(8)
@@ -169,8 +186,7 @@ class BeamformingPage(QWidget):
         self.btn_plot.clicked.connect(self._show_result)
         self.lbl_plot = QLabel()
         self.lbl_plot.setStyleSheet(_MUTED)
-        c3 = Card(step=3, title="Affichage",
-                  subtitle="Rendu 3D embarque (pyvista)")
+        c3 = CollapsibleCard(3, "Affichage", "Rendu 3D embarque (pyvista)")
         c3.add(self.btn_plot)
         c3.add(self.lbl_plot)
         lbl_view = QLabel("Vue de la camera")
@@ -187,6 +203,8 @@ class BeamformingPage(QWidget):
         c3.add_layout(views_row)
         clay.addWidget(c3)
         clay.addStretch(1)
+
+        self._cards = [c1, c2, c3]
 
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
@@ -249,6 +267,9 @@ class BeamformingPage(QWidget):
         p.update(self.form_csm_freq.values())
         p.update(self.form_bf_main.values())
         p.update(self.form_adv.values())
+        f = self.freq.value()
+        p["_fsel_min"] = f      # frequence unique -> bande [f, f] (snap au bin proche cote workflow)
+        p["_fsel_max"] = f
         return p
 
     def load_project(self, d):
@@ -256,6 +277,9 @@ class BeamformingPage(QWidget):
         self.form_csm_freq.set_values(d)
         self.form_bf_main.set_values(d)
         self.form_adv.set_values(d)
+        self._sync_freq_bounds()
+        if "_fsel_min" in d:
+            self.freq.set_value(d["_fsel_min"], emit=False)
 
     # -------------------------------------------------------------- logique
     def _params(self):
@@ -379,8 +403,10 @@ class BeamformingPage(QWidget):
         if ok and self._step == 1:
             self._csm_ready = True
             self._bf_ready = False
+            self._expand(self._cards[1])   # avance vers l'etape 2
         elif ok and self._step == 2:
             self._bf_ready = True
+            self._expand(self._cards[2])   # avance vers l'etape 3
         self.log.stop("Termine." if ok else f"Echec (code {code}) - voir les logs.")
         self._refresh()
         if ok and self._step == 2:

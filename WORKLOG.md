@@ -40,6 +40,16 @@ Code de recherche : on privilégie la **lisibilité** à l'abstraction.
 
 ## 2026-06-28
 
+### App — ergonomie : accordéon (fin du scroll) + slider de fréquence
+- Les **3 étapes** deviennent un **accordéon** (`CollapsibleCard`, une seule ouverte à la fois) →
+  le panneau tient **sans scroll** ; **auto-avance** vers l'étape suivante après un calcul réussi.
+- **Fréquence à traiter** = **slider + saisie synchronisés** (`FreqSlider`), borné à la plage CSM
+  (étape 1), pas = `delta_f`. Remplace les 2 spinbox min/max ; fréquence unique → bande [f, f].
+- Workflow `beamforming_run` : **snap au bin le plus proche** si aucun bin exact dans la bande
+  (plus d'erreur bloquante) → le slider/saisie libre marche toujours.
+- Slider stylé (piste + poignée rouge) ; nouveaux widgets `app/widgets/{collapsible,freq_slider}.py`.
+- **Vérifié** via captures offscreen (accordéon + slider, 2 thèmes, sans scroll).
+
 ### App — logo CETIM en en-tête sidebar (délimité) + titre clarifié
 - **Logo** déplacé dans un **en-tête de sidebar dédié** (plaque blanche + bordure basse) — top-left,
   bien délimité. Mis à l'échelle sur la **largeur** (lockup 4095×521, ratio ~7.9:1) pour tenir.
