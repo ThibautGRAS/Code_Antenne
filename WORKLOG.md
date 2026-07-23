@@ -40,6 +40,12 @@ Code de recherche : on privilégie la **lisibilité** à l'abstraction.
 
 ## 2026-06-28
 
+### visu (fichier autorisé) — carte beamforming OPAQUE (visible en bartlett)
+- L'opacité de la carte suivait le niveau (`0.95·SPL_norm`) → en **bartlett** (un seul pic), tout le
+  hors-pic devenait **transparent** et on ne voyait que l'objet gris dessous. Carte passée en
+  **opaque** (`opacity=1.0`) → le beamforming s'affiche **en plein** sur l'objet.
+- (MUSIC s'affichait car niveaux élevés partout → déjà opaque.)
+
 ### App + visu — carte visible (PBR déplacé), viewport+sidebar suivent le thème, halo lumineux
 - **Bug carte SPL invisible corrigé** : le PBR s'appliquait à la **surface colorée** (conflit avec
   l'opacité variable) → **déplacé sur l'OBJET** (STL gris). La carte redevient visible.

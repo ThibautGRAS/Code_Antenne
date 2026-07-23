@@ -392,7 +392,8 @@ def plot_beamforming_3D_interactive_pyvista(
         show_edges=False,
         smooth_shading=True,          # surface lissee (pas de facettes)
         clim=[SPL_min, SPL_max],
-        opacity=opacity_array,
+        opacity=1.0,   # carte OPAQUE : le beamforming s'affiche en plein (avant : fondu par le
+                       # niveau -> en bartlett tout le hors-pic devenait transparent = objet gris).
         # Colorbar verticale a droite (evite le chevauchement avec la grille d'axes en bas).
         scalar_bar_args=dict(
             title=scalar_name,
