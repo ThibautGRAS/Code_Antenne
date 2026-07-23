@@ -40,6 +40,13 @@ Code de recherche : on privilégie la **lisibilité** à l'abstraction.
 
 ## 2026-06-28
 
+### App — logo lisible sur fond sombre + vues caméra déplacées dans la carte 3
+- **Logo CETIM** : plaque blanche arrondie en thème sombre (transparent en clair) → contraste OK.
+- **Vues caméra** (Haut / Face / Gauche / Droite / Iso) déplacées du menu vers la **carte 3
+  « Affichage »** (boutons Ghost qui appellent `set_view`).
+- Menu **Affichage** ne garde que le choix de **thème**.
+- **Vérifié (offscreen) :** compile, menus nettoyés, boutons de vue dans la carte 3, logo stylé.
+
 ### App — menu (Projet/Affichage/Aide), thèmes, logo CETIM, molette, matplotlib retiré
 - **Molette** : les `QSpinBox`/`QComboBox` n'attrapent plus le scroll (sous-classes qui ignorent
   la molette sans focus) → on fait défiler le panneau sans modifier freq min/max par accident.

@@ -19,9 +19,6 @@ from app.pages.placeholder_page import PlaceholderPage
 _REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 _LOGO = os.path.join(_REPO, "data", "assets", "logo-cetim.png")
 
-_VIEWS = [("Haut", "haut"), ("Face", "face"), ("Gauche", "gauche"),
-          ("Droite", "droite"), ("Isometrique", "iso")]
-
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -111,7 +108,8 @@ class MainWindow(QMainWindow):
         pix = QPixmap(_LOGO)
         if not pix.isNull():
             logo = QLabel()
-            logo.setPixmap(pix.scaledToHeight(34, Qt.SmoothTransformation))
+            logo.setObjectName("Logo")
+            logo.setPixmap(pix.scaledToHeight(32, Qt.SmoothTransformation))
             h.addWidget(logo)
             h.addSpacing(16)
 
@@ -154,10 +152,6 @@ class MainWindow(QMainWindow):
             a.triggered.connect(lambda _=False, n=nm: self.apply_theme(n))
             grp.addAction(a)
             thememenu.addAction(a)
-        disp.addSeparator()
-        vue = disp.addMenu("Vue de la camera")
-        for label, key in _VIEWS:
-            vue.addAction(label).triggered.connect(lambda _=False, k=key: self._set_view(k))
 
         aide = mb.addMenu("Aide")
         aide.addAction("A propos d'AntenneMu").triggered.connect(self._about)
@@ -165,11 +159,6 @@ class MainWindow(QMainWindow):
     def apply_theme(self, name):
         self._theme_name = name
         self.setStyleSheet(THEMES.get(name, QSS_DARK))
-
-    def _set_view(self, key):
-        page = self.stack.currentWidget()
-        if hasattr(page, "set_view"):
-            page.set_view(key)
 
     def _about(self):
         QMessageBox.about(

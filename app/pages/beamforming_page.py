@@ -170,9 +170,21 @@ class BeamformingPage(QWidget):
         self.lbl_plot = QLabel()
         self.lbl_plot.setStyleSheet(_MUTED)
         c3 = Card(step=3, title="Affichage",
-                  subtitle="Rendu 3D embarque (pyvista) - vues dans le menu Affichage")
+                  subtitle="Rendu 3D embarque (pyvista)")
         c3.add(self.btn_plot)
         c3.add(self.lbl_plot)
+        lbl_view = QLabel("Vue de la camera")
+        lbl_view.setStyleSheet(_MUTED)
+        c3.add(lbl_view)
+        views_row = QHBoxLayout()
+        views_row.setSpacing(6)
+        for _label, _key in [("Haut", "haut"), ("Face", "face"), ("Gauche", "gauche"),
+                             ("Droite", "droite"), ("Iso", "iso")]:
+            b = QPushButton(_label)
+            b.setObjectName("Ghost")
+            b.clicked.connect(lambda _=False, k=_key: self.set_view(k))
+            views_row.addWidget(b)
+        c3.add_layout(views_row)
         clay.addWidget(c3)
         clay.addStretch(1)
 

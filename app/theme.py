@@ -58,6 +58,7 @@ QMainWindow, QWidget { background-color: #0E1B2E; color: #E7EEF7; font-size: 13p
 QFrame#TopBar { background: #16273F; }
 QLabel#AppTitle { color: #FFFFFF; }
 QLabel#TopInfo { color: #93A6C0; font-size: 12px; }
+QLabel#Logo { background: #FFFFFF; border-radius: 6px; padding: 4px 9px; }
 
 QFrame#Card { background: #16273F; border: 1px solid #26384F; border-radius: 12px; }
 QLabel#CardTitle { color: #FFFFFF; font-size: 14px; font-weight: 700; }
@@ -102,6 +103,7 @@ QMainWindow, QWidget { background-color: #F4F6F9; color: #001E50; font-size: 13p
 QFrame#TopBar { background: #FFFFFF; }
 QLabel#AppTitle { color: #001E50; }
 QLabel#TopInfo { color: #5B6672; font-size: 12px; }
+QLabel#Logo { background: transparent; padding: 0; }
 
 QFrame#Card { background: #FFFFFF; border: 1px solid #E6EAF0; border-radius: 12px; }
 QLabel#CardTitle { color: #001E50; font-size: 14px; font-weight: 700; }
