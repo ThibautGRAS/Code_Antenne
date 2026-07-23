@@ -160,11 +160,35 @@ class BeamformingPage(QWidget):
 
         self.result_view = ResultView()
 
+        # Barre de navigation entre sources (OBF) : visible si plusieurs cartes.
+        self.navbar = QWidget()
+        nb = QHBoxLayout(self.navbar)
+        nb.setContentsMargins(0, 0, 0, 0)
+        self.btn_prev = QPushButton("<")
+        self.btn_prev.setFixedWidth(40)
+        self.btn_prev.clicked.connect(lambda: self._nav(-1))
+        self.lbl_source = QLabel("")
+        self.lbl_source.setAlignment(Qt.AlignCenter)
+        self.lbl_source.setStyleSheet("font-weight: bold;")
+        self.btn_next = QPushButton(">")
+        self.btn_next.setFixedWidth(40)
+        self.btn_next.clicked.connect(lambda: self._nav(1))
+        nb.addWidget(self.btn_prev)
+        nb.addWidget(self.lbl_source, 1)
+        nb.addWidget(self.btn_next)
+        self.navbar.setVisible(False)
+
+        result_col = QWidget()
+        rcl = QVBoxLayout(result_col)
+        rcl.setContentsMargins(0, 0, 0, 0)
+        rcl.addWidget(self.navbar)
+        rcl.addWidget(self.result_view, 1)
+
         top = QWidget()
         toplay = QHBoxLayout(top)
         toplay.setContentsMargins(0, 0, 0, 0)
         toplay.addWidget(scroll)
-        toplay.addWidget(self.result_view, 1)
+        toplay.addWidget(result_col, 1)
 
         self.log = LogConsole()
 
@@ -217,13 +241,28 @@ class BeamformingPage(QWidget):
             self.log.append("[ERREUR] Aucune carte : lance d'abord l'etape 2.")
             return
         data = np.load(bf_file)
-        bf = {k: data[k] for k in data.files}
+        self._maps = np.asarray(data["SPL_maps"])          # (K, N)
+        self._labels = ([str(x) for x in data["labels"]]
+                        if "labels" in data.files
+                        else [str(i) for i in range(len(self._maps))])
+        self._points = data["points"]
+        self._grid = data["grid_pts"]
+        self._geo = data["geo_positions"]
         cfg_over = {k: v for k, v in self._params().items() if not k.startswith("_")}
-        config = Config(overrides=cfg_over)
-        mode = str(getattr(config, "visual_mode", "pyvista"))
-        self.log.start(f"Affichage embarque ({mode})...")
+        self._config = Config(overrides=cfg_over)
+        self._n_maps = int(self._maps.shape[0])
+        self._map_index = 0
+        self.navbar.setVisible(self._n_maps > 1)
+        self._render_current()
+
+    def _render_current(self):
+        spl = self._maps[self._map_index]
+        label = self._labels[self._map_index]
+        self.lbl_source.setText(label if self._n_maps > 1 else "")
+        self.log.start(f"Affichage ({self._config.visual_mode}) : {label}...")
         try:
-            logs = self.result_view.render(bf, config)
+            logs = self.result_view.render(
+                spl, self._points, self._grid, self._geo, self._config)
             if logs and logs.strip():
                 self.log.append(logs)
             self.log.stop("Affichage OK.")
@@ -231,6 +270,12 @@ class BeamformingPage(QWidget):
             import traceback
             self.log.append(traceback.format_exc())
             self.log.stop("Echec de l'affichage - voir les logs.")
+
+    def _nav(self, delta):
+        if getattr(self, "_n_maps", 0) <= 1:
+            return
+        self._map_index = (self._map_index + delta) % self._n_maps
+        self._render_current()
 
     def _on_started(self):
         for b in (self.btn_csm, self.btn_bf, self.btn_plot):
@@ -245,6 +290,8 @@ class BeamformingPage(QWidget):
             self._bf_ready = True
         self.log.stop("Termine." if ok else f"Echec (code {code}) - voir les logs.")
         self._refresh()
+        if ok and self._step == 2:
+            self._show_result()   # affichage automatique apres le beamforming
 
     def _invalidate(self, level):
         if level <= 1:

@@ -40,6 +40,16 @@ Code de recherche : on privilégie la **lisibilité** à l'abstraction.
 
 ## 2026-06-28
 
+### App — OBF : navigation entre sources + affichage auto après beamforming
+- **OBF multi-sources :** l'étape ② calcule et met en cache **toutes** les cartes (somme
+  « Toutes les sources » + 1 carte par source/valeur propre) ; l'affichage propose des
+  boutons **◀ ▶** pour naviguer entre sources **sans recalcul**. (② est donc plus long en OBF :
+  `n_sources+1` passes de beamforming ; bartlett/music inchangés.)
+- **Affichage auto :** après ② réussi, le graphe s'affiche **automatiquement** (par défaut
+  **pyvista**, carte **combinée** — aucun mode présélectionné).
+- **Vérifié (offscreen) :** flux 4 cartes OBF, navbar visible, navigation +/- avec wrap,
+  rendu matplotlib OK.
+
 ### App — menu Projet, source par dropdown `.dat`, réglages avancés en pop-up
 - **Projet** : menu « Projet » (Ouvrir / Enregistrer / Enregistrer sous) → sauvegarde et
   recharge tout l'état (paramètres + chemins) en `.json` (`get_project`/`load_project`).

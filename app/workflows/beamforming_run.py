@@ -52,18 +52,39 @@ def run(params):
     print(f"    {f_sel.size} frequence(s) dans [{fmin_sel:.0f}, {fmax_sel:.0f}] Hz "
           f"(CSM reutilisee, aucun recalcul).", flush=True)
 
-    print("[1/1] Beamforming...", flush=True)
-    spl_map, points, grid = beamforming.run_beamforming_pipeline(f_sel, csm, geo, config)
+    method = str(config.method).lower()
+    if method == "obf":
+        # OBF : on calcule la carte combinee (toutes les sources) + une carte par
+        # source (mode/valeur propre). Tout est mis en cache -> l'UI navigue entre
+        # les sources sans recalcul.
+        n = int(getattr(config, "n_sources", 1) or 1)
+        print(f"[1/1] Beamforming OBF : somme + {n} source(s)...", flush=True)
+        config.nmodei = None
+        spl0, points, grid = beamforming.run_beamforming_pipeline(f_sel, csm, geo, config)
+        maps = [np.asarray(spl0)]
+        labels = ["Toutes les sources"]
+        for i in range(n):
+            config.nmodei = i
+            spl_i, _, _ = beamforming.run_beamforming_pipeline(f_sel, csm, geo, config)
+            maps.append(np.asarray(spl_i))
+            labels.append(f"Source {i + 1}")
+            print(f"    source {i + 1}/{n} calculee.", flush=True)
+        spl_maps = np.stack(maps)
+    else:
+        print("[1/1] Beamforming...", flush=True)
+        spl0, points, grid = beamforming.run_beamforming_pipeline(f_sel, csm, geo, config)
+        spl_maps = np.asarray(spl0)[None, :]
+        labels = [method]
 
-    idx = int(np.argmax(spl_map))
-    print(f"    Source estimee : {float(np.max(spl_map)):.2f} dB "
+    idx = int(np.argmax(spl_maps[0]))
+    print(f"    Source estimee (carte combinee) : {float(np.max(spl_maps[0])):.2f} dB "
           f"@ {tuple(round(float(v), 3) for v in grid[idx])}", flush=True)
 
     out = os.path.join(cache_dir, "bf.npz")
-    np.savez(out, SPL_map=np.asarray(spl_map), points=np.asarray(points),
-             grid_pts=np.asarray(grid), geo_positions=geo,
-             fsel=np.array([fmin_sel, fmax_sel], dtype=float))
-    print("[OK] Carte de beamforming prete.", flush=True)
+    np.savez(out, SPL_maps=spl_maps, labels=np.array(labels),
+             points=np.asarray(points), grid_pts=np.asarray(grid),
+             geo_positions=geo, fsel=np.array([fmin_sel, fmax_sel], dtype=float))
+    print(f"[OK] {spl_maps.shape[0]} carte(s) prete(s).", flush=True)
 
 
 if __name__ == "__main__":

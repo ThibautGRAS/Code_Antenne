@@ -37,8 +37,10 @@ class ResultView(QWidget):
         self._current = w
         self._lay.addWidget(w)
 
-    def render(self, bf, config):
-        """Rend le resultat via plot_beamforming et l'embarque. Renvoie les logs captures."""
+    def render(self, spl_values, points, grid_pts, geo_positions, config):
+        """Rend UNE carte (spl_values) via plot_beamforming et l'embarque."""
+        bf = {"SPL_map": spl_values, "points": points,
+              "grid_pts": grid_pts, "geo_positions": geo_positions}
         mode = str(getattr(config, "visual_mode", "pyvista")).lower()
         buf = io.StringIO()
         if mode == "matplotlib":
