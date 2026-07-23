@@ -40,6 +40,17 @@ Code de recherche : on privilégie la **lisibilité** à l'abstraction.
 
 ## 2026-06-28
 
+### visu — FONDU restauré et VÉRIFIÉ (RGBA par point) + pas de base grise coïncidente en STL
+- **Cause du « toujours gris »** (vérifiée par rendus hors-écran) : (1) passer l'opacité en **tableau**
+  au param `opacity` **casse le coloriage** dans pyvista (iso11/iso15 gris) ; (2) un overlay
+  translucide est **masqué par une base opaque coïncidente** (iso8/9/10/13).
+- **Fix VÉRIFIÉ** : fondu via **couleurs RGBA par point** (couleur = `cmap(niveau)`, alpha =
+  `niveau·map_opacity`, 0 sous la dynamique) → dégradé lisse qui s'estompe. Colorbar conservée via
+  un mesh scalaire invisible (opacity 0).
+- **Mode STL** : plus de base grise coïncidente (elle masquait le fondu) → le fondu s'affiche seul
+  (iso12/bf_render3 : dôme dégradé). **Mode OBJ** : objet texturé séparé + fondu par-dessus
+  (iso14 : rendu ASPI). Les deux **confirmés par capture**.
+
 ### App/visu — fondu restauré, sélecteur OBJ, échelle OBJ/BF grisée, toggle accordéon, version
 - **Rendu : FONDU restauré** (opacité ∝ niveau, 0 sous la dynamique) = le rendu des versions
   précédentes. (Mon « gris » en test venait de l'**OpenGL logiciel headless** — la translucidité

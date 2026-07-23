@@ -353,14 +353,11 @@ def plot_beamforming_3D_interactive_pyvista(
         # Retour à la position d'origine
         grid_points_scaled += center
         
-        # --- Affichage du STL de base (mesh brut) ---
-        faces_pv_base = np.hstack([np.full((faces.shape[0], 1), 3), faces]).astype(np.int64)
-        mesh_base = pv.PolyData(grid_points_scaled, faces_pv_base)
-        
-        base_kwargs = dict(color="lightgray", opacity=1, show_edges=False, smooth_shading=True)
-        if pbr:   # materiau satine sur l'OBJET (pas sur la carte coloree -> elle reste visible)
-            base_kwargs.update(pbr=True, metallic=0.2, roughness=0.5)
-        plotter.add_mesh(mesh_base, **base_kwargs)
+        # Mode STL (pas d'OBJ) : on NE dessine PAS de base grise coincidente -> elle masquerait
+        # le fondu translucide de la carte (limite VTK : translucide derriere opaque coincident).
+        # Le fondu s'affiche seul : l'objet apparait la ou il y a du niveau et s'estompe ailleurs.
+        # Charger un .obj (mode OBJ) pour un objet plein texture derriere la carte.
+        pass
        
 
 
@@ -377,24 +374,40 @@ def plot_beamforming_3D_interactive_pyvista(
         'omp':      "OMP activity (a.u.)"
     }.get(method_l, "Amplitude")
 
-    # FONDU (comme les versions precedentes) : opacite proportionnelle au niveau -> 0 sous la
-    # dynamique (transparent), jusqu'a map_opacity au pic. map_opacity = slider Transparence.
+    # FONDU par-point via couleurs RGBA : couleur = cmap(niveau), alpha = niveau*map_opacity
+    # (0 sous la dynamique -> transparent). NB : passer l'opacite en TABLEAU au parametre
+    # 'opacity' casse le coloriage dans pyvista -> on fournit directement des RGBA.
+    try:
+        import matplotlib
+        _cmap = matplotlib.colormaps[cmap]
+    except Exception:
+        import matplotlib.cm as _cm
+        _cmap = _cm.get_cmap(cmap)
+    from matplotlib.colors import Normalize as _Norm
     SPL_norm = np.clip((SPL_display - SPL_min) / (SPL_max - SPL_min + 1e-12), 0.0, 1.0)
-    opacity_array = float(map_opacity) * SPL_norm
+    rgba = _cmap(_Norm(SPL_min, SPL_max)(SPL_display))
+    rgba[:, 3] = float(map_opacity) * SPL_norm            # alpha = fondu selon le niveau
+    rgba = (rgba * 255).astype(np.uint8)
     if len(SPL_values) == len(faces):
         mesh_bf.cell_data[scalar_name] = SPL_display
+        mesh_bf.cell_data["_rgba"] = rgba
     else:
         mesh_bf.point_data[scalar_name] = SPL_display
+        mesh_bf.point_data["_rgba"] = rgba
 
+    # 1) Colorbar : mesh scalaire INVISIBLE (opacity 0) -> garde la barre turbo a droite.
     plotter.add_mesh(
-        mesh_bf, scalars=scalar_name, cmap=cmap, clim=[SPL_min, SPL_max],
-        opacity=opacity_array, show_edges=False, smooth_shading=True,
+        mesh_bf, scalars=scalar_name, cmap=cmap, clim=[SPL_min, SPL_max], opacity=0.0,
+        reset_camera=False, show_edges=False,
         scalar_bar_args=dict(
             title=scalar_name, vertical=True,
             position_x=0.88, position_y=0.12, width=0.07, height=0.76,
             title_font_size=15, label_font_size=12, n_labels=5, fmt="%.1f", color=fg,
         ),
     )
+    # 2) Affichage du FONDU (RGBA par-point).
+    plotter.add_mesh(mesh_bf, scalars="_rgba", rgba=True, show_edges=False,
+                     smooth_shading=True, show_scalar_bar=False)
 
 
     
