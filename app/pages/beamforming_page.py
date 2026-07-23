@@ -69,11 +69,6 @@ _SPEC_ADV = [
     {"key": "offsetz", "label": "Offset Z (m)", "type": "float",
      "default": 0.26, "decimals": 3, "min": -10.0, "max": 10.0},
 ]
-_SPEC_PLOT = [
-    {"key": "visual_mode", "label": "Visualisation", "type": "choice",
-     "choices": ["pyvista", "matplotlib"], "default": "pyvista"},
-]
-
 _OK = "color: #3DD68C; font-weight: bold;"
 _TODO = "color: #F5A623; font-weight: bold;"
 _MUTED = "color: #93A6C0;"
@@ -169,15 +164,13 @@ class BeamformingPage(QWidget):
         clay.addWidget(c2)
 
         # Etape 3
-        self.form_plot = ParamForm(_SPEC_PLOT)
-        self.btn_plot = QPushButton("Afficher le resultat")
+        self.btn_plot = QPushButton("Re-afficher le resultat")
         self.btn_plot.setObjectName("Run")
         self.btn_plot.clicked.connect(self._show_result)
         self.lbl_plot = QLabel()
         self.lbl_plot.setStyleSheet(_MUTED)
         c3 = Card(step=3, title="Affichage",
-                  subtitle="Rendu embarque (matplotlib / pyvista)")
-        c3.add(self.form_plot)
+                  subtitle="Rendu 3D embarque (pyvista) - vues dans le menu Affichage")
         c3.add(self.btn_plot)
         c3.add(self.lbl_plot)
         clay.addWidget(c3)
@@ -187,6 +180,7 @@ class BeamformingPage(QWidget):
         scroll.setWidgetResizable(True)
         scroll.setWidget(controls)
         scroll.setFixedWidth(392)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
 
         # ---------- droite : carte resultat (navbar + vue) ----------
         self.result_view = ResultView()
@@ -201,7 +195,7 @@ class BeamformingPage(QWidget):
         self.btn_prev.clicked.connect(lambda: self._nav(-1))
         self.lbl_source = QLabel("")
         self.lbl_source.setAlignment(Qt.AlignCenter)
-        self.lbl_source.setStyleSheet("font-weight: 700; color: #E7EEF7;")
+        self.lbl_source.setObjectName("SourceLabel")
         self.btn_next = QPushButton("▶")
         self.btn_next.setObjectName("Ghost")
         self.btn_next.setFixedWidth(46)
@@ -243,7 +237,6 @@ class BeamformingPage(QWidget):
         p.update(self.form_csm_freq.values())
         p.update(self.form_bf_main.values())
         p.update(self.form_adv.values())
-        p.update(self.form_plot.values())
         return p
 
     def load_project(self, d):
@@ -251,7 +244,6 @@ class BeamformingPage(QWidget):
         self.form_csm_freq.set_values(d)
         self.form_bf_main.set_values(d)
         self.form_adv.set_values(d)
-        self.form_plot.set_values(d)
 
     # -------------------------------------------------------------- logique
     def _params(self):
@@ -321,6 +313,10 @@ class BeamformingPage(QWidget):
             return
         self._map_index = (self._map_index + delta) % self._n_maps
         self._render_current(preserve_view=True)   # garde la camera courante
+
+    def set_view(self, name):
+        """Oriente la camera du rendu courant (menu Affichage > Vue)."""
+        self.result_view.set_view(name)
 
     def _show_scene(self):
         """Apercu de la scene (STL + antenne) AVANT tout calcul de beamforming."""

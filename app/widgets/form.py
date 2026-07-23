@@ -9,13 +9,38 @@ type in {"int", "float", "str", "choice", "bool", "folder"}.
 
 import os
 
-from PySide6.QtCore import Signal
+from PySide6.QtCore import Signal, Qt
 from PySide6.QtWidgets import (
     QWidget, QFormLayout, QLineEdit, QSpinBox, QDoubleSpinBox,
     QComboBox, QCheckBox, QHBoxLayout, QPushButton, QFileDialog,
 )
 
 from app.widgets.paths import last_dir, remember_dir
+
+
+# --- Champs qui ne "volent" pas la molette : sans focus, on laisse defiler le panneau. ---
+class _NoScrollSpinBox(QSpinBox):
+    def wheelEvent(self, e):
+        if self.hasFocus():
+            super().wheelEvent(e)
+        else:
+            e.ignore()
+
+
+class _NoScrollDoubleSpinBox(QDoubleSpinBox):
+    def wheelEvent(self, e):
+        if self.hasFocus():
+            super().wheelEvent(e)
+        else:
+            e.ignore()
+
+
+class _NoScrollComboBox(QComboBox):
+    def wheelEvent(self, e):
+        if self.hasFocus():
+            super().wheelEvent(e)
+        else:
+            e.ignore()
 
 
 class ParamForm(QWidget):
@@ -37,16 +62,19 @@ class ParamForm(QWidget):
     def _make_widget(self, s):
         t = s["type"]
         if t == "int":
-            w = QSpinBox()
+            w = _NoScrollSpinBox()
+            w.setFocusPolicy(Qt.StrongFocus)
             w.setRange(int(s.get("min", 0)), int(s.get("max", 10 ** 9)))
             w.setValue(int(s["default"]))
         elif t == "float":
-            w = QDoubleSpinBox()
+            w = _NoScrollDoubleSpinBox()
+            w.setFocusPolicy(Qt.StrongFocus)
             w.setDecimals(int(s.get("decimals", 3)))
             w.setRange(float(s.get("min", -1e9)), float(s.get("max", 1e9)))
             w.setValue(float(s["default"]))
         elif t == "choice":
-            w = QComboBox()
+            w = _NoScrollComboBox()
+            w.setFocusPolicy(Qt.StrongFocus)
             w.addItems([str(c) for c in s["choices"]])
             w.setCurrentText(str(s["default"]))
         elif t == "bool":

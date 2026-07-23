@@ -40,6 +40,19 @@ Code de recherche : on privilégie la **lisibilité** à l'abstraction.
 
 ## 2026-06-28
 
+### App — menu (Projet/Affichage/Aide), thèmes, logo CETIM, molette, matplotlib retiré
+- **Molette** : les `QSpinBox`/`QComboBox` n'attrapent plus le scroll (sous-classes qui ignorent
+  la molette sans focus) → on fait défiler le panneau sans modifier freq min/max par accident.
+- **Scroll horizontal supprimé** sur le panneau d'étapes (`ScrollBarAlwaysOff`).
+- **Logo CETIM** dans la barre supérieure (`data/assets/logo-cetim.png`, lu seul, hors `app/` non modifié).
+- **Menu** : *Projet* (Ouvrir / Enregistrer / Enregistrer sous), *Affichage* (Thème Sombre/Clair +
+  Vue caméra Haut/Face/Gauche/Droite/Iso), *Aide* (À propos).
+- **Thèmes** sélectionnables (Sombre défaut / Clair) ; sidebar navy + console sombre communs.
+- **matplotlib retiré** de la visualisation (pyvista uniquement) — champ « Visualisation » supprimé,
+  `result_view` simplifié + `set_view()` (presets caméra).
+- **Vérifié (offscreen) :** compile, logo chargé, menus, bascule de thème, `set_view`, molette,
+  scroll horizontal off.
+
 ### App — thème sombre
 - **Fond navy profond** `#0E1B2E`, **cartes surélevées** `#16273F` (ombre noire douce), champs
   `#1C2F4C` + menus/combos/déroulants assortis, texte clair `#E7EEF7`, accent rouge, focus bleu.

@@ -1,29 +1,39 @@
 # -*- coding: utf-8 -*-
-"""Fenetre principale : barre laterale (marque + navigation), barre superieure
-(eyebrow + titre de page + actions Projet), pages empilees."""
+"""Fenetre principale : menu (Projet / Affichage / Aide), barre laterale (marque +
+navigation), barre superieure (logo CETIM + titre de page), pages empilees."""
 
+import os
 import json
 
 from PySide6.QtCore import Qt
+from PySide6.QtGui import QPixmap, QAction, QActionGroup
 from PySide6.QtWidgets import (
     QMainWindow, QWidget, QHBoxLayout, QVBoxLayout, QFrame,
     QPushButton, QStackedWidget, QLabel, QButtonGroup, QFileDialog, QMessageBox,
 )
 
-from app.theme import QSS
+from app.theme import THEMES, QSS_DARK
 from app.pages.beamforming_page import BeamformingPage
 from app.pages.placeholder_page import PlaceholderPage
+
+_REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+_LOGO = os.path.join(_REPO, "data", "assets", "logo-cetim.png")
+
+_VIEWS = [("Haut", "haut"), ("Face", "face"), ("Gauche", "gauche"),
+          ("Droite", "droite"), ("Isometrique", "iso")]
 
 
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("AntenneMu - Poste de travail (offline)")
-        self.setStyleSheet(QSS)
-        self.resize(1240, 780)
+        self.setStyleSheet(QSS_DARK)
+        self.resize(1240, 800)
         self.setMinimumSize(1000, 640)
         self._project_path = None
+        self._theme_name = "Sombre"
         self._build()
+        self._build_menu()
 
     # --------------------------------------------------------------- contenu
     def _build(self):
@@ -93,10 +103,17 @@ class MainWindow(QMainWindow):
     def _topbar(self):
         bar = QFrame()
         bar.setObjectName("TopBar")
-        bar.setFixedHeight(60)
+        bar.setFixedHeight(64)
         h = QHBoxLayout(bar)
-        h.setContentsMargins(22, 8, 16, 8)
+        h.setContentsMargins(20, 8, 18, 8)
         h.setSpacing(0)
+
+        pix = QPixmap(_LOGO)
+        if not pix.isNull():
+            logo = QLabel()
+            logo.setPixmap(pix.scaledToHeight(34, Qt.SmoothTransformation))
+            h.addWidget(logo)
+            h.addSpacing(16)
 
         tit = QVBoxLayout()
         tit.setSpacing(1)
@@ -112,21 +129,55 @@ class MainWindow(QMainWindow):
         self.lbl_project = QLabel("")
         self.lbl_project.setObjectName("TopInfo")
         h.addWidget(self.lbl_project)
-
-        b_open = QPushButton("Ouvrir")
-        b_open.setObjectName("Ghost")
-        b_open.clicked.connect(self._open_project)
-        b_save = QPushButton("Enregistrer")
-        b_save.clicked.connect(self._save_project)
-        h.addSpacing(14)
-        h.addWidget(b_open)
-        h.addSpacing(8)
-        h.addWidget(b_save)
         return bar
 
     def _go(self, idx):
         self.stack.setCurrentIndex(idx)
         self.page_title.setText(self._pages[idx][0])
+
+    # ------------------------------------------------------------ menu
+    def _build_menu(self):
+        mb = self.menuBar()
+
+        proj = mb.addMenu("Projet")
+        proj.addAction("Ouvrir un projet...").triggered.connect(self._open_project)
+        proj.addAction("Enregistrer le projet").triggered.connect(self._save_project)
+        proj.addAction("Enregistrer sous...").triggered.connect(self._save_project_as)
+
+        disp = mb.addMenu("Affichage")
+        thememenu = disp.addMenu("Theme")
+        grp = QActionGroup(self)
+        grp.setExclusive(True)
+        for nm in THEMES:
+            a = QAction(nm, self, checkable=True)
+            a.setChecked(nm == self._theme_name)
+            a.triggered.connect(lambda _=False, n=nm: self.apply_theme(n))
+            grp.addAction(a)
+            thememenu.addAction(a)
+        disp.addSeparator()
+        vue = disp.addMenu("Vue de la camera")
+        for label, key in _VIEWS:
+            vue.addAction(label).triggered.connect(lambda _=False, k=key: self._set_view(k))
+
+        aide = mb.addMenu("Aide")
+        aide.addAction("A propos d'AntenneMu").triggered.connect(self._about)
+
+    def apply_theme(self, name):
+        self._theme_name = name
+        self.setStyleSheet(THEMES.get(name, QSS_DARK))
+
+    def _set_view(self, key):
+        page = self.stack.currentWidget()
+        if hasattr(page, "set_view"):
+            page.set_view(key)
+
+    def _about(self):
+        QMessageBox.about(
+            self, "A propos d'AntenneMu",
+            "AntenneMu - Poste de travail offline\n\n"
+            "Camera acoustique MU32 (32 micros) + camera.\n"
+            "Beamforming 3D, niveaux & puissance, calibration.\n\n"
+            "CETIM")
 
     # ------------------------------------------------------------ projet
     def _current_page(self):
@@ -135,9 +186,9 @@ class MainWindow(QMainWindow):
 
     def _set_project(self, path):
         self._project_path = path
-        import os
         self.lbl_project.setText(os.path.basename(path) if path else "")
-        self.setWindowTitle(f"AntenneMu - {path}" if path else "AntenneMu - Poste de travail (offline)")
+        self.setWindowTitle(f"AntenneMu - {path}" if path
+                            else "AntenneMu - Poste de travail (offline)")
 
     def _open_project(self):
         page = self._current_page()
@@ -158,16 +209,19 @@ class MainWindow(QMainWindow):
         if self._project_path:
             self._write_project(self._project_path)
         else:
-            page = self._current_page()
-            if page is None:
-                return
-            path, _ = QFileDialog.getSaveFileName(
-                self, "Enregistrer le projet", "", "Projet AntenneMu (*.json)")
-            if not path:
-                return
-            if not path.lower().endswith(".json"):
-                path += ".json"
-            self._write_project(path)
+            self._save_project_as()
+
+    def _save_project_as(self):
+        page = self._current_page()
+        if page is None:
+            return
+        path, _ = QFileDialog.getSaveFileName(
+            self, "Enregistrer le projet", "", "Projet AntenneMu (*.json)")
+        if not path:
+            return
+        if not path.lower().endswith(".json"):
+            path += ".json"
+        self._write_project(path)
 
     def _write_project(self, path):
         page = self._current_page()
