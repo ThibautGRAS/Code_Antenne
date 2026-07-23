@@ -118,12 +118,13 @@ class ResultView(QWidget):
                            np.arange(n_tri * 3).reshape(-1, 3)]).astype(np.int64)
         mesh = pv.PolyData(grid, faces)
 
+        from app.view_settings import VIEW
         inter = QtInteractor(self)
         try:
-            inter.set_background("#16273F", top="#0B1626")   # assorti a l'UI sombre
+            inter.set_background(VIEW.bg, top=VIEW.bg_top)   # suit le theme (clair/sombre)
         except Exception:
             try:
-                inter.set_background("#16273F")
+                inter.set_background(VIEW.bg)
             except Exception:
                 pass
         inter.add_mesh(mesh, color=_MESH, show_edges=False)
@@ -134,7 +135,7 @@ class ResultView(QWidget):
         inter.add_axes()
         try:
             inter.show_bounds(location="outer", ticks="outside", grid=False,
-                              xtitle="X (m)", ytitle="Y (m)", ztitle="Z (m)", color="#B8C4D6")
+                              xtitle="X (m)", ytitle="Y (m)", ztitle="Z (m)", color=VIEW.fg)
         except Exception:
             pass
         inter.reset_camera()

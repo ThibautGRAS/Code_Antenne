@@ -344,6 +344,9 @@ class BeamformingPage(QWidget):
         self._config.ssao = VIEW.ssao
         self._config.pbr = VIEW.pbr
         self._config.halo = VIEW.halo
+        self._config.bg = VIEW.bg          # fond/axes du viewport (suit le theme)
+        self._config.bg_top = VIEW.bg_top
+        self._config.fg = VIEW.fg
         spl = self._maps[self._map_index]
         label = self._labels[self._map_index]
         self.lbl_source.setText(label if self._n_maps > 1 else "")

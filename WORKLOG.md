@@ -40,6 +40,17 @@ Code de recherche : on privilégie la **lisibilité** à l'abstraction.
 
 ## 2026-06-28
 
+### App + visu — carte visible (PBR déplacé), viewport+sidebar suivent le thème, halo lumineux
+- **Bug carte SPL invisible corrigé** : le PBR s'appliquait à la **surface colorée** (conflit avec
+  l'opacité variable) → **déplacé sur l'OBJET** (STL gris). La carte redevient visible.
+- **Viewport 3D + axes + colorbar suivent le thème** : fond clair en thème clair, sombre en sombre
+  (`VIEW.set_theme`, appliqué à chaud). Idem aperçu scène.
+- **Sidebar thème clair** : gris clair `#E7EBF1` (au lieu de navy), texte navy, logo sur plaque
+  blanche ; reste navy en thème sombre.
+- **Halo point chaud** : petite bille **auto-illuminée** (glow) + **vraie lumière ponctuelle chaude**
+  à la source (au lieu de la grosse bille terne).
+- **Vérifié** : compile, API `pv.Light`, sidebar claire (capture). Rendu 3D final à confirmer (OpenGL).
+
 ### App + visu — palette & effets 3D réglables (menu Affichage), turbo par défaut
 - **Rendu pyvista paramétrable** : colormap (**turbo** par défaut), **SSAO** (occlusion ambiante),
   **PBR** (matériau satiné), **halo** sur le point chaud — tous lus depuis `cfg` (`beamforming_visu.py`,

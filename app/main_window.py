@@ -225,6 +225,8 @@ class MainWindow(QMainWindow):
     def apply_theme(self, name):
         self._theme_name = name
         self.setStyleSheet(THEMES.get(name, QSS_DARK))
+        VIEW.set_theme(name)   # le fond du rendu 3D suit le theme (clair/sombre)
+        self._rerender()
 
     def _set_cmap(self, cm):
         VIEW.cmap = cm

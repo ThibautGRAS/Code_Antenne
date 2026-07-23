@@ -149,6 +149,9 @@ def plot_beamforming(cfg, SPL_values, points, coordinates_list, geo_positions,sh
             ssao=getattr(cfg, "ssao", True),
             pbr=getattr(cfg, "pbr", True),
             halo=getattr(cfg, "halo", True),
+            bg=getattr(cfg, "bg", "#16273F"),
+            bg_top=getattr(cfg, "bg_top", "#0B1626"),
+            fg=getattr(cfg, "fg", "#B8C4D6"),
         )
         return PyVistaWrapper(plotter)
 
@@ -272,6 +275,7 @@ def plot_beamforming_3D_interactive_pyvista(
     method='bartlett', dynamic_dB=5,
     show_spheres=False, sphere_radius=0.01, factor=1,
     cmap="turbo", ssao=True, pbr=True, halo=True,
+    bg="#16273F", bg_top="#0B1626", fg="#B8C4D6",
 ):
     """
     Version factorisée PyVista avec OBJ optionnel.
@@ -293,9 +297,9 @@ def plot_beamforming_3D_interactive_pyvista(
     plotter = pv.Plotter()
     # Fond sombre (degrade navy) integre a l'UI ; textes/axes en clair.
     try:
-        plotter.set_background("#16273F", top="#0B1626")
+        plotter.set_background(bg, top=bg_top)
     except Exception:
-        plotter.set_background("#16273F")
+        plotter.set_background(bg)
     # Rendu plus lisse et moderne (anti-crenelage).
     try:
         plotter.enable_anti_aliasing("fxaa")
@@ -352,12 +356,10 @@ def plot_beamforming_3D_interactive_pyvista(
         faces_pv_base = np.hstack([np.full((faces.shape[0], 1), 3), faces]).astype(np.int64)
         mesh_base = pv.PolyData(grid_points_scaled, faces_pv_base)
         
-        plotter.add_mesh(
-            mesh_base,
-            color="lightgray",
-            opacity=1,
-            show_edges=False
-        )       
+        base_kwargs = dict(color="lightgray", opacity=1, show_edges=False, smooth_shading=True)
+        if pbr:   # materiau satine sur l'OBJET (pas sur la carte coloree -> elle reste visible)
+            base_kwargs.update(pbr=True, metallic=0.2, roughness=0.5)
+        plotter.add_mesh(mesh_base, **base_kwargs)
        
 
 
@@ -398,11 +400,9 @@ def plot_beamforming_3D_interactive_pyvista(
             position_x=0.88, position_y=0.12,
             width=0.07, height=0.76,
             title_font_size=15, label_font_size=12,
-            n_labels=5, fmt="%.1f", color="#E7EEF7",
+            n_labels=5, fmt="%.1f", color=fg,
         ),
     )
-    if pbr:
-        mesh_kwargs.update(pbr=True, metallic=0.15, roughness=0.55)
     plotter.add_mesh(mesh_bf, **mesh_kwargs)
 
 
@@ -418,7 +418,7 @@ def plot_beamforming_3D_interactive_pyvista(
     # Axes + grille
     # ============================================================
     plotter.add_axes()
-    plotter.show_grid(color="#B8C4D6")
+    plotter.show_grid(color=fg)
 
     # Occlusion ambiante : relief/profondeur (effet "wahou").
     if ssao:
@@ -427,7 +427,8 @@ def plot_beamforming_3D_interactive_pyvista(
         except Exception:
             pass
 
-    # Halo doux sur le point chaud (max SPL) pour attirer l'oeil sur la source.
+    # Point chaud (max SPL) : petite bille AUTO-ILLUMINEE (glow) + lumiere ponctuelle chaude
+    # qui eclaire reellement la surface autour de la source.
     if halo:
         try:
             gp = np.asarray(grid_points)
@@ -435,9 +436,20 @@ def plot_beamforming_3D_interactive_pyvista(
             if 0 <= hidx < len(gp):
                 center = gp[hidx]
                 diag = float(np.linalg.norm(gp.max(axis=0) - gp.min(axis=0)))
-                r = max(1e-3, 0.045 * diag)
+                r = max(5e-4, 0.014 * diag)   # plus petit
+                # bille auto-illuminee (ambient=1, diffuse=0) -> parait emettre de la lumiere
                 plotter.add_mesh(pv.Sphere(radius=r, center=center),
-                                 color="#FFE08A", opacity=0.35, smooth_shading=True)
+                                 color="#FFF6C8", ambient=1.0, diffuse=0.0, specular=0.0,
+                                 opacity=0.95, smooth_shading=True)
+                # vraie lumiere chaude a la source -> halo lumineux sur la surface
+                try:
+                    light = pv.Light(position=tuple(float(c) for c in center),
+                                     color="#FFE39A")
+                    light.positional = True
+                    light.intensity = 0.9
+                    plotter.add_light(light)
+                except Exception:
+                    pass
         except Exception:
             pass
 

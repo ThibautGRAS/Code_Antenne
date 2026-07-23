@@ -14,13 +14,10 @@ _COMMON = """
 QFrame#TopBar { border: none; border-bottom: 3px solid #EF3346; }
 QLabel#AppTitle { font-size: 18px; font-weight: 700; letter-spacing: 0.3px; }
 
-QFrame#Sidebar { background: #0A1524; border: none; }
-QFrame#SideHead { background: #0A1524; border-bottom: 1px solid #22344F; }
 QLabel#Logo { background: #FFFFFF; border-radius: 4px; padding: 6px 8px; }
-QLabel#Brand { color: #FFFFFF; font-size: 15px; font-weight: 700; letter-spacing: 2px; }
+QLabel#Brand { font-size: 15px; font-weight: 700; letter-spacing: 2px; }
 QPushButton#Nav { text-align: left; border: none; border-radius: 4px; padding: 11px 14px;
-                  margin: 2px 10px; background: transparent; color: #C9D6EA; font-size: 13px; }
-QPushButton#Nav:hover { background: rgba(255,255,255,0.06); color: #FFFFFF; }
+                  margin: 2px 10px; background: transparent; font-size: 13px; }
 QPushButton#Nav:checked { background: #EF3346; color: #FFFFFF; font-weight: 700; }
 
 QWidget#CardHead { background: transparent; }
@@ -70,6 +67,11 @@ QScrollBar::add-page:horizontal, QScrollBar::sub-page:horizontal { background: t
 # ------------------------------------------------------------------ sombre
 QSS_DARK = _COMMON + """
 QMainWindow, QWidget { background-color: #0B1626; color: #E7EEF7; font-size: 13px; }
+QFrame#Sidebar { background: #0A1524; border: none; }
+QFrame#SideHead { background: #0A1524; border-bottom: 1px solid #22344F; }
+QLabel#Brand { color: #FFFFFF; }
+QPushButton#Nav { color: #C9D6EA; }
+QPushButton#Nav:hover { background: rgba(255,255,255,0.06); color: #FFFFFF; }
 QFrame#TopBar { background: #16273F; }
 QLabel#AppTitle { color: #FFFFFF; }
 QLabel#AppSub { color: #93A6C0; font-size: 11px; letter-spacing: 0.5px; }
@@ -117,6 +119,11 @@ QToolTip { background: #16273F; color: #E7EEF7; border: 1px solid #38517A; paddi
 # ------------------------------------------------------------------ clair
 QSS_LIGHT = _COMMON + """
 QMainWindow, QWidget { background-color: #F4F6F9; color: #001E50; font-size: 13px; }
+QFrame#Sidebar { background: #E7EBF1; border: none; }
+QFrame#SideHead { background: #E7EBF1; border-bottom: 1px solid #D3D9E2; }
+QLabel#Brand { color: #001E50; }
+QPushButton#Nav { color: #3A4A63; }
+QPushButton#Nav:hover { background: rgba(0,30,80,0.06); color: #001E50; }
 QFrame#TopBar { background: #FFFFFF; }
 QLabel#AppTitle { color: #001E50; }
 QLabel#AppSub { color: #5B6672; font-size: 11px; letter-spacing: 0.5px; }

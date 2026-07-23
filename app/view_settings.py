@@ -8,6 +8,16 @@ class _ViewSettings:
         self.ssao = True      # occlusion ambiante
         self.pbr = True        # materiau satine
         self.halo = True       # halo sur le point chaud
+        # Fond + axes du viewport 3D (mis a jour selon le theme clair/sombre)
+        self.bg = "#16273F"
+        self.bg_top = "#0B1626"
+        self.fg = "#B8C4D6"
+
+    def set_theme(self, name):
+        if name == "Clair":
+            self.bg, self.bg_top, self.fg = "#FFFFFF", "#EEF2F7", "#5B6672"
+        else:
+            self.bg, self.bg_top, self.fg = "#16273F", "#0B1626", "#B8C4D6"
 
 
 VIEW = _ViewSettings()
