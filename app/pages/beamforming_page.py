@@ -97,6 +97,8 @@ class BeamformingPage(QWidget):
         self.runner.started.connect(self._on_started)
         self.runner.output.connect(self.log.append)
         self.runner.finished.connect(self._on_finished)
+        self.log.stop_requested.connect(self._request_stop)
+        self._user_stopped = False
         mw = self.form_bf_main.widget("method")
         if mw is not None:
             mw.currentTextChanged.connect(self._update_nsrc)
@@ -251,6 +253,13 @@ class BeamformingPage(QWidget):
         self.log.start(msg)
         self.runner.run(script, self._params())
 
+    def _request_stop(self):
+        """Tue le sous-processus de calcul (etape 1 ou 2) en cours."""
+        if self.runner.running:
+            self._user_stopped = True
+            self.log.append("Arret demande, interruption du calcul...")
+            self.runner.stop()
+
     def _show_result(self):
         import numpy as np
         from data.config import Config
@@ -303,6 +312,7 @@ class BeamformingPage(QWidget):
         from data.config import Config
         cfg_over = {k: v for k, v in self._params().items() if not k.startswith("_")}
         config = Config(overrides=cfg_over)
+        config.sphere_radius = 0.004   # antenne : petits marqueurs (defaut 0.025 = enormes)
         self.log.start("Chargement de la scene (STL + antenne)...")
         buf = io.StringIO()
         try:
@@ -332,8 +342,15 @@ class BeamformingPage(QWidget):
     def _on_started(self):
         for b in (self.btn_csm, self.btn_bf, self.btn_plot):
             b.setEnabled(False)
+        self.log.btn_stop.setEnabled(True)
 
     def _on_finished(self, code):
+        self.log.btn_stop.setEnabled(False)
+        if self._user_stopped:
+            self._user_stopped = False
+            self.log.stop("Calcul arrete.")
+            self._refresh()
+            return
         ok = (code == 0)
         if ok and self._step == 1:
             self._csm_ready = True

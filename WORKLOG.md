@@ -40,6 +40,14 @@ Code de recherche : on privilégie la **lisibilité** à l'abstraction.
 
 ## 2026-06-28
 
+### App — bouton Arrêter + antenne plus fine dans l'aperçu scène
+- **Arrêter** : bouton dans la console de logs (actif seulement pendant un calcul ①/②) → tue
+  le sous-processus (`QProcess.kill`). L'étape ne passe pas en « prête » (calcul interrompu).
+- **Antenne** : l'aperçu scène force `sphere_radius=0.004` (défaut 0.025 → marqueurs énormes
+  en matplotlib : `s=(r*1000)²=625`). Micros en petits points → maillage enfin visible.
+- **Vérifié (offscreen) :** bouton actif pendant le run / désactivé sinon ; arrêt = pas de
+  passage en « prêt ».
+
 ### App — lanceur `.bat` (double-clic)
 - `app/lancer_app.bat` : lance l'appli en **double-clic**. Chemins **relatifs au `.bat`**
   (racine = parent de `app/`, python = `..\..\32\.venv`), donc portable si le tout est déplacé.
