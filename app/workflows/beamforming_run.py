@@ -33,7 +33,12 @@ def run(params):
     data = np.load(csm_file)
     f_all = data["f_selected"]
     csm_all = data["CSM"]
-    geo = data["geo_positions"]
+    # Positions micros chargees ICI (etape beamforming) -> changer le GEO ne recalcule pas la CSM.
+    try:
+        from src import read_info
+        geo = np.asarray(read_info.load_geo_positions(config))
+    except Exception:
+        geo = data["geo_positions"]   # repli : geo stocke lors du calcul CSM
 
     # Selection de la bande a traiter DANS la CSM precalculee (aucun recalcul).
     fmin_sel = float(params.get("_fsel_min", float(f_all.min())))

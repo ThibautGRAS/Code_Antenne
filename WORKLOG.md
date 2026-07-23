@@ -40,6 +40,14 @@ Code de recherche : on privilégie la **lisibilité** à l'abstraction.
 
 ## 2026-06-28
 
+### App + visu — GEO déplacé en étape ②, défauts transparence/dynamique
+- **Sélecteur GEO déplacé de l'étape ① → étape ②** (Beamforming) : les positions sont un input du
+  **beamforming**, pas de la CSM → **changer le GEO ne recalcule plus la longue CSM**.
+  `beamforming_run` charge le GEO depuis le config courant (repli sur `csm.npz`).
+- **Défauts** : transparence carte **60 %** (opacité 0.4 dans la dynamique), slider Dynamique borné
+  **1–20 dB** (défaut 10). Objectif : la carte reste visible par défaut (objet visible sous la dynamique).
+- **Vérifié** : compile, GEO dans `form_bf_main`, défauts sliders, Config OK.
+
 ### App + visu — sélecteur GEO (positions micros) + transparence sous-dynamique + slider Dynamique
 - **Étape ①** : sélecteur **« Positions micros (GEO) »** (type file, défaut `GEO_256_revised3.csv`
   dans `data/data_geo`) → surcharge `geo_name` (Config recalcule `geo_file`). Changer le GEO

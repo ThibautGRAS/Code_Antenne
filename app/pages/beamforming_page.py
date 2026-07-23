@@ -39,9 +39,6 @@ _DATA_GEO = os.path.join(os.path.dirname(_APP), "data", "data_geo")
 
 # Etape 1 : plage de CSM (le plus long). La source (dossier + index) est a part.
 _SPEC_CSM_FREQ = [
-    {"key": "geo_name", "label": "Positions micros (GEO)", "type": "file",
-     "default": "GEO_256_revised3.csv", "base_dir": _DATA_GEO, "filter": "GEO CSV (*.csv)",
-     "tip": "CSV des positions des micros (colonnes X;Y;Z). Defaut = antenne du projet."},
     {"key": "fmin_bf", "label": "Plage CSM : min (Hz)", "type": "int",
      "default": 1000, "min": 0, "max": 100000,
      "tip": "Plage LARGE a precalculer une fois ; l'etape 2 choisit une frequence dedans."},
@@ -59,6 +56,9 @@ _SPEC_BF_MAIN = [
     {"key": "mesh_name", "label": "Mesh STL", "type": "file", "default": "Source_3D_centre_m.stl",
      "base_dir": _DATA_MESH, "filter": "Mesh STL (*.stl)",
      "tip": "Fichier .stl (par defaut dans data/data_mesh)."},
+    {"key": "geo_name", "label": "Positions micros (GEO)", "type": "file",
+     "default": "GEO_256_revised3.csv", "base_dir": _DATA_GEO, "filter": "GEO CSV (*.csv)",
+     "tip": "CSV des positions des micros (X;Y;Z). Le changer NE recalcule PAS la CSM."},
 ]
 # Reglages avances (pop-up) : offsets (l'echelle est un slider dans la carte Affichage).
 _SPEC_ADV = [
@@ -195,8 +195,8 @@ class BeamformingPage(QWidget):
         c3 = CollapsibleCard(3, "Affichage", "Rendu 3D embarque (pyvista)")
         c3.add(self.btn_plot)
         c3.add(self.lbl_plot)
-        self.sld_opacity = LabeledSlider(0, 100, 0, decimals=0, suffix=" %")
-        self.sld_dyn = LabeledSlider(3, 40, 10, decimals=0, suffix=" dB")
+        self.sld_opacity = LabeledSlider(0, 100, 60, decimals=0, suffix=" %")
+        self.sld_dyn = LabeledSlider(1, 20, 10, decimals=0, suffix=" dB")
         self.sld_scale = LabeledSlider(0.5, 1.5, 0.95, decimals=2)
         lbl_tr = QLabel("Transparence de la carte")
         lbl_tr.setStyleSheet(_MUTED)
