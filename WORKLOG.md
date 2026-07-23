@@ -40,6 +40,16 @@ Code de recherche : on privilégie la **lisibilité** à l'abstraction.
 
 ## 2026-06-28
 
+### visu — FIX rendu : carte enfin visible (cause trouvée par rendu hors-écran)
+- **Diagnostic** : j'ai découvert que **pyvista rend en hors-écran** ici (`PYVISTA_OFF_SCREEN`,
+  `Plotter(off_screen=True).screenshot`) → j'ai pu tester le rendu moi-même. Isolé le bug :
+  passer l'opacité en **TABLEAU** rend le mesh *translucide* → **masqué par le mesh de base opaque**
+  → objet tout gris.
+- **Fix** : on **DÉCOUPE** la zone dans la dynamique (`threshold` SPL ≥ max−dyn) et on la rend en
+  **opacité scalaire** (slider Transparence). Hors dynamique : non dessiné → l'objet gris apparaît.
+- **Vérifié par rendu hors-écran** : pic rouge net + dégradé turbo dans la dynamique, objet gris
+  au-dessous. C'était la vraie cause du « toujours gris ».
+
 ### visu — carte visible : DANS la dynamique = opaque (correctif clé)
 - **Bug de visibilité** : l'intérieur de la dynamique était rendu à l'opacité du slider (ex. 40 %)
   → sur une carte piquée + petite dynamique + halo, quasi rien de visible (objet gris).
