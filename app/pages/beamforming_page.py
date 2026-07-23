@@ -73,9 +73,9 @@ _SPEC_PLOT = [
      "choices": ["pyvista", "matplotlib"], "default": "pyvista"},
 ]
 
-_OK = "color: rgb(90,200,120);"
-_TODO = "color: rgb(230,180,80);"
-_MUTED = "color: rgb(150,165,185);"
+_OK = "color: #1F9D57; font-weight: bold;"
+_TODO = "color: #F08A24; font-weight: bold;"
+_MUTED = "color: #8A9199;"
 
 
 class BeamformingPage(QWidget):
@@ -282,14 +282,15 @@ class BeamformingPage(QWidget):
         self.navbar.setVisible(self._n_maps > 1)
         self._render_current()
 
-    def _render_current(self):
+    def _render_current(self, preserve_view=False):
+        view = self.result_view.capture_view() if preserve_view else None
         spl = self._maps[self._map_index]
         label = self._labels[self._map_index]
         self.lbl_source.setText(label if self._n_maps > 1 else "")
         self.log.start(f"Affichage ({self._config.visual_mode}) : {label}...")
         try:
             logs = self.result_view.render(
-                spl, self._points, self._grid, self._geo, self._config)
+                spl, self._points, self._grid, self._geo, self._config, restore_view=view)
             if logs and logs.strip():
                 self.log.append(logs)
             self.log.stop("Affichage OK.")
@@ -302,7 +303,7 @@ class BeamformingPage(QWidget):
         if getattr(self, "_n_maps", 0) <= 1:
             return
         self._map_index = (self._map_index + delta) % self._n_maps
-        self._render_current()
+        self._render_current(preserve_view=True)   # garde la camera courante
 
     def _show_scene(self):
         """Apercu de la scene (STL + antenne) AVANT tout calcul de beamforming."""
@@ -312,7 +313,6 @@ class BeamformingPage(QWidget):
         from data.config import Config
         cfg_over = {k: v for k, v in self._params().items() if not k.startswith("_")}
         config = Config(overrides=cfg_over)
-        config.sphere_radius = 0.004   # antenne : petits marqueurs (defaut 0.025 = enormes)
         self.log.start("Chargement de la scene (STL + antenne)...")
         buf = io.StringIO()
         try:
@@ -324,9 +324,8 @@ class BeamformingPage(QWidget):
                     pts_stl, config.rotation_deg,
                     config.offsetx, config.offsety, config.offsetz)
                 geo = np.asarray(read_info.load_geo_positions(config))
-            spl = np.zeros(len(grid), dtype=float)
             self.navbar.setVisible(False)
-            logs = self.result_view.render(spl, points, grid, geo, config, show_spheres=True)
+            logs = self.result_view.render_scene(points, grid, geo, config)
             if buf.getvalue().strip():
                 self.log.append(buf.getvalue())
             if logs and logs.strip():

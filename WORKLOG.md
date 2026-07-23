@@ -40,6 +40,17 @@ Code de recherche : on privilégie la **lisibilité** à l'abstraction.
 
 ## 2026-06-28
 
+### App — thème (charte), aperçu scène épuré, vue conservée en navigation OBF
+- **Thème** : QSS aligné sur la charte — navy `#001E50` (encre), rouge `#EF3346` (accent),
+  surfaces claires `#F4F6F9`/blanc, cyan/rose, gris froid ; **filet rouge 3px** sous le menu ;
+  police Arial Nova ; sidebar navy, boutons « Run » rouges.
+- **Aperçu scène** : rendu **dédié** (plus via `plot_beamforming`) — objet en **gris cadré en
+  grand**, micros en **petits points rouges**, **sans colorbar** (matplotlib + pyvista).
+- **Navigation OBF** : la **caméra** (vue 3D) est **conservée** entre sources (capture/restore),
+  fini le reset à chaque ◀ ▶.
+- **Vérifié (offscreen) :** compile, scène matplotlib (mesh + micros, sans colorbar),
+  capture/restore de vue OK, thème appliqué.
+
 ### App — bouton Arrêter + antenne plus fine dans l'aperçu scène
 - **Arrêter** : bouton dans la console de logs (actif seulement pendant un calcul ①/②) → tue
   le sous-processus (`QProcess.kill`). L'étape ne passe pas en « prête » (calcul interrompu).
