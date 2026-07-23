@@ -134,24 +134,12 @@ class MainWindow(QMainWindow):
     def _sidebar(self):
         side = QFrame()
         side.setObjectName("Sidebar")
-        side.setFixedWidth(228)
+        side.setFixedWidth(210)
         sl = QVBoxLayout(side)
         sl.setContentsMargins(0, 0, 0, 0)
         sl.setSpacing(0)
 
-        # En-tete : logo CETIM sur plaque blanche, zone delimitee (bordure basse)
-        head = QFrame()
-        head.setObjectName("SideHead")
-        head.setFixedHeight(86)
-        hl = QHBoxLayout(head)
-        hl.setContentsMargins(14, 12, 14, 12)
-        logo = QLabel()
-        logo.setObjectName("Logo")
-        pix = QPixmap(_LOGO)
-        if not pix.isNull():
-            logo.setPixmap(pix.scaledToWidth(178, Qt.SmoothTransformation))  # lockup large -> largeur
-        hl.addWidget(logo)
-        sl.addWidget(head)
+        sl.addSpacing(16)   # (logo CETIM retire : sidebar = navigation seule)
 
         self.stack = QStackedWidget()
         self._pages = [
@@ -277,7 +265,7 @@ class MainWindow(QMainWindow):
         if not getattr(self, "_cubeam_logo", None) or not self._cubeam_path:
             return
         white = (self._theme_name != "Clair")
-        pm = _logo_pixmap(self._cubeam_path, 52, white=white)
+        pm = _logo_pixmap(self._cubeam_path, 64, white=white)
         if pm is not None and not pm.isNull():
             self._cubeam_logo.setPixmap(pm)
 

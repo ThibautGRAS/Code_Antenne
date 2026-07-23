@@ -40,6 +40,11 @@ Code de recherche : on privilégie la **lisibilité** à l'abstraction.
 
 ## 2026-06-28
 
+### App — logo CETIM retiré, Cubeam agrandi
+- **Logo CETIM + en-tête de sidebar retirés** → sidebar = **navigation seule** (largeur 210).
+- **Logo Cubeam agrandi** (64 px), toujours thème-aware (blanc en sombre / couleur en clair),
+  sans plaque, en haut à droite.
+
 ### App — logo Cubeam thème-aware (blanc en sombre, sans plaque)
 - **Cubeam SVG recoloré à la volée** : navy `#071D45` → **blanc** en thème sombre (accents bleu/rouge
   conservés), couleur en clair. Affiché **sans plaque** ; mis à jour au changement de thème
