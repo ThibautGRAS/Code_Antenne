@@ -40,6 +40,12 @@ Code de recherche : on privilégie la **lisibilité** à l'abstraction.
 
 ## 2026-06-28
 
+### App — lanceur `.bat` (double-clic)
+- `app/lancer_app.bat` : lance l'appli en **double-clic**. Chemins **relatifs au `.bat`**
+  (racine = parent de `app/`, python = `..\..\32\.venv`), donc portable si le tout est déplacé.
+  Vérifie la présence du python du venv, `pause` sur erreur. (Un `.exe` demanderait PyInstaller
+  — lourd à figer avec PySide6+pyvista+vtk ; le `.bat` suffit.)
+
 ### App — mesh par fenêtre, mémoire des chemins, aperçu scène, `n_sources` grisé
 - **Mesh** : le champ « Mesh STL » devient un **sélecteur de fichier** (`.stl` ; défaut dans
   `data/data_mesh` → nom simple si dans ce dossier, sinon chemin absolu).
