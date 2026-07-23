@@ -26,9 +26,11 @@ from app.widgets.log_console import LogConsole
 from app.widgets.result_view import ResultView
 from app.runner import WorkflowRunner
 
-_WF = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "workflows")
+_APP = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+_WF = os.path.join(_APP, "workflows")
 _CSM_SCRIPT = os.path.join(_WF, "csm_run.py")
 _BF_SCRIPT = os.path.join(_WF, "beamforming_run.py")
+_DATA_MESH = os.path.join(os.path.dirname(_APP), "data", "data_mesh")
 
 # Etape 1 : plage de CSM (le plus long). La source (dossier + index) est a part.
 _SPEC_CSM_FREQ = [
@@ -51,7 +53,9 @@ _SPEC_BF_MAIN = [
     {"key": "method", "label": "Methode", "type": "choice",
      "choices": ["bartlett", "music", "obf"], "default": "bartlett"},
     {"key": "n_sources", "label": "Nb sources", "type": "int", "default": 3, "min": 1, "max": 32},
-    {"key": "mesh_name", "label": "Mesh STL", "type": "str", "default": "Source_3D_centre_m.stl"},
+    {"key": "mesh_name", "label": "Mesh STL", "type": "file", "default": "Source_3D_centre_m.stl",
+     "base_dir": _DATA_MESH, "filter": "Mesh STL (*.stl)",
+     "tip": "Fichier .stl (par defaut dans data/data_mesh)."},
 ]
 # Reglages avances (pop-up) : scale + offsets.
 _SPEC_ADV = [
@@ -93,7 +97,18 @@ class BeamformingPage(QWidget):
         self.runner.started.connect(self._on_started)
         self.runner.output.connect(self.log.append)
         self.runner.finished.connect(self._on_finished)
+        mw = self.form_bf_main.widget("method")
+        if mw is not None:
+            mw.currentTextChanged.connect(self._update_nsrc)
+        self._update_nsrc()
         self._refresh()
+
+    def _update_nsrc(self, *_):
+        """Nb sources n'a de sens qu'en MUSIC/OBF -> grise en bartlett."""
+        mw = self.form_bf_main.widget("method")
+        nsrc = self.form_bf_main.widget("n_sources")
+        if mw is not None and nsrc is not None:
+            nsrc.setEnabled(mw.currentText() != "bartlett")
 
     # ------------------------------------------------------------------ UI
     def _build(self):
@@ -133,6 +148,9 @@ class BeamformingPage(QWidget):
         g2l = QVBoxLayout(g2)
         g2l.addWidget(self.form_bf_main)
         g2l.addWidget(btn_adv)
+        self.btn_scene = QPushButton("Afficher la scene (STL + antenne)")
+        self.btn_scene.clicked.connect(self._show_scene)
+        g2l.addWidget(self.btn_scene)
         g2l.addWidget(self.btn_bf)
         self.lbl_bf.setStyleSheet(_MUTED)
         g2l.addWidget(self.lbl_bf)
@@ -276,6 +294,40 @@ class BeamformingPage(QWidget):
             return
         self._map_index = (self._map_index + delta) % self._n_maps
         self._render_current()
+
+    def _show_scene(self):
+        """Apercu de la scene (STL + antenne) AVANT tout calcul de beamforming."""
+        import io
+        import contextlib
+        import numpy as np
+        from data.config import Config
+        cfg_over = {k: v for k, v in self._params().items() if not k.startswith("_")}
+        config = Config(overrides=cfg_over)
+        self.log.start("Chargement de la scene (STL + antenne)...")
+        buf = io.StringIO()
+        try:
+            from src.beamforming.beamforming_mesh import load_mesh, transform_mesh
+            from src import read_info
+            with contextlib.redirect_stdout(buf):
+                pts_stl = load_mesh(config.file_mesh, factor_dim=1)
+                points, grid = transform_mesh(
+                    pts_stl, config.rotation_deg,
+                    config.offsetx, config.offsety, config.offsetz)
+                geo = np.asarray(read_info.load_geo_positions(config))
+            spl = np.zeros(len(grid), dtype=float)
+            self.navbar.setVisible(False)
+            logs = self.result_view.render(spl, points, grid, geo, config, show_spheres=True)
+            if buf.getvalue().strip():
+                self.log.append(buf.getvalue())
+            if logs and logs.strip():
+                self.log.append(logs)
+            self.log.stop("Scene affichee.")
+        except Exception:
+            import traceback
+            if buf.getvalue().strip():
+                self.log.append(buf.getvalue())
+            self.log.append(traceback.format_exc())
+            self.log.stop("Echec scene - voir les logs.")
 
     def _on_started(self):
         for b in (self.btn_csm, self.btn_bf, self.btn_plot):

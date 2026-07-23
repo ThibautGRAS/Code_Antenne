@@ -1,14 +1,12 @@
 # -*- coding: utf-8 -*-
-"""Affichage EMBARQUE du resultat, en REUTILISANT src.plot_beamforming (rendu exact).
+"""Affichage EMBARQUE, en REUTILISANT src.plot_beamforming (rendu exact).
 
-Plutot que reimplementer le rendu (ce qui perdait le maillage reconstruit, le
-centrage sur l'objet, l'OBJ...), on APPELLE plot_beamforming et on embarque sa sortie :
-- matplotlib : on recupere la Figure et on l'embarque dans un FigureCanvas Qt.
-  plt.show est neutralise le temps de l'appel (plot_beamforming l'appelle en interne).
-- pyvista : on force plot_beamforming a construire sur un QtInteractor (pyvistaqt),
-  en remplacant temporairement pv.Plotter, puis on embarque ce widget.
-Les impressions de plot_beamforming (dont la coche unicode) sont capturees vers les logs
-(evite aussi le crash cp1252 de la sortie standard).
+On appelle plot_beamforming (qui reconstruit le maillage, centre sur l'objet, gere
+l'OBJ...) et on embarque sa sortie :
+- matplotlib : la Figure dans un FigureCanvas Qt (plt.show neutralise) ;
+- pyvista : pv.Plotter remplace temporairement par un QtInteractor (pyvistaqt).
+`show_spheres=True` sert a l'apercu de scene (STL + antenne) avant calcul.
+Les impressions (dont la coche unicode) sont capturees vers les logs.
 """
 
 import io
@@ -37,20 +35,20 @@ class ResultView(QWidget):
         self._current = w
         self._lay.addWidget(w)
 
-    def render(self, spl_values, points, grid_pts, geo_positions, config):
+    def render(self, spl_values, points, grid_pts, geo_positions, config, show_spheres=False):
         """Rend UNE carte (spl_values) via plot_beamforming et l'embarque."""
         bf = {"SPL_map": spl_values, "points": points,
               "grid_pts": grid_pts, "geo_positions": geo_positions}
         mode = str(getattr(config, "visual_mode", "pyvista")).lower()
         buf = io.StringIO()
         if mode == "matplotlib":
-            widget = self._render_matplotlib(bf, config, buf)
+            widget = self._render_matplotlib(bf, config, buf, show_spheres)
         else:
-            widget = self._render_pyvista(bf, config, buf)
+            widget = self._render_pyvista(bf, config, buf, show_spheres)
         self._set_widget(widget)
         return buf.getvalue()
 
-    def _call_plot(self, bf, config):
+    def _call_plot(self, bf, config, show_spheres):
         from src import beamforming
         return beamforming.plot_beamforming(
             cfg=config,
@@ -58,10 +56,10 @@ class ResultView(QWidget):
             points=bf["points"],
             coordinates_list=bf["grid_pts"],
             geo_positions=bf["geo_positions"],
-            show_spheres=False,
+            show_spheres=show_spheres,
         )
 
-    def _render_matplotlib(self, bf, config, buf):
+    def _render_matplotlib(self, bf, config, buf, show_spheres):
         import matplotlib.pyplot as plt
         from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
         try:
@@ -73,7 +71,7 @@ class ResultView(QWidget):
         plt.show = lambda *a, **k: None  # ne pas bloquer / ouvrir de fenetre
         try:
             with contextlib.redirect_stdout(buf):
-                wrapper = self._call_plot(bf, config)
+                wrapper = self._call_plot(bf, config, show_spheres)
         finally:
             plt.show = orig_show
 
@@ -86,16 +84,16 @@ class ResultView(QWidget):
         lay.addWidget(canvas, 1)
         return container
 
-    def _render_pyvista(self, bf, config, buf):
+    def _render_pyvista(self, bf, config, buf, show_spheres):
         import pyvista as pv
         from pyvistaqt import QtInteractor
 
         inter = QtInteractor(self)
         orig_plotter = pv.Plotter
-        pv.Plotter = lambda *a, **k: inter  # plot_beamforming construit sur notre widget
+        pv.Plotter = lambda *a, **k: inter  # plot_beamforming construit dans notre widget
         try:
             with contextlib.redirect_stdout(buf):
-                self._call_plot(bf, config)
+                self._call_plot(bf, config, show_spheres)
         finally:
             pv.Plotter = orig_plotter
         return inter

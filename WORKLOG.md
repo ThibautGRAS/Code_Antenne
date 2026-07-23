@@ -40,6 +40,18 @@ Code de recherche : on privilégie la **lisibilité** à l'abstraction.
 
 ## 2026-06-28
 
+### App — mesh par fenêtre, mémoire des chemins, aperçu scène, `n_sources` grisé
+- **Mesh** : le champ « Mesh STL » devient un **sélecteur de fichier** (`.stl` ; défaut dans
+  `data/data_mesh` → nom simple si dans ce dossier, sinon chemin absolu).
+- **Mémoire des chemins** : les dialogues (dossier données, mesh) rouvrent au **dernier
+  emplacement** utilisé (via `QSettings` — aucun fichier hors `app/`).
+- **Aperçu scène** : bouton **« Afficher la scène (STL + antenne) »** → trace le maillage +
+  les micros **avant** tout calcul (charge mesh + géométrie, rendu `plot_beamforming` à plat,
+  `show_spheres=True`).
+- **`n_sources`** : grisé si méthode = **bartlett** (utile seulement MUSIC/OBF).
+- **Vérifié (offscreen) :** compile, `n_sources` grisé/actif selon méthode, mesh en picker,
+  bouton scène présent, mémoire des chemins OK, projet 16 clés.
+
 ### App — fix ordre des `.dat` (index 0/1 inversé)
 - **Bug :** le dropdown triait avec `sorted(glob.glob(...))` (chaînes, sensible à la casse)
   alors que `read_info.load_validation_data` trie avec `sorted(Path.glob("*.dat"))` (Path,

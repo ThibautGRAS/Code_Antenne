@@ -7,11 +7,15 @@ type in {"int", "float", "str", "choice", "bool", "folder"}.
 `values()` renvoie {key: valeur} pret a passer a Config(overrides=...).
 """
 
+import os
+
 from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
     QWidget, QFormLayout, QLineEdit, QSpinBox, QDoubleSpinBox,
     QComboBox, QCheckBox, QHBoxLayout, QPushButton, QFileDialog,
 )
+
+from app.widgets.paths import last_dir, remember_dir
 
 
 class ParamForm(QWidget):
@@ -67,18 +71,33 @@ class ParamForm(QWidget):
             w.textChanged.connect(self.changed)
 
     def _wrap(self, s, w):
-        """Pour un champ 'folder' : ajoute un bouton Parcourir a cote du QLineEdit."""
-        if s["type"] != "folder":
+        """Champs 'folder'/'file' : bouton Parcourir + memoire du dernier dossier."""
+        t = s["type"]
+        if t not in ("folder", "file"):
             return w
         box = QWidget()
         lay = QHBoxLayout(box)
         lay.setContentsMargins(0, 0, 0, 0)
         btn = QPushButton("Parcourir...")
+        key = s["key"]
+        base_dir = s.get("base_dir")
+        filt = s.get("filter", "Tous les fichiers (*.*)")
 
         def browse():
-            d = QFileDialog.getExistingDirectory(self, "Choisir le dossier de donnees")
-            if d:
-                w.setText(d)
+            start = last_dir(key) or (base_dir or "")
+            if t == "folder":
+                path = QFileDialog.getExistingDirectory(self, "Choisir un dossier", start)
+            else:
+                path, _sel = QFileDialog.getOpenFileName(self, "Choisir un fichier", start, filt)
+            if not path:
+                return
+            remember_dir(key, path)
+            # Fichier dans le dossier standard -> on stocke juste le nom (projet portable).
+            if (t == "file" and base_dir
+                    and os.path.normcase(os.path.dirname(path)) == os.path.normcase(base_dir)):
+                w.setText(os.path.basename(path))
+            else:
+                w.setText(path)
 
         btn.clicked.connect(browse)
         lay.addWidget(w, 1)
@@ -123,3 +142,7 @@ class ParamForm(QWidget):
             finally:
                 w.blockSignals(False)
         self.changed.emit()
+
+    def widget(self, key):
+        """Acces au widget d'un champ (pour activer/desactiver depuis l'exterieur)."""
+        return self._widgets.get(key)

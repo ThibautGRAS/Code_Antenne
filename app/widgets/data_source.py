@@ -71,8 +71,11 @@ class DataSourceWidget(QWidget):
         self.changed.emit()
 
     def _browse(self):
-        d = QFileDialog.getExistingDirectory(self, "Choisir le dossier de donnees")
+        from app.widgets.paths import last_dir, remember_dir
+        start = last_dir("data_folder") or _DATA_RAW
+        d = QFileDialog.getExistingDirectory(self, "Choisir le dossier de donnees", start)
         if d:
+            remember_dir("data_folder", d)
             self._folder.setText(d)
             self._rescan()
             self.changed.emit()
