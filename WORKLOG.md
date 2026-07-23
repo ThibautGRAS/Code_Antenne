@@ -40,6 +40,13 @@ Code de recherche : on privilégie la **lisibilité** à l'abstraction.
 
 ## 2026-06-28
 
+### src (exception autorisée pour ce fichier) — colorbar pyvista verticale à droite
+- `beamforming_visu.py` / `plot_beamforming_3D_interactive_pyvista` : `add_mesh` reçoit
+  `scalar_bar_args` (vertical, `position_x=0.88`, à droite) → la colorbar ne chevauche plus la
+  grille d'axes du bas (`show_grid`).
+- **Seul fichier hors `app/` modifié**, sur autorisation explicite de l'utilisateur pour ce fichier
+  uniquement (la règle « rien hors `app/` » reste la norme). Paramètres validés (pyvista 0.48.4).
+
 ### App — corrections (bande du bas, panneau résultat, aide) + touche premium
 - **Barre de progression** du bas : **masquée au repos** (fini la bande rouge parasite pleine),
   visible seulement pendant un calcul (mode indéterminé).

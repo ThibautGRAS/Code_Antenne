@@ -375,9 +375,18 @@ def plot_beamforming_3D_interactive_pyvista(
         cmap="jet",
         show_edges=False,
         clim=[SPL_min, SPL_max],
-        opacity=opacity_array
+        opacity=opacity_array,
+        # Colorbar verticale a droite (evite le chevauchement avec la grille d'axes en bas).
+        scalar_bar_args=dict(
+            title=scalar_name,
+            vertical=True,
+            position_x=0.88, position_y=0.12,
+            width=0.07, height=0.76,
+            title_font_size=15, label_font_size=12,
+            n_labels=5, fmt="%.1f",
+        ),
     )
-    
+
 
     
 
