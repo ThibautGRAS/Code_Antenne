@@ -40,6 +40,15 @@ Code de recherche : on privilégie la **lisibilité** à l'abstraction.
 
 ## 2026-06-28
 
+### App/visu — échelle défaut 1.0, accordéon état fiable, carte opaque par défaut (net)
+- **Échelle mesh défaut 1.0** (slider).
+- **CollapsibleCard** : état via booléen interne `_expanded` (fiable ; `isVisible` était faussé
+  quand la fenêtre n'est pas montrée). Clic = ouvre la carte et la garde ouverte (jamais tout replié).
+- **Transparence défaut 0 % (opaque)** : le « moche » venait du **halo de translucidité** — VTK ne
+  rend pas correctement l'opacité **par point** par-dessus un objet opaque dans ce contexte
+  (diagnostiqué par rendus hors-écran : iso3/5/8/9/10 gris ; iso4/6/7 opaque/scalaire = nets).
+  Défaut opaque = **net** (carte colorée + objet sous la dynamique). Slider gardé pour voir à travers.
+
 ### visu — FIX rendu : carte enfin visible (cause trouvée par rendu hors-écran)
 - **Diagnostic** : j'ai découvert que **pyvista rend en hors-écran** ici (`PYVISTA_OFF_SCREEN`,
   `Plotter(off_screen=True).screenshot`) → j'ai pu tester le rendu moi-même. Isolé le bug :

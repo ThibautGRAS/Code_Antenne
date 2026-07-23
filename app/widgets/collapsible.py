@@ -70,8 +70,9 @@ class CollapsibleCard(QFrame):
         self._body.addLayout(lay)
 
     def set_expanded(self, on):
-        self._bodyw.setVisible(on)
-        self._chevron.setText("▾" if on else "▸")  # chevron bas / droite
+        self._expanded = bool(on)
+        self._bodyw.setVisible(self._expanded)
+        self._chevron.setText("▾" if self._expanded else "▸")  # chevron bas / droite
 
     def is_expanded(self):
-        return self._bodyw.isVisible()
+        return getattr(self, "_expanded", False)

@@ -8,7 +8,7 @@ class _ViewSettings:
         self.ssao = True      # occlusion ambiante
         self.pbr = True        # materiau satine
         self.halo = True       # halo sur le point chaud
-        self.opacity = 0.4     # opacite de la carte SPL dans la dynamique (60% transparence)
+        self.opacity = 1.0     # opacite de la carte SPL (1 = opaque = net, defaut)
         # Fond + axes du viewport 3D (mis a jour selon le theme clair/sombre)
         self.bg = "#16273F"
         self.bg_top = "#0B1626"
