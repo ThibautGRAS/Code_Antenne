@@ -14,9 +14,8 @@ QLabel#AppEyebrow { color: #EF3346; font-size: 10px; font-weight: 700; letter-sp
 QLabel#AppTitle { font-size: 17px; font-weight: 700; }
 
 QFrame#Sidebar { background: #0A1524; border: none; }
-QWidget#SideHead { background: #0A1524; }
-QLabel#Brand { color: #FFFFFF; font-size: 15px; font-weight: 700; letter-spacing: 2px; }
-QLabel#BrandSub { color: #6E86A8; font-size: 10px; font-weight: 700; letter-spacing: 2px; }
+QFrame#SideHead { background: #0A1524; border-bottom: 1px solid #22344F; }
+QLabel#Logo { background: #FFFFFF; border-radius: 6px; padding: 6px 8px; }
 QPushButton#Nav { text-align: left; border: none; border-radius: 8px; padding: 11px 14px;
                   margin: 2px 10px; background: transparent; color: #C9D6EA; font-size: 13px; }
 QPushButton#Nav:hover { background: rgba(255,255,255,0.06); color: #FFFFFF; }
@@ -59,7 +58,6 @@ QMainWindow, QWidget { background-color: #0B1626; color: #E7EEF7; font-size: 13p
 QFrame#TopBar { background: #1A2C48; }
 QLabel#AppTitle { color: #FFFFFF; }
 QLabel#TopInfo { color: #93A6C0; font-size: 12px; }
-QLabel#Logo { background: #FFFFFF; border-radius: 6px; padding: 4px 9px; }
 
 QFrame#Card { background: #1A2C48; border: 1px solid #2E466E; border-radius: 12px; }
 QLabel#CardTitle { color: #FFFFFF; font-size: 14px; font-weight: 700; }
@@ -104,7 +102,6 @@ QMainWindow, QWidget { background-color: #F4F6F9; color: #001E50; font-size: 13p
 QFrame#TopBar { background: #FFFFFF; }
 QLabel#AppTitle { color: #001E50; }
 QLabel#TopInfo { color: #5B6672; font-size: 12px; }
-QLabel#Logo { background: transparent; padding: 0; }
 
 QFrame#Card { background: #FFFFFF; border: 1px solid #E6EAF0; border-radius: 12px; }
 QLabel#CardTitle { color: #001E50; font-size: 14px; font-weight: 700; }

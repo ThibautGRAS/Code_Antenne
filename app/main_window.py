@@ -58,16 +58,19 @@ class MainWindow(QMainWindow):
         sl.setContentsMargins(0, 0, 0, 0)
         sl.setSpacing(0)
 
-        head = QVBoxLayout()
-        head.setContentsMargins(20, 22, 18, 20)
-        head.setSpacing(2)
-        name = QLabel("ANTENNEMU")
-        name.setObjectName("Brand")
-        sub = QLabel("POSTE OFFLINE")
-        sub.setObjectName("BrandSub")
-        head.addWidget(name)
-        head.addWidget(sub)
-        sl.addLayout(head)
+        # En-tete : logo CETIM sur plaque blanche, zone delimitee (bordure basse)
+        head = QFrame()
+        head.setObjectName("SideHead")
+        head.setFixedHeight(74)
+        hl = QHBoxLayout(head)
+        hl.setContentsMargins(14, 12, 14, 12)
+        logo = QLabel()
+        logo.setObjectName("Logo")
+        pix = QPixmap(_LOGO)
+        if not pix.isNull():
+            logo.setPixmap(pix.scaledToWidth(168, Qt.SmoothTransformation))  # lockup large -> largeur
+        hl.addWidget(logo)
+        sl.addWidget(head)
 
         self.stack = QStackedWidget()
         self._pages = [
@@ -101,25 +104,17 @@ class MainWindow(QMainWindow):
         bar.setObjectName("TopBar")
         bar.setFixedHeight(64)
         h = QHBoxLayout(bar)
-        h.setContentsMargins(20, 8, 18, 8)
+        h.setContentsMargins(24, 8, 18, 8)
         h.setSpacing(0)
-
-        pix = QPixmap(_LOGO)
-        if not pix.isNull():
-            logo = QLabel()
-            logo.setObjectName("Logo")
-            logo.setPixmap(pix.scaledToHeight(32, Qt.SmoothTransformation))
-            h.addWidget(logo)
-            h.addSpacing(16)
 
         tit = QVBoxLayout()
         tit.setSpacing(1)
-        eb = QLabel("CAMERA ACOUSTIQUE")
-        eb.setObjectName("AppEyebrow")
-        self.page_title = QLabel(self._pages[0][0])
-        self.page_title.setObjectName("AppTitle")
-        tit.addWidget(eb)
-        tit.addWidget(self.page_title)
+        self.page_eyebrow = QLabel(self._pages[0][0].upper())
+        self.page_eyebrow.setObjectName("AppEyebrow")
+        title = QLabel("Imagerie 3D · Antenne acoustique")
+        title.setObjectName("AppTitle")
+        tit.addWidget(self.page_eyebrow)
+        tit.addWidget(title)
         h.addLayout(tit)
         h.addStretch(1)
 
@@ -130,7 +125,7 @@ class MainWindow(QMainWindow):
 
     def _go(self, idx):
         self.stack.setCurrentIndex(idx)
-        self.page_title.setText(self._pages[idx][0])
+        self.page_eyebrow.setText(self._pages[idx][0].upper())
 
     # ------------------------------------------------------------ menu
     def _build_menu(self):

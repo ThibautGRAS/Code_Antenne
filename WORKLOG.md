@@ -40,6 +40,14 @@ Code de recherche : on privilégie la **lisibilité** à l'abstraction.
 
 ## 2026-06-28
 
+### App — logo CETIM en en-tête sidebar (délimité) + titre clarifié
+- **Logo** déplacé dans un **en-tête de sidebar dédié** (plaque blanche + bordure basse) — top-left,
+  bien délimité. Mis à l'échelle sur la **largeur** (lockup 4095×521, ratio ~7.9:1) pour tenir.
+- **Bandeau épuré** : plus de logo ; eyebrow = page courante (majuscules), titre fixe
+  **« Imagerie 3D · Antenne acoustique »**.
+- Retrait du texte de marque ANTENNEMU / POSTE OFFLINE (redondant → « brouillon »).
+- **Vérifié** via captures offscreen (logo net et cadré, bandeau clair).
+
 ### App — thèmes harmonisés (inspectés via captures offscreen)
 - **Bug corrigé** : la règle `QWidget{background}` du thème écrasait `QLabel{background:transparent}`
   (même spécificité, déclarée après) → **tous les labels peignaient le fond de fenêtre** (invisible
