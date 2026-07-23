@@ -51,10 +51,10 @@ class CollapsibleCard(QFrame):
         outer.addWidget(self._bodyw)
 
         eff = QGraphicsDropShadowEffect(self)
-        eff.setBlurRadius(24)
+        eff.setBlurRadius(20)
         eff.setXOffset(0)
-        eff.setYOffset(4)
-        eff.setColor(QColor(0, 0, 0, 120))
+        eff.setYOffset(3)
+        eff.setColor(QColor(0, 30, 80, 70))   # ombre navy sobre (charte)
         self.setGraphicsEffect(eff)
 
         self._head.mousePressEvent = self._on_click

@@ -40,6 +40,18 @@ Code de recherche : on privilégie la **lisibilité** à l'abstraction.
 
 ## 2026-06-28
 
+### App — refonte « à plat » alignée charte (fin du look 2010) + fixes
+- **Refonte QSS plate / éditoriale** conforme à la charte : **suppression des dégradés**, rayons
+  ramenés à **4-6 px**, **ombres teintées navy** (plus de noir), filets nets. (Mes dégradés/glows/
+  gros arrondis faisaient justement « 2010 » et étaient hors charte.)
+- **Fix « combo pas modifiable »** : la flèche déroulante avait disparu (`::drop-down` sur-stylé
+  sans `::down-arrow`) → override retiré → **flèche native restaurée**, les menus (Mesure, Méthode)
+  redeviennent clairement cliquables.
+- **Fix « boutons qui tremblent au survol »** : retrait du **halo animé** sur les boutons ; le survol
+  ne change que la couleur (aucun changement de taille) ; **focus champ en 1 px** (plus de saut).
+- **Menu du haut** plus haut (padding 9 px) ; ombres cartes/bandeau navy sobres.
+- **Vérifié** via captures offscreen (2 thèmes + combo avec flèche).
+
 ### App + visu — rendu 3D intégré (fond sombre), bandeau pro, effets au survol
 - **Rendu pyvista sur fond sombre** dégradé (navy) assorti à l'UI, axes/grille + colorbar en
   **clair** → le 3D ne fait plus « ajouté » (fini le grand rectangle blanc). `beamforming_visu.py`

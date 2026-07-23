@@ -44,10 +44,10 @@ class Card(QFrame):
 
         if shadow:
             eff = QGraphicsDropShadowEffect(self)
-            eff.setBlurRadius(26)
+            eff.setBlurRadius(20)
             eff.setXOffset(0)
-            eff.setYOffset(4)
-            eff.setColor(QColor(0, 0, 0, 120))
+            eff.setYOffset(3)
+            eff.setColor(QColor(0, 30, 80, 70))   # ombre navy sobre (charte)
             self.setGraphicsEffect(eff)
 
     def add(self, w, stretch=0):

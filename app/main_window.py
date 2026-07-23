@@ -164,11 +164,11 @@ class MainWindow(QMainWindow):
         self.lbl_project.setObjectName("TopInfo")
         h.addWidget(self.lbl_project)
 
-        eff = QGraphicsDropShadowEffect(bar)   # profondeur : le bandeau "flotte" au-dessus
-        eff.setBlurRadius(18)
+        eff = QGraphicsDropShadowEffect(bar)   # ombre navy sobre sous le bandeau
+        eff.setBlurRadius(16)
         eff.setXOffset(0)
-        eff.setYOffset(3)
-        eff.setColor(QColor(0, 0, 0, 90))
+        eff.setYOffset(2)
+        eff.setColor(QColor(0, 30, 80, 80))
         bar.setGraphicsEffect(eff)
         return bar
 

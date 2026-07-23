@@ -19,7 +19,6 @@ from PySide6.QtWidgets import (
     QLabel, QSplitter,
 )
 
-from app.widgets.effects import hover_glow
 from app.widgets.collapsible import CollapsibleCard
 from app.widgets.freq_slider import FreqBand
 from app.widgets.form import ParamForm
@@ -102,8 +101,6 @@ class BeamformingPage(QWidget):
         self._update_nsrc()
         self._sync_freq_bounds()
         self._expand(self._cards[0])
-        # halo rouge qui s'intensifie au survol (effet premium)
-        self._glows = [hover_glow(b) for b in (self.btn_csm, self.btn_bf, self.btn_plot)]
         self._refresh()
 
     def _update_nsrc(self, *_):
