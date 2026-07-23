@@ -12,7 +12,7 @@ import sys
 import json
 import tempfile
 
-from PySide6.QtCore import QObject, QProcess, Signal
+from PySide6.QtCore import QObject, QProcess, QProcessEnvironment, Signal
 
 
 class WorkflowRunner(QObject):
@@ -44,6 +44,14 @@ class WorkflowRunner(QObject):
         self._proc.finished.connect(self._on_finished)
         self._proc.setProgram(sys.executable)
         self._proc.setArguments([script_path, self._params_path])
+
+        # Force la sortie du sous-processus en UTF-8 : evite le crash cp1252 sur les
+        # caracteres non-ASCII (ex. la coche unicode imprimee par beamforming_visu)
+        # et les accents mal decodes dans la console de logs (on decode en UTF-8).
+        env = QProcessEnvironment.systemEnvironment()
+        env.insert("PYTHONIOENCODING", "utf-8")
+        self._proc.setProcessEnvironment(env)
+
         self.started.emit()
         self._proc.start()
 
