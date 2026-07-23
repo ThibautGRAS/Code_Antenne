@@ -40,6 +40,13 @@ Code de recherche : on privilégie la **lisibilité** à l'abstraction.
 
 ## 2026-06-28
 
+### App — logo Cubeam thème-aware (blanc en sombre, sans plaque)
+- **Cubeam SVG recoloré à la volée** : navy `#071D45` → **blanc** en thème sombre (accents bleu/rouge
+  conservés), couleur en clair. Affiché **sans plaque** ; mis à jour au changement de thème
+  (`_refresh_cubeam` appelé par `apply_theme`).
+- **CETIM** (PNG couleur) reste sur **plaque blanche** (option B : pas de variante blanche fournie).
+- **Vérifié** (captures 2 thèmes) : Cubeam net et intégré, plus de boîte blanche à droite.
+
 ### App — logos agrandis + plaque arrondie (dark à finaliser)
 - CETIM + Cubeam **agrandis** (sidebar 228, en-têtes 86 px ; CETIM 178w, Cubeam 52h), **plaque
   blanche arrondie** (8 px) + padding. OK en thème clair.

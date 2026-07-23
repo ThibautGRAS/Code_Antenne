@@ -31,13 +31,19 @@ _CUBEAM_CANDIDATES = [
 ]
 
 
-def _logo_pixmap(path, height):
-    """Charge un logo (SVG rendu net a la hauteur voulue, sinon PNG mis a l'echelle)."""
+def _logo_pixmap(path, height, white=False):
+    """Charge un logo. SVG rendu net a la hauteur voulue ; si white=True, le navy #071D45
+    (texte/aretes du Cubeam) est passe en blanc pour le theme sombre (accents conserves)."""
     if path.lower().endswith(".svg"):
         try:
             from PySide6.QtSvg import QSvgRenderer
             from PySide6.QtGui import QPainter
-            r = QSvgRenderer(path)
+            from PySide6.QtCore import QByteArray
+            with open(path, "r", encoding="utf-8") as fh:
+                data = fh.read()
+            if white:
+                data = data.replace("#071D45", "#FFFFFF")   # navy -> blanc (bleu/rouge gardes)
+            r = QSvgRenderer(QByteArray(data.encode("utf-8")))
             if not r.isValid():
                 return None
             ds = r.defaultSize()
@@ -198,15 +204,16 @@ class MainWindow(QMainWindow):
         h.addWidget(self.lbl_project)
 
         # Logo produit "Cubeam 3D" en haut a droite (si le fichier est present)
-        cpath = next((p for p in _CUBEAM_CANDIDATES if os.path.exists(p)), None)
-        if cpath:
-            cpix = _logo_pixmap(cpath, 52)
-            if cpix is not None and not cpix.isNull():
-                clogo = QLabel()
-                clogo.setObjectName("Logo2")
-                clogo.setPixmap(cpix)
-                h.addSpacing(16)
-                h.addWidget(clogo)
+        # Logo "Cubeam 3D" theme-aware : couleur en clair, blanc en sombre (sans plaque).
+        self._cubeam_path = next((p for p in _CUBEAM_CANDIDATES if os.path.exists(p)), None)
+        self._cubeam_logo = None
+        if self._cubeam_path:
+            clogo = QLabel()
+            clogo.setObjectName("Logo2")
+            self._cubeam_logo = clogo
+            h.addSpacing(16)
+            h.addWidget(clogo)
+            self._refresh_cubeam()
 
         eff = QGraphicsDropShadowEffect(bar)   # ombre navy sobre sous le bandeau
         eff.setBlurRadius(16)
@@ -265,10 +272,20 @@ class MainWindow(QMainWindow):
         aide.addSeparator()
         aide.addAction("A propos d'AntenneMu").triggered.connect(self._about)
 
+    def _refresh_cubeam(self):
+        """Logo Cubeam : version blanche en theme sombre, couleur en clair."""
+        if not getattr(self, "_cubeam_logo", None) or not self._cubeam_path:
+            return
+        white = (self._theme_name != "Clair")
+        pm = _logo_pixmap(self._cubeam_path, 52, white=white)
+        if pm is not None and not pm.isNull():
+            self._cubeam_logo.setPixmap(pm)
+
     def apply_theme(self, name):
         self._theme_name = name
         self.setStyleSheet(THEMES.get(name, QSS_DARK))
         VIEW.set_theme(name)   # le fond du rendu 3D suit le theme (clair/sombre)
+        self._refresh_cubeam()  # logo couleur (clair) / blanc (sombre)
         self._rerender()
 
     def _set_cmap(self, cm):
