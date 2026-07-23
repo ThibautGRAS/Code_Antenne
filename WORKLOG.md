@@ -40,6 +40,17 @@ Code de recherche : on privilégie la **lisibilité** à l'abstraction.
 
 ## 2026-06-28
 
+### App + visu — palette & effets 3D réglables (menu Affichage), turbo par défaut
+- **Rendu pyvista paramétrable** : colormap (**turbo** par défaut), **SSAO** (occlusion ambiante),
+  **PBR** (matériau satiné), **halo** sur le point chaud — tous lus depuis `cfg` (`beamforming_visu.py`,
+  fichier autorisé). `add_mesh(cmap=…, pbr=…)`, `enable_ssao`, sphère-halo au max SPL.
+- **Réglages partagés** `app/view_settings.py` (`VIEW`) ; **menu Affichage** : sous-menu *Palette*
+  (turbo / jet / inferno / viridis) + cases *SSAO* / *PBR* / *Halo*. Appliqué **à chaud**
+  (`refresh_view`, caméra conservée).
+- **Vérifié** : compile, menu, wiring VIEW, API pyvista (enable_ssao, add_mesh pbr/smooth_shading).
+  Le rendu final (turbo/effets) reste à confirmer à l'écran (OpenGL non capturable en headless) ;
+  si le PBR assombrit trop, il se désactive dans le menu.
+
 ### App — champs épurés (fin des flèches spinbox) + Mesh STL lecture seule + rendu 3D lissé
 - **Flèches up/down des spinbox supprimées** (vieillottes / mal alignées) → champs numériques épurés
   (saisie directe ; la fréquence garde son slider). Les combos gardent leur flèche déroulante.

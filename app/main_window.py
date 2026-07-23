@@ -14,6 +14,7 @@ from PySide6.QtWidgets import (
 )
 
 from app.theme import THEMES, QSS_DARK
+from app.view_settings import VIEW, CMAPS
 from app.pages.beamforming_page import BeamformingPage
 from app.pages.placeholder_page import PlaceholderPage
 
@@ -196,6 +197,26 @@ class MainWindow(QMainWindow):
             grp.addAction(a)
             thememenu.addAction(a)
 
+        disp.addSeparator()
+        cmapmenu = disp.addMenu("Palette (carte SPL)")
+        cg = QActionGroup(self)
+        cg.setExclusive(True)
+        for cm in CMAPS:
+            a = QAction(cm, self, checkable=True)
+            a.setChecked(cm == VIEW.cmap)
+            a.triggered.connect(lambda _=False, c=cm: self._set_cmap(c))
+            cg.addAction(a)
+            cmapmenu.addAction(a)
+
+        disp.addSeparator()
+        for label, attr in [("Occlusion ambiante (SSAO)", "ssao"),
+                            ("Materiau satine (PBR)", "pbr"),
+                            ("Halo sur le point chaud", "halo")]:
+            a = QAction(label, self, checkable=True)
+            a.setChecked(getattr(VIEW, attr))
+            a.toggled.connect(lambda on, k=attr: self._set_effect(k, on))
+            disp.addAction(a)
+
         aide = mb.addMenu("Aide")
         aide.addAction("Guide d'utilisation").triggered.connect(self._guide)
         aide.addSeparator()
@@ -204,6 +225,19 @@ class MainWindow(QMainWindow):
     def apply_theme(self, name):
         self._theme_name = name
         self.setStyleSheet(THEMES.get(name, QSS_DARK))
+
+    def _set_cmap(self, cm):
+        VIEW.cmap = cm
+        self._rerender()
+
+    def _set_effect(self, attr, on):
+        setattr(VIEW, attr, bool(on))
+        self._rerender()
+
+    def _rerender(self):
+        page = self.stack.currentWidget()
+        if hasattr(page, "refresh_view"):
+            page.refresh_view()
 
     def _guide(self):
         from PySide6.QtWidgets import QDialog, QTextBrowser

@@ -19,6 +19,7 @@ from PySide6.QtWidgets import (
     QLabel, QSplitter,
 )
 
+from app.view_settings import VIEW
 from app.widgets.collapsible import CollapsibleCard
 from app.widgets.freq_slider import FreqBand
 from app.widgets.form import ParamForm
@@ -332,8 +333,17 @@ class BeamformingPage(QWidget):
         self.navbar.setVisible(self._n_maps > 1)
         self._render_current()
 
+    def refresh_view(self):
+        """Re-rend la carte avec les reglages d'affichage courants (menu Affichage)."""
+        if getattr(self, "_maps", None) is not None and self._bf_ready:
+            self._render_current(preserve_view=True)
+
     def _render_current(self, preserve_view=False):
         view = self.result_view.capture_view() if preserve_view else None
+        self._config.cmap = VIEW.cmap      # palette + effets pilotes par le menu Affichage
+        self._config.ssao = VIEW.ssao
+        self._config.pbr = VIEW.pbr
+        self._config.halo = VIEW.halo
         spl = self._maps[self._map_index]
         label = self._labels[self._map_index]
         self.lbl_source.setText(label if self._n_maps > 1 else "")

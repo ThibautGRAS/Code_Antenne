@@ -144,7 +144,11 @@ def plot_beamforming(cfg, SPL_values, points, coordinates_list, geo_positions,sh
             method=cfg.method,
             dynamic_dB=cfg.dyn,
             show_spheres=show_spheres,
-            sphere_radius=cfg.sphere_radius,factor=cfg.factor
+            sphere_radius=cfg.sphere_radius, factor=cfg.factor,
+            cmap=getattr(cfg, "cmap", "turbo"),
+            ssao=getattr(cfg, "ssao", True),
+            pbr=getattr(cfg, "pbr", True),
+            halo=getattr(cfg, "halo", True),
         )
         return PyVistaWrapper(plotter)
 
@@ -266,7 +270,8 @@ def plot_beamforming_3D_interactive_pyvista(
     SPL_values, grid_points, faces, geo_positions,
     scanned_mesh=None,
     method='bartlett', dynamic_dB=5,
-    show_spheres=False, sphere_radius=0.01,factor=1
+    show_spheres=False, sphere_radius=0.01, factor=1,
+    cmap="turbo", ssao=True, pbr=True, halo=True,
 ):
     """
     Version factorisée PyVista avec OBJ optionnel.
@@ -379,10 +384,9 @@ def plot_beamforming_3D_interactive_pyvista(
     else:
         mesh_bf.point_data[scalar_name] = SPL_display
 
-    plotter.add_mesh(
-        mesh_bf,
+    mesh_kwargs = dict(
         scalars=scalar_name,
-        cmap="jet",
+        cmap=cmap,
         show_edges=False,
         smooth_shading=True,          # surface lissee (pas de facettes)
         clim=[SPL_min, SPL_max],
@@ -397,6 +401,9 @@ def plot_beamforming_3D_interactive_pyvista(
             n_labels=5, fmt="%.1f", color="#E7EEF7",
         ),
     )
+    if pbr:
+        mesh_kwargs.update(pbr=True, metallic=0.15, roughness=0.55)
+    plotter.add_mesh(mesh_bf, **mesh_kwargs)
 
 
     
@@ -412,6 +419,27 @@ def plot_beamforming_3D_interactive_pyvista(
     # ============================================================
     plotter.add_axes()
     plotter.show_grid(color="#B8C4D6")
+
+    # Occlusion ambiante : relief/profondeur (effet "wahou").
+    if ssao:
+        try:
+            plotter.enable_ssao(radius=0.15)
+        except Exception:
+            pass
+
+    # Halo doux sur le point chaud (max SPL) pour attirer l'oeil sur la source.
+    if halo:
+        try:
+            gp = np.asarray(grid_points)
+            hidx = int(np.argmax(SPL_values))
+            if 0 <= hidx < len(gp):
+                center = gp[hidx]
+                diag = float(np.linalg.norm(gp.max(axis=0) - gp.min(axis=0)))
+                r = max(1e-3, 0.045 * diag)
+                plotter.add_mesh(pv.Sphere(radius=r, center=center),
+                                 color="#FFE08A", opacity=0.35, smooth_shading=True)
+        except Exception:
+            pass
 
     return plotter
 
