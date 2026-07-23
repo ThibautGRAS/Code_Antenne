@@ -40,6 +40,16 @@ Code de recherche : on privilégie la **lisibilité** à l'abstraction.
 
 ## 2026-06-28
 
+### App — menu Projet, source par dropdown `.dat`, réglages avancés en pop-up
+- **Projet** : menu « Projet » (Ouvrir / Enregistrer / Enregistrer sous) → sauvegarde et
+  recharge tout l'état (paramètres + chemins) en `.json` (`get_project`/`load_project`).
+- **Source de données** : dossier + **menu déroulant des `.dat`** (0, 1, 2… dans l'ordre de
+  `sorted(glob("*.dat"))`, = le `chosen_index` de `read_info`), peuplé depuis le dossier choisi.
+- **Condensé** : `factor` + offsets déplacés dans une pop-up « Réglages mesh avancés… » ;
+  le formulaire principal ne garde que l'essentiel.
+- **Vérifié (offscreen) :** compile, menu présent, round-trip projet OK, `Config` valide,
+  dropdown peuplé depuis le dossier réel (3 mesures trouvées).
+
 ### App — fix affichage embarqué : réutilise `plot_beamforming` (rendu correct)
 - **Problème :** la 1ʳᵉ version de l'embarqué **réimplémentait** un nuage de points → perdait
   le maillage reconstruit et le centrage sur l'objet (on voyait « les micros, pas centré »).

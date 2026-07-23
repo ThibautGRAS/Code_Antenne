@@ -100,3 +100,26 @@ class ParamForm(QWidget):
             else:
                 out[key] = w.text()
         return out
+
+    def set_values(self, d):
+        """Restaure les champs presents dans d (ignore les cles inconnues)."""
+        for key, w in self._widgets.items():
+            if key not in d:
+                continue
+            t = self._specs[key]["type"]
+            v = d[key]
+            w.blockSignals(True)
+            try:
+                if t == "int":
+                    w.setValue(int(v))
+                elif t == "float":
+                    w.setValue(float(v))
+                elif t == "choice":
+                    w.setCurrentText(str(v))
+                elif t == "bool":
+                    w.setChecked(bool(v))
+                else:
+                    w.setText("" if v is None else str(v))
+            finally:
+                w.blockSignals(False)
+        self.changed.emit()

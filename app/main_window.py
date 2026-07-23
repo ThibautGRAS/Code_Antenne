@@ -1,10 +1,12 @@
 # -*- coding: utf-8 -*-
-"""Fenetre principale : navigation laterale + pages empilees."""
+"""Fenetre principale : menu Projet + navigation laterale + pages empilees."""
+
+import json
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QMainWindow, QWidget, QHBoxLayout, QVBoxLayout, QFrame,
-    QPushButton, QStackedWidget, QLabel, QButtonGroup,
+    QPushButton, QStackedWidget, QLabel, QButtonGroup, QFileDialog, QMessageBox,
 )
 
 from app.theme import QSS
@@ -17,9 +19,69 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.setWindowTitle("AntenneMu - Poste de travail (offline)")
         self.setStyleSheet(QSS)
-        self.resize(1100, 700)
+        self.resize(1180, 720)
+        self._project_path = None
+        self._build_menu()
         self._build()
 
+    # ------------------------------------------------------------ menu Projet
+    def _build_menu(self):
+        m = self.menuBar().addMenu("Projet")
+        m.addAction("Ouvrir un projet...").triggered.connect(self._open_project)
+        m.addAction("Enregistrer le projet").triggered.connect(self._save_project)
+        m.addAction("Enregistrer sous...").triggered.connect(self._save_project_as)
+
+    def _current_page(self):
+        w = self.stack.currentWidget()
+        return w if hasattr(w, "get_project") and hasattr(w, "load_project") else None
+
+    def _open_project(self):
+        page = self._current_page()
+        if page is None:
+            return
+        path, _ = QFileDialog.getOpenFileName(
+            self, "Ouvrir un projet", "", "Projet AntenneMu (*.json)")
+        if not path:
+            return
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                page.load_project(json.load(f))
+            self._project_path = path
+            self.setWindowTitle(f"AntenneMu - {path}")
+        except Exception as exc:
+            QMessageBox.critical(self, "Ouverture du projet", str(exc))
+
+    def _save_project(self):
+        if self._project_path:
+            self._write_project(self._project_path)
+        else:
+            self._save_project_as()
+
+    def _save_project_as(self):
+        page = self._current_page()
+        if page is None:
+            return
+        path, _ = QFileDialog.getSaveFileName(
+            self, "Enregistrer le projet", "", "Projet AntenneMu (*.json)")
+        if not path:
+            return
+        if not path.lower().endswith(".json"):
+            path += ".json"
+        self._write_project(path)
+
+    def _write_project(self, path):
+        page = self._current_page()
+        if page is None:
+            return
+        try:
+            with open(path, "w", encoding="utf-8") as f:
+                json.dump(page.get_project(), f, ensure_ascii=False, indent=2)
+            self._project_path = path
+            self.setWindowTitle(f"AntenneMu - {path}")
+        except Exception as exc:
+            QMessageBox.critical(self, "Enregistrement du projet", str(exc))
+
+    # ------------------------------------------------------------ contenu
     def _build(self):
         central = QWidget()
         self.setCentralWidget(central)
@@ -27,10 +89,9 @@ class MainWindow(QMainWindow):
         root.setContentsMargins(0, 0, 0, 0)
         root.setSpacing(0)
 
-        # ----- Barre laterale -----
         side = QFrame()
         side.setObjectName("Sidebar")
-        side.setFixedWidth(220)
+        side.setFixedWidth(210)
         sl = QVBoxLayout(side)
         sl.setContentsMargins(0, 0, 0, 0)
         sl.setSpacing(0)
@@ -41,7 +102,6 @@ class MainWindow(QMainWindow):
         title.setContentsMargins(0, 18, 0, 18)
         sl.addWidget(title)
 
-        # ----- Pages -----
         self.stack = QStackedWidget()
         pages = [
             ("Beamforming 3D", BeamformingPage()),

@@ -1,12 +1,13 @@
 # -*- coding: utf-8 -*-
-"""Page Beamforming 3D : 3 etapes optimisees + affichage EMBARQUE + logs en bas.
+"""Page Beamforming 3D : 3 etapes + affichage embarque + logs en bas.
 
-- Etape 1 (sous-processus) : charge le .dat + calcule la CSM sur une PLAGE -> cache.
-- Etape 2 (sous-processus) : choisit une frequence DANS la plage (filtre le cache,
-  aucun recalcul de CSM) + beamforming -> cache.
-- Etape 3 (IN-PROCESS) : affiche le resultat embarque dans la fenetre (matplotlib
-  ou pyvista selon le parametre "Visualisation").
-Changer un parametre amont re-desactive les etapes aval.
+- Etape 1 (sous-processus) : charge le .dat + CSM sur une PLAGE -> cache.
+- Etape 2 (sous-processus) : choisit une frequence DANS la plage (filtre le cache) +
+  beamforming -> cache. Reglages mesh (scale/offsets) dans une pop-up.
+- Etape 3 (in-process) : affiche le resultat embarque (matplotlib/pyvista).
+
+La source de donnees se choisit par dossier + menu deroulant des .dat. L'etat complet
+(get_project/load_project) est sauvegardable en projet .json via le menu Projet.
 """
 
 import os
@@ -19,6 +20,8 @@ from PySide6.QtWidgets import (
 )
 
 from app.widgets.form import ParamForm
+from app.widgets.data_source import DataSourceWidget
+from app.widgets.param_dialog import ParamDialog
 from app.widgets.log_console import LogConsole
 from app.widgets.result_view import ResultView
 from app.runner import WorkflowRunner
@@ -27,38 +30,31 @@ _WF = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 
 _CSM_SCRIPT = os.path.join(_WF, "csm_run.py")
 _BF_SCRIPT = os.path.join(_WF, "beamforming_run.py")
 
-# Etape 1 : donnees + PLAGE de CSM a precalculer (le plus long).
-_SPEC_CSM = [
-    {"key": "validation_name", "label": "Dossier de donnees", "type": "folder",
-     "default": "DATA_SOURCE",
-     "tip": "Nom du sous-dossier (sous data/data_raw) OU chemin absolu."},
-    {"key": "chosen_index", "label": "Index de la mesure", "type": "int",
-     "default": 0, "min": 0, "max": 9999},
-    {"key": "fmin_bf", "label": "Plage CSM : freq min (Hz)", "type": "int",
+# Etape 1 : plage de CSM (le plus long). La source (dossier + index) est a part.
+_SPEC_CSM_FREQ = [
+    {"key": "fmin_bf", "label": "Plage CSM : min (Hz)", "type": "int",
      "default": 1000, "min": 0, "max": 100000,
-     "tip": "Plage LARGE a precalculer une fois. Le beamforming choisira une "
-            "frequence dedans (etape 2) sans recalculer la CSM."},
-    {"key": "fmax_bf", "label": "Plage CSM : freq max (Hz)", "type": "int",
+     "tip": "Plage LARGE a precalculer une fois ; l'etape 2 choisit une frequence dedans."},
+    {"key": "fmax_bf", "label": "Plage CSM : max (Hz)", "type": "int",
      "default": 3000, "min": 0, "max": 100000},
-    {"key": "delta_f", "label": "Resolution delta_f (Hz)", "type": "int",
+    {"key": "delta_f", "label": "delta_f (Hz)", "type": "int",
      "default": 100, "min": 1, "max": 10000},
-    {"key": "diag_remove", "label": "Retrait diagonale CSM", "type": "bool",
-     "default": True, "tip": "Applique au CALCUL de la CSM -> parametre de l'etape 1."},
+    {"key": "diag_remove", "label": "Retrait diagonale CSM", "type": "bool", "default": True},
 ]
-# Etape 2 : frequence a traiter (dans la plage CSM) + methode + mesh.
-_SPEC_BF = [
+# Etape 2 : frequence a traiter + methode + mesh (l'essentiel).
+_SPEC_BF_MAIN = [
     {"key": "_fsel_min", "label": "Freq a traiter : min (Hz)", "type": "int",
      "default": 2000, "min": 0, "max": 100000,
-     "tip": "Bande a beamformer, choisie DANS la plage CSM (etape 1). "
-            "La changer relance seulement le beamforming, pas la CSM."},
+     "tip": "Dans la plage CSM. La changer relance seulement le beamforming."},
     {"key": "_fsel_max", "label": "Freq a traiter : max (Hz)", "type": "int",
      "default": 2000, "min": 0, "max": 100000},
     {"key": "method", "label": "Methode", "type": "choice",
      "choices": ["bartlett", "music", "obf"], "default": "bartlett"},
-    {"key": "n_sources", "label": "Nb sources (MUSIC/OBF)", "type": "int",
-     "default": 3, "min": 1, "max": 32},
-    {"key": "mesh_name", "label": "Mesh STL", "type": "str",
-     "default": "Source_3D_centre_m.stl"},
+    {"key": "n_sources", "label": "Nb sources", "type": "int", "default": 3, "min": 1, "max": 32},
+    {"key": "mesh_name", "label": "Mesh STL", "type": "str", "default": "Source_3D_centre_m.stl"},
+]
+# Reglages avances (pop-up) : scale + offsets.
+_SPEC_ADV = [
     {"key": "factor", "label": "Echelle mesh", "type": "float",
      "default": 0.95, "decimals": 3, "min": 0.0, "max": 10.0},
     {"key": "offsetx", "label": "Offset X (m)", "type": "float",
@@ -68,7 +64,6 @@ _SPEC_BF = [
     {"key": "offsetz", "label": "Offset Z (m)", "type": "float",
      "default": 0.26, "decimals": 3, "min": -10.0, "max": 10.0},
 ]
-# Etape 3 : visu embarquee.
 _SPEC_PLOT = [
     {"key": "visual_mode", "label": "Visualisation", "type": "choice",
      "choices": ["pyvista", "matplotlib"], "default": "pyvista"},
@@ -91,8 +86,10 @@ class BeamformingPage(QWidget):
 
         self._build()
 
-        self.form_csm.changed.connect(lambda: self._invalidate(1))
-        self.form_bf.changed.connect(lambda: self._invalidate(2))
+        self.data_source.changed.connect(lambda: self._invalidate(1))
+        self.form_csm_freq.changed.connect(lambda: self._invalidate(1))
+        self.form_bf_main.changed.connect(lambda: self._invalidate(2))
+        self.form_adv.changed.connect(lambda: self._invalidate(2))
         self.runner.started.connect(self._on_started)
         self.runner.output.connect(self.log.append)
         self.runner.finished.connect(self._on_finished)
@@ -106,35 +103,60 @@ class BeamformingPage(QWidget):
         clay = QVBoxLayout(controls)
         clay.setContentsMargins(0, 0, 0, 0)
 
-        self.form_csm = ParamForm(_SPEC_CSM)
+        # --- Etape 1 ---
+        self.data_source = DataSourceWidget()
+        self.form_csm_freq = ParamForm(_SPEC_CSM_FREQ)
         self.btn_csm = QPushButton("1 - Charger + CSM")
         self.btn_csm.setObjectName("Run")
         self.btn_csm.clicked.connect(lambda: self._launch(1))
         self.lbl_csm = QLabel()
-        clay.addWidget(self._group("1. Donnees + CSM  (le plus long)",
-                                   self.form_csm, self.btn_csm, self.lbl_csm))
+        g1 = QGroupBox("1. Donnees + CSM  (le plus long)")
+        g1l = QVBoxLayout(g1)
+        g1l.addWidget(self.data_source)
+        g1l.addWidget(self.form_csm_freq)
+        g1l.addWidget(self.btn_csm)
+        self.lbl_csm.setStyleSheet(_MUTED)
+        g1l.addWidget(self.lbl_csm)
+        clay.addWidget(g1)
 
-        self.form_bf = ParamForm(_SPEC_BF)
+        # --- Etape 2 ---
+        self.form_bf_main = ParamForm(_SPEC_BF_MAIN)
+        self.form_adv = ParamForm(_SPEC_ADV)
+        self._adv_dialog = ParamDialog("Reglages mesh (echelle / offsets)", self.form_adv, self)
+        btn_adv = QPushButton("Reglages mesh avances...")
+        btn_adv.clicked.connect(self._adv_dialog.exec)
         self.btn_bf = QPushButton("2 - Beamforming")
         self.btn_bf.setObjectName("Run")
         self.btn_bf.clicked.connect(lambda: self._launch(2))
         self.lbl_bf = QLabel()
-        clay.addWidget(self._group("2. Beamforming  (reutilise la CSM)",
-                                   self.form_bf, self.btn_bf, self.lbl_bf))
+        g2 = QGroupBox("2. Beamforming  (reutilise la CSM)")
+        g2l = QVBoxLayout(g2)
+        g2l.addWidget(self.form_bf_main)
+        g2l.addWidget(btn_adv)
+        g2l.addWidget(self.btn_bf)
+        self.lbl_bf.setStyleSheet(_MUTED)
+        g2l.addWidget(self.lbl_bf)
+        clay.addWidget(g2)
 
+        # --- Etape 3 ---
         self.form_plot = ParamForm(_SPEC_PLOT)
         self.btn_plot = QPushButton("3 - Afficher")
         self.btn_plot.setObjectName("Run")
         self.btn_plot.clicked.connect(self._show_result)
         self.lbl_plot = QLabel()
-        clay.addWidget(self._group("3. Affichage (embarque)",
-                                   self.form_plot, self.btn_plot, self.lbl_plot))
+        g3 = QGroupBox("3. Affichage (embarque)")
+        g3l = QVBoxLayout(g3)
+        g3l.addWidget(self.form_plot)
+        g3l.addWidget(self.btn_plot)
+        self.lbl_plot.setStyleSheet(_MUTED)
+        g3l.addWidget(self.lbl_plot)
+        clay.addWidget(g3)
         clay.addStretch(1)
 
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setWidget(controls)
-        scroll.setFixedWidth(420)
+        scroll.setFixedWidth(400)
 
         self.result_view = ResultView()
 
@@ -153,39 +175,41 @@ class BeamformingPage(QWidget):
         split.setSizes([520, 180])
         outer.addWidget(split)
 
-    def _group(self, title, form, button, status):
-        box = QGroupBox(title)
-        lay = QVBoxLayout(box)
-        lay.addWidget(form)
-        lay.addWidget(button)
-        status.setStyleSheet(_MUTED)
-        lay.addWidget(status)
-        return box
+    # ------------------------------------------------------ projet (get/load)
+    def get_project(self):
+        p = {}
+        p.update(self.data_source.values())
+        p.update(self.form_csm_freq.values())
+        p.update(self.form_bf_main.values())
+        p.update(self.form_adv.values())
+        p.update(self.form_plot.values())
+        return p
+
+    def load_project(self, d):
+        self.data_source.set_values(d)
+        self.form_csm_freq.set_values(d)
+        self.form_bf_main.set_values(d)
+        self.form_adv.set_values(d)
+        self.form_plot.set_values(d)
 
     # -------------------------------------------------------------- logique
     def _params(self):
-        p = {}
-        p.update(self.form_csm.values())
-        p.update(self.form_bf.values())
-        p.update(self.form_plot.values())
+        p = dict(self.get_project())
         p.setdefault("df_band_bf", 1)
         p["_cache_dir"] = self._cache_dir
         return p
 
     def _launch(self, step):
-        """Etapes 1 et 2 : calcul en sous-processus."""
         if self.runner.running:
             return
         script = {1: _CSM_SCRIPT, 2: _BF_SCRIPT}[step]
-        msg = {1: "Etape 1 : chargement + CSM...",
-               2: "Etape 2 : beamforming..."}[step]
+        msg = {1: "Etape 1 : chargement + CSM...", 2: "Etape 2 : beamforming..."}[step]
         self._step = step
         self.log.clear()
         self.log.start(msg)
         self.runner.run(script, self._params())
 
     def _show_result(self):
-        """Etape 3 : affichage EMBARQUE (in-process) via src.plot_beamforming."""
         import numpy as np
         from data.config import Config
         bf_file = os.path.join(self._cache_dir, "bf.npz")
@@ -238,14 +262,12 @@ class BeamformingPage(QWidget):
 
         self.lbl_csm.setText("CSM prete." if self._csm_ready else "CSM a calculer.")
         self.lbl_csm.setStyleSheet(_OK if self._csm_ready else _TODO)
-
         if not self._csm_ready:
             self.lbl_bf.setText("Lancer d'abord l'etape 1.")
             self.lbl_bf.setStyleSheet(_MUTED)
         else:
             self.lbl_bf.setText("Beamforming pret." if self._bf_ready else "A (re)calculer.")
             self.lbl_bf.setStyleSheet(_OK if self._bf_ready else _TODO)
-
         if not self._bf_ready:
             self.lbl_plot.setText("Lancer d'abord l'etape 2.")
             self.lbl_plot.setStyleSheet(_MUTED)
