@@ -40,6 +40,14 @@ Code de recherche : on privilégie la **lisibilité** à l'abstraction.
 
 ## 2026-06-28
 
+### App — CSM précalculée sur une plage : changer la fréquence sans recalcul
+- **Quoi :** l'étape ① précalcule la CSM sur une **plage** (`fmin`/`fmax` large) ; l'étape ②
+  **choisit une fréquence/bande DANS cette plage** (`_fsel_min`/`_fsel_max`, filtre du cache) →
+  changer la fréquence de beamforming ne recalcule plus la CSM. `diag_remove` déplacé en ①
+  (il agit sur le calcul de la CSM).
+- **Vérifié (offscreen) :** éditer la fréquence (param ②) conserve la CSM (`csm_ready` reste
+  vrai, ② actif) ; seule ③ retombe. Params valides côté `Config` (clés `_fsel*` exclues).
+
 ### App — Beamforming en 3 étapes optimisées (cache de session)
 - **Quoi :** la page Beamforming passe en 3 étapes : **① Charger + CSM** (le coûteux),
   **② Beamforming**, **③ Afficher**. Chaque étape écrit un cache `.npz` (dossier temporaire

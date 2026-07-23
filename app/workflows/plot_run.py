@@ -33,13 +33,17 @@ def run(params):
     points = data["points"]
     grid = data["grid_pts"]
     geo = data["geo_positions"]
+    fsel = data["fsel"] if "fsel" in data.files else None
 
     print("[1/1] Ouverture de la visualisation "
           "(fermer la fenetre pour terminer)...", flush=True)
     plotter = beamforming.plot_beamforming(
         cfg=config, SPL_values=spl_map, points=points,
         coordinates_list=grid, show_spheres=False, geo_positions=geo)
-    title = f"BEAMFORMING - fmin={config.fmin_bf:.0f} Hz, fmax={config.fmax_bf:.0f} Hz"
+    if fsel is not None:
+        title = f"BEAMFORMING [{float(fsel[0]):.0f}-{float(fsel[1]):.0f} Hz]"
+    else:
+        title = f"BEAMFORMING - fmin={config.fmin_bf:.0f} Hz, fmax={config.fmax_bf:.0f} Hz"
     plotter.show(title=title)
     print("[OK] Termine.", flush=True)
 

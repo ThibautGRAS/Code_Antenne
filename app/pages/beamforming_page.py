@@ -25,28 +25,38 @@ _CSM_SCRIPT = os.path.join(_WF, "csm_run.py")
 _BF_SCRIPT = os.path.join(_WF, "beamforming_run.py")
 _PLOT_SCRIPT = os.path.join(_WF, "plot_run.py")
 
-# Etape 1 : donnees + frequences -> definit la CSM (le plus long).
+# Etape 1 : donnees + PLAGE de CSM a precalculer (le plus long). On calcule la CSM
+# sur une plage large ; l'etape 2 y choisira une frequence sans recalcul.
 _SPEC_CSM = [
     {"key": "validation_name", "label": "Dossier de donnees", "type": "folder",
      "default": "DATA_SOURCE",
      "tip": "Nom du sous-dossier (sous data/data_raw) OU chemin absolu."},
     {"key": "chosen_index", "label": "Index de la mesure", "type": "int",
      "default": 0, "min": 0, "max": 9999},
-    {"key": "fmin_bf", "label": "Frequence min (Hz)", "type": "int",
-     "default": 2000, "min": 0, "max": 100000},
-    {"key": "fmax_bf", "label": "Frequence max (Hz)", "type": "int",
-     "default": 2005, "min": 0, "max": 100000},
+    {"key": "fmin_bf", "label": "Plage CSM : freq min (Hz)", "type": "int",
+     "default": 1000, "min": 0, "max": 100000,
+     "tip": "Plage LARGE a precalculer une fois. Le beamforming choisira une "
+            "frequence dedans (etape 2) sans recalculer la CSM."},
+    {"key": "fmax_bf", "label": "Plage CSM : freq max (Hz)", "type": "int",
+     "default": 3000, "min": 0, "max": 100000},
     {"key": "delta_f", "label": "Resolution delta_f (Hz)", "type": "int",
      "default": 100, "min": 1, "max": 10000},
+    {"key": "diag_remove", "label": "Retrait diagonale CSM", "type": "bool",
+     "default": True, "tip": "Applique au CALCUL de la CSM -> parametre de l'etape 1."},
 ]
-# Etape 2 : methode + mesh -> beamforming (reutilise la CSM).
+# Etape 2 : frequence a traiter (dans la plage CSM) + methode + mesh.
+# Changer la frequence ici NE recalcule PAS la CSM (on filtre le cache).
 _SPEC_BF = [
+    {"key": "_fsel_min", "label": "Freq a traiter : min (Hz)", "type": "int",
+     "default": 2000, "min": 0, "max": 100000,
+     "tip": "Bande a beamformer, choisie DANS la plage CSM (etape 1). "
+            "La changer relance seulement le beamforming, pas la CSM."},
+    {"key": "_fsel_max", "label": "Freq a traiter : max (Hz)", "type": "int",
+     "default": 2000, "min": 0, "max": 100000},
     {"key": "method", "label": "Methode", "type": "choice",
      "choices": ["bartlett", "music", "obf"], "default": "bartlett"},
     {"key": "n_sources", "label": "Nb sources (MUSIC/OBF)", "type": "int",
      "default": 3, "min": 1, "max": 32},
-    {"key": "diag_remove", "label": "Retrait diagonale CSM", "type": "bool",
-     "default": True},
     {"key": "mesh_name", "label": "Mesh STL", "type": "str",
      "default": "Source_3D_centre_m.stl"},
     {"key": "factor", "label": "Echelle mesh", "type": "float",
