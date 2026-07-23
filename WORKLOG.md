@@ -40,6 +40,17 @@ Code de recherche : on privilégie la **lisibilité** à l'abstraction.
 
 ## 2026-06-28
 
+### App — Beamforming en 3 étapes optimisées (cache de session)
+- **Quoi :** la page Beamforming passe en 3 étapes : **① Charger + CSM** (le coûteux),
+  **② Beamforming**, **③ Afficher**. Chaque étape écrit un cache `.npz` (dossier temporaire
+  de session) que la suivante relit ; changer un param amont ré-invalide les étapes aval.
+- **Pourquoi :** ne plus recharger le `.dat` + recalculer la CSM (FFT) à chaque tweak.
+  Change le mesh/méthode → re-run **②③** ; change la visu → **③** ; change les fréquences → tout.
+- **Archi :** 3 workflows sous-processus (`csm_run`, `beamforming_run`, `plot_run`) +
+  `ParamForm.changed` qui pilote l'invalidation. Toujours **zéro modif de `src/`**.
+- **Vérifié (offscreen) :** compile, se construit, machine à états correcte (boutons
+  activés/désactivés selon ce qui est prêt, réutilisation de la CSM). Reste à tester en réel.
+
 ### App offline : nouvelle interface graphique (dossier `app/`)
 - **Quoi :** appli PySide6 autonome (`app/`, lancée par `python -m app` depuis la racine)
   pour exécuter les workflows offline sans coder. **Squelette complet** (thème sombre,

@@ -1,30 +1,35 @@
 # -*- coding: utf-8 -*-
-"""Page Beamforming 3D (cube) : configure les parametres et lance le calcul.
+"""Page Beamforming 3D en 3 etapes optimisees (cache de session).
 
-Equivalent GUI de main_BEAMFORMING_cube.py. Le calcul tourne en sous-processus
-(app/workflows/beamforming_run.py) ; ici on ne fait QUE construire les params et
-afficher les logs.
+Le couteux (charger le .dat + calculer la CSM) est fait UNE fois (etape 1) et mis
+en cache ; le beamforming (etape 2) et l'affichage (etape 3) le reutilisent.
+Changer un parametre amont re-desactive les etapes aval (marquees "a recalculer").
+
+Chaque etape tourne en sous-processus (app/workflows/*.py) et lit/ecrit un cache
+`.npz` dans un dossier temporaire de session (nettoye a la fermeture).
 """
 
 import os
+import tempfile
 
 from PySide6.QtWidgets import (
-    QWidget, QHBoxLayout, QVBoxLayout, QGroupBox, QPushButton, QScrollArea,
+    QWidget, QHBoxLayout, QVBoxLayout, QGroupBox, QPushButton, QScrollArea, QLabel,
 )
 
 from app.widgets.form import ParamForm
 from app.widgets.log_console import LogConsole
 from app.runner import WorkflowRunner
 
-# app/pages/ -> app/ -> .../app/workflows/beamforming_run.py
-_APP_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-_SCRIPT = os.path.join(_APP_DIR, "workflows", "beamforming_run.py")
+_WF = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "workflows")
+_CSM_SCRIPT = os.path.join(_WF, "csm_run.py")
+_BF_SCRIPT = os.path.join(_WF, "beamforming_run.py")
+_PLOT_SCRIPT = os.path.join(_WF, "plot_run.py")
 
-# Defauts alignes sur config.yaml / le params_main de main_BEAMFORMING_cube.
-_SPECS = [
+# Etape 1 : donnees + frequences -> definit la CSM (le plus long).
+_SPEC_CSM = [
     {"key": "validation_name", "label": "Dossier de donnees", "type": "folder",
      "default": "DATA_SOURCE",
-     "tip": "Nom du sous-dossier (sous data/data_raw) OU chemin absolu vers les signaux."},
+     "tip": "Nom du sous-dossier (sous data/data_raw) OU chemin absolu."},
     {"key": "chosen_index", "label": "Index de la mesure", "type": "int",
      "default": 0, "min": 0, "max": 9999},
     {"key": "fmin_bf", "label": "Frequence min (Hz)", "type": "int",
@@ -33,6 +38,9 @@ _SPECS = [
      "default": 2005, "min": 0, "max": 100000},
     {"key": "delta_f", "label": "Resolution delta_f (Hz)", "type": "int",
      "default": 100, "min": 1, "max": 10000},
+]
+# Etape 2 : methode + mesh -> beamforming (reutilise la CSM).
+_SPEC_BF = [
     {"key": "method", "label": "Methode", "type": "choice",
      "choices": ["bartlett", "music", "obf"], "default": "bartlett"},
     {"key": "n_sources", "label": "Nb sources (MUSIC/OBF)", "type": "int",
@@ -49,58 +57,154 @@ _SPECS = [
      "default": 0.77, "decimals": 3, "min": -10.0, "max": 10.0},
     {"key": "offsetz", "label": "Offset Z (m)", "type": "float",
      "default": 0.26, "decimals": 3, "min": -10.0, "max": 10.0},
+]
+# Etape 3 : visu.
+_SPEC_PLOT = [
     {"key": "visual_mode", "label": "Visualisation", "type": "choice",
      "choices": ["pyvista", "matplotlib"], "default": "pyvista"},
 ]
+
+_OK = "color: rgb(90,200,120);"
+_TODO = "color: rgb(230,180,80);"
+_MUTED = "color: rgb(150,165,185);"
 
 
 class BeamformingPage(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.runner = WorkflowRunner(self)
+        # Cache de session : dossier temporaire, nettoye quand la page est detruite.
+        self._tmp = tempfile.TemporaryDirectory(prefix="antennemu_bf_")
+        self._cache_dir = self._tmp.name
+        self._csm_ready = False
+        self._bf_ready = False
+        self._step = None
+
         self._build()
-        self.runner.started.connect(lambda: self._set_running(True))
+
+        self.form_csm.changed.connect(lambda: self._invalidate(1))
+        self.form_bf.changed.connect(lambda: self._invalidate(2))
+        self.runner.started.connect(self._on_started)
         self.runner.output.connect(self.log.append)
         self.runner.finished.connect(self._on_finished)
+        self._refresh()
 
+    # ------------------------------------------------------------------ UI
     def _build(self):
         root = QHBoxLayout(self)
 
-        box = QGroupBox("Parametres")
-        boxlay = QVBoxLayout(box)
-        self.form = ParamForm(_SPECS)
-        boxlay.addWidget(self.form)
-        self.run_btn = QPushButton("Lancer le beamforming")
-        self.run_btn.setObjectName("Run")
-        self.run_btn.clicked.connect(self._launch)
-        boxlay.addWidget(self.run_btn)
-        boxlay.addStretch(1)
+        col = QWidget()
+        collay = QVBoxLayout(col)
+        collay.setContentsMargins(0, 0, 0, 0)
+
+        self.form_csm = ParamForm(_SPEC_CSM)
+        self.btn_csm = QPushButton("1 - Charger + CSM")
+        self.btn_csm.setObjectName("Run")
+        self.btn_csm.clicked.connect(lambda: self._launch(1))
+        self.lbl_csm = QLabel()
+        collay.addWidget(self._group("1. Donnees + CSM  (le plus long)",
+                                     self.form_csm, self.btn_csm, self.lbl_csm))
+
+        self.form_bf = ParamForm(_SPEC_BF)
+        self.btn_bf = QPushButton("2 - Beamforming")
+        self.btn_bf.setObjectName("Run")
+        self.btn_bf.clicked.connect(lambda: self._launch(2))
+        self.lbl_bf = QLabel()
+        collay.addWidget(self._group("2. Beamforming  (reutilise la CSM)",
+                                     self.form_bf, self.btn_bf, self.lbl_bf))
+
+        self.form_plot = ParamForm(_SPEC_PLOT)
+        self.btn_plot = QPushButton("3 - Afficher")
+        self.btn_plot.setObjectName("Run")
+        self.btn_plot.clicked.connect(lambda: self._launch(3))
+        self.lbl_plot = QLabel()
+        collay.addWidget(self._group("3. Affichage 3D",
+                                     self.form_plot, self.btn_plot, self.lbl_plot))
+
+        collay.addStretch(1)
 
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
-        scroll.setWidget(box)
-        scroll.setFixedWidth(380)
+        scroll.setWidget(col)
+        scroll.setFixedWidth(410)
         root.addWidget(scroll)
 
         self.log = LogConsole()
         root.addWidget(self.log, 1)
 
-    def _launch(self):
+    def _group(self, title, form, button, status):
+        box = QGroupBox(title)
+        lay = QVBoxLayout(box)
+        lay.addWidget(form)
+        lay.addWidget(button)
+        status.setStyleSheet(_MUTED)
+        lay.addWidget(status)
+        return box
+
+    # -------------------------------------------------------------- logique
+    def _params(self):
+        p = {}
+        p.update(self.form_csm.values())
+        p.update(self.form_bf.values())
+        p.update(self.form_plot.values())
+        p.setdefault("df_band_bf", 1)   # champ avance laisse au defaut
+        p["_cache_dir"] = self._cache_dir
+        return p
+
+    def _launch(self, step):
         if self.runner.running:
             return
-        params = self.form.values()
-        params.setdefault("df_band_bf", 1)  # champ avance laisse au defaut
+        script = {1: _CSM_SCRIPT, 2: _BF_SCRIPT, 3: _PLOT_SCRIPT}[step]
+        msg = {1: "Etape 1 : chargement + CSM...",
+               2: "Etape 2 : beamforming...",
+               3: "Etape 3 : affichage..."}[step]
+        self._step = step
         self.log.clear()
-        self.log.append(f"[params] {params}")
-        self.log.start("Beamforming en cours...")
-        self.runner.run(_SCRIPT, params)
+        self.log.start(msg)
+        self.runner.run(script, self._params())
 
-    def _set_running(self, running):
-        self.run_btn.setEnabled(not running)
+    def _on_started(self):
+        for b in (self.btn_csm, self.btn_bf, self.btn_plot):
+            b.setEnabled(False)
 
     def _on_finished(self, code):
-        self._set_running(False)
-        if code == 0:
-            self.log.stop("Termine avec succes.")
+        ok = (code == 0)
+        if ok and self._step == 1:
+            self._csm_ready = True
+            self._bf_ready = False   # la CSM a change -> beamforming a refaire
+        elif ok and self._step == 2:
+            self._bf_ready = True
+        self.log.stop("Termine." if ok else f"Echec (code {code}) - voir les logs.")
+        self._refresh()
+
+    def _invalidate(self, level):
+        """Un param amont a change : les etapes aval redeviennent 'a recalculer'."""
+        if level <= 1:
+            self._csm_ready = False
+            self._bf_ready = False
+        elif level == 2:
+            self._bf_ready = False
+        self._refresh()
+
+    def _refresh(self):
+        running = self.runner.running
+        self.btn_csm.setEnabled(not running)
+        self.btn_bf.setEnabled(self._csm_ready and not running)
+        self.btn_plot.setEnabled(self._bf_ready and not running)
+
+        self.lbl_csm.setText("CSM prete." if self._csm_ready else "CSM a calculer.")
+        self.lbl_csm.setStyleSheet(_OK if self._csm_ready else _TODO)
+
+        if not self._csm_ready:
+            self.lbl_bf.setText("Lancer d'abord l'etape 1.")
+            self.lbl_bf.setStyleSheet(_MUTED)
         else:
-            self.log.stop(f"Echec (code {code}) - voir les logs ci-dessus.")
+            self.lbl_bf.setText("Beamforming pret." if self._bf_ready else "A (re)calculer.")
+            self.lbl_bf.setStyleSheet(_OK if self._bf_ready else _TODO)
+
+        if not self._bf_ready:
+            self.lbl_plot.setText("Lancer d'abord l'etape 2.")
+            self.lbl_plot.setStyleSheet(_MUTED)
+        else:
+            self.lbl_plot.setText("Pret a afficher.")
+            self.lbl_plot.setStyleSheet(_OK)

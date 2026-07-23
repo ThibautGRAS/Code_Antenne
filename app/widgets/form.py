@@ -7,6 +7,7 @@ type in {"int", "float", "str", "choice", "bool", "folder"}.
 `values()` renvoie {key: valeur} pret a passer a Config(overrides=...).
 """
 
+from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
     QWidget, QFormLayout, QLineEdit, QSpinBox, QDoubleSpinBox,
     QComboBox, QCheckBox, QHBoxLayout, QPushButton, QFileDialog,
@@ -14,6 +15,8 @@ from PySide6.QtWidgets import (
 
 
 class ParamForm(QWidget):
+    changed = Signal()  # emis des qu'un champ change (pour invalider les caches aval)
+
     def __init__(self, specs, parent=None):
         super().__init__(parent)
         self._specs = {s["key"]: s for s in specs}
@@ -49,7 +52,19 @@ class ParamForm(QWidget):
             w = QLineEdit(str(s.get("default", "") or ""))
         if s.get("tip"):
             w.setToolTip(s["tip"])
+        self._connect_change(t, w)
         return w
+
+    def _connect_change(self, t, w):
+        """Relaie tout changement de champ vers le signal `changed`."""
+        if t in ("int", "float"):
+            w.valueChanged.connect(self.changed)
+        elif t == "choice":
+            w.currentIndexChanged.connect(self.changed)
+        elif t == "bool":
+            w.toggled.connect(self.changed)
+        else:
+            w.textChanged.connect(self.changed)
 
     def _wrap(self, s, w):
         """Pour un champ 'folder' : ajoute un bouton Parcourir a cote du QLineEdit."""
