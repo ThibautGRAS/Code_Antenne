@@ -136,12 +136,12 @@ class MainWindow(QMainWindow):
     def _sidebar(self):
         side = QFrame()
         side.setObjectName("Sidebar")
-        side.setFixedWidth(210)
+        side.setFixedWidth(66)          # rail compact d'icones
         sl = QVBoxLayout(side)
         sl.setContentsMargins(0, 0, 0, 0)
-        sl.setSpacing(0)
+        sl.setSpacing(2)
 
-        sl.addSpacing(16)   # (logo CETIM retire : sidebar = navigation seule)
+        sl.addSpacing(12)
 
         self.stack = QStackedWidget()
         self._pages = [
@@ -153,13 +153,15 @@ class MainWindow(QMainWindow):
                 "Calibration",
                 "Workflow a brancher (equivalent de main_CALIB).")),
         ]
+        icons = ["\U0001F3AF", "\U0001F4CA", "\U0001F39B"]   # 🎯 📊 🎚
 
         self._navgroup = QButtonGroup(self)
         self._navgroup.setExclusive(True)
         for i, (nm, page) in enumerate(self._pages):
             self.stack.addWidget(page)
-            btn = QPushButton(nm)
+            btn = QPushButton(icons[i])
             btn.setObjectName("Nav")
+            btn.setToolTip(nm)                  # nom complet au survol
             btn.setCheckable(True)
             btn.clicked.connect(lambda _=False, idx=i: self._go(idx))
             self._navgroup.addButton(btn)
@@ -168,8 +170,9 @@ class MainWindow(QMainWindow):
                 btn.setChecked(True)
 
         sl.addStretch(1)
-        ver = QLabel(f"Cubeam 3D  ·  v{APP_VERSION}")
+        ver = QLabel(f"v{APP_VERSION}")
         ver.setObjectName("Version")
+        ver.setAlignment(Qt.AlignCenter)
         sl.addWidget(ver)
         return side
 

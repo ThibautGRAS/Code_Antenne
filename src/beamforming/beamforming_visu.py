@@ -339,25 +339,20 @@ def plot_beamforming_3D_interactive_pyvista(
         print("Scanned Object")
     
     else:
-        # ============================================================
-        # 2) Création d'une copie SCALÉE des points
-        # ============================================================
-        # 1) Centre du mesh
+        # Fond STL gris, LEGEREMENT EN RETRAIT (0.97) : il ne doit PAS etre coincident avec la
+        # carte (un opaque coincident masque le fondu translucide - limite VTK). La carte BF
+        # (fondu) se pose ainsi dessus et le gris apparait dans les zones faibles.
         center = grid_points.mean(axis=0)
-        
-        grid_points_scaled = grid_points.copy()        
-        # Translation vers l'origine
-        grid_points_scaled -= center        
-        # Scaling
-        grid_points_scaled *= factor        
-        # Retour à la position d'origine
-        grid_points_scaled += center
-        
-        # Mode STL (pas d'OBJ) : on NE dessine PAS de base grise coincidente -> elle masquerait
-        # le fondu translucide de la carte (limite VTK : translucide derriere opaque coincident).
-        # Le fondu s'affiche seul : l'objet apparait la ou il y a du niveau et s'estompe ailleurs.
-        # Charger un .obj (mode OBJ) pour un objet plein texture derriere la carte.
-        pass
+        gps = grid_points.copy()
+        gps -= center
+        gps *= 0.97
+        gps += center
+        faces_pv_base = np.hstack([np.full((faces.shape[0], 1), 3), faces]).astype(np.int64)
+        mesh_base = pv.PolyData(gps, faces_pv_base)
+        base_kwargs = dict(color="lightgray", opacity=1, show_edges=False, smooth_shading=True)
+        if pbr:
+            base_kwargs.update(pbr=True, metallic=0.2, roughness=0.5)
+        plotter.add_mesh(mesh_base, **base_kwargs)
        
 
 

@@ -40,6 +40,15 @@ Code de recherche : on privilégie la **lisibilité** à l'abstraction.
 
 ## 2026-06-28
 
+### App/visu — fond STL gris derrière la carte + rail d'icônes + version compacte
+- **Fond derrière la carte** : mode STL → **STL gris légèrement en retrait (0.97)** (non coïncident,
+  sinon il masque le fondu) ; mode OBJ → l'objet texturé. La transparence de la carte révèle donc
+  **l'objet** (plus le vide). Vérifié par rendu (fondu + STL gris derrière).
+- **Navigation en rail d'ICÔNES** (sidebar 66 px) : icône + info-bulle du nom complet ; le bandeau
+  affiche la page courante. → gros gain de place pour le contenu.
+- **Version « v1.0.0 »** en bas du rail. Échelle **OBJ / BF** grisée sans OBJ (a du sens seulement
+  avec un OBJ : aligner l'objet scanné fin sur le maillage BF refait).
+
 ### visu — FONDU restauré et VÉRIFIÉ (RGBA par point) + pas de base grise coïncidente en STL
 - **Cause du « toujours gris »** (vérifiée par rendus hors-écran) : (1) passer l'opacité en **tableau**
   au param `opacity` **casse le coloriage** dans pyvista (iso11/iso15 gris) ; (2) un overlay
