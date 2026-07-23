@@ -40,6 +40,18 @@ Code de recherche : on privilégie la **lisibilité** à l'abstraction.
 
 ## 2026-06-28
 
+### App — affichage embarqué (matplotlib + pyvista) + logs en bas
+- **Quoi :** l'étape ③ n'ouvre plus une fenêtre séparée : le résultat s'affiche **dans** le GUI
+  (nuage de points du maillage coloré par le niveau dB + micros), au choix en **matplotlib**
+  (FigureCanvas Qt, interactif) ou **pyvista** (QtInteractor via pyvistaqt) selon le paramètre
+  « Visualisation ». Les **logs passent en bas** (QSplitter vertical). ① et ② restent en
+  sous-processus ; ③ rend in-process. Nouveau widget `app/widgets/result_view.py` ;
+  `plot_run.py` supprimé.
+- **Deps :** `pyvistaqt` installé dans le venv (**non** ajouté au `pyproject`, hors `app/` —
+  à faire plus tard). Liaison Qt unifiée (`QT_API=pyside6`, `MPLBACKEND=QtAgg`).
+- **Vérifié (offscreen) :** compile, fenêtre construite, embed matplotlib OK. Le rendu pyvista
+  (QtInteractor) nécessite un écran → à tester en réel.
+
 ### App — CSM précalculée sur une plage : changer la fréquence sans recalcul
 - **Quoi :** l'étape ① précalcule la CSM sur une **plage** (`fmin`/`fmax` large) ; l'étape ②
   **choisit une fréquence/bande DANS cette plage** (`_fsel_min`/`_fsel_max`, filtre du cache) →

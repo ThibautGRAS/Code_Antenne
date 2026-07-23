@@ -1,32 +1,33 @@
 # -*- coding: utf-8 -*-
-"""Page Beamforming 3D en 3 etapes optimisees (cache de session).
+"""Page Beamforming 3D : 3 etapes optimisees + affichage EMBARQUE + logs en bas.
 
-Le couteux (charger le .dat + calculer la CSM) est fait UNE fois (etape 1) et mis
-en cache ; le beamforming (etape 2) et l'affichage (etape 3) le reutilisent.
-Changer un parametre amont re-desactive les etapes aval (marquees "a recalculer").
-
-Chaque etape tourne en sous-processus (app/workflows/*.py) et lit/ecrit un cache
-`.npz` dans un dossier temporaire de session (nettoye a la fermeture).
+- Etape 1 (sous-processus) : charge le .dat + calcule la CSM sur une PLAGE -> cache.
+- Etape 2 (sous-processus) : choisit une frequence DANS la plage (filtre le cache,
+  aucun recalcul de CSM) + beamforming -> cache.
+- Etape 3 (IN-PROCESS) : affiche le resultat embarque dans la fenetre (matplotlib
+  ou pyvista selon le parametre "Visualisation").
+Changer un parametre amont re-desactive les etapes aval.
 """
 
 import os
 import tempfile
 
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
-    QWidget, QHBoxLayout, QVBoxLayout, QGroupBox, QPushButton, QScrollArea, QLabel,
+    QWidget, QHBoxLayout, QVBoxLayout, QGroupBox, QPushButton, QScrollArea,
+    QLabel, QSplitter,
 )
 
 from app.widgets.form import ParamForm
 from app.widgets.log_console import LogConsole
+from app.widgets.result_view import ResultView
 from app.runner import WorkflowRunner
 
 _WF = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "workflows")
 _CSM_SCRIPT = os.path.join(_WF, "csm_run.py")
 _BF_SCRIPT = os.path.join(_WF, "beamforming_run.py")
-_PLOT_SCRIPT = os.path.join(_WF, "plot_run.py")
 
-# Etape 1 : donnees + PLAGE de CSM a precalculer (le plus long). On calcule la CSM
-# sur une plage large ; l'etape 2 y choisira une frequence sans recalcul.
+# Etape 1 : donnees + PLAGE de CSM a precalculer (le plus long).
 _SPEC_CSM = [
     {"key": "validation_name", "label": "Dossier de donnees", "type": "folder",
      "default": "DATA_SOURCE",
@@ -45,7 +46,6 @@ _SPEC_CSM = [
      "default": True, "tip": "Applique au CALCUL de la CSM -> parametre de l'etape 1."},
 ]
 # Etape 2 : frequence a traiter (dans la plage CSM) + methode + mesh.
-# Changer la frequence ici NE recalcule PAS la CSM (on filtre le cache).
 _SPEC_BF = [
     {"key": "_fsel_min", "label": "Freq a traiter : min (Hz)", "type": "int",
      "default": 2000, "min": 0, "max": 100000,
@@ -68,7 +68,7 @@ _SPEC_BF = [
     {"key": "offsetz", "label": "Offset Z (m)", "type": "float",
      "default": 0.26, "decimals": 3, "min": -10.0, "max": 10.0},
 ]
-# Etape 3 : visu.
+# Etape 3 : visu embarquee.
 _SPEC_PLOT = [
     {"key": "visual_mode", "label": "Visualisation", "type": "choice",
      "choices": ["pyvista", "matplotlib"], "default": "pyvista"},
@@ -83,7 +83,6 @@ class BeamformingPage(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.runner = WorkflowRunner(self)
-        # Cache de session : dossier temporaire, nettoye quand la page est detruite.
         self._tmp = tempfile.TemporaryDirectory(prefix="antennemu_bf_")
         self._cache_dir = self._tmp.name
         self._csm_ready = False
@@ -101,46 +100,58 @@ class BeamformingPage(QWidget):
 
     # ------------------------------------------------------------------ UI
     def _build(self):
-        root = QHBoxLayout(self)
+        outer = QVBoxLayout(self)
 
-        col = QWidget()
-        collay = QVBoxLayout(col)
-        collay.setContentsMargins(0, 0, 0, 0)
+        controls = QWidget()
+        clay = QVBoxLayout(controls)
+        clay.setContentsMargins(0, 0, 0, 0)
 
         self.form_csm = ParamForm(_SPEC_CSM)
         self.btn_csm = QPushButton("1 - Charger + CSM")
         self.btn_csm.setObjectName("Run")
         self.btn_csm.clicked.connect(lambda: self._launch(1))
         self.lbl_csm = QLabel()
-        collay.addWidget(self._group("1. Donnees + CSM  (le plus long)",
-                                     self.form_csm, self.btn_csm, self.lbl_csm))
+        clay.addWidget(self._group("1. Donnees + CSM  (le plus long)",
+                                   self.form_csm, self.btn_csm, self.lbl_csm))
 
         self.form_bf = ParamForm(_SPEC_BF)
         self.btn_bf = QPushButton("2 - Beamforming")
         self.btn_bf.setObjectName("Run")
         self.btn_bf.clicked.connect(lambda: self._launch(2))
         self.lbl_bf = QLabel()
-        collay.addWidget(self._group("2. Beamforming  (reutilise la CSM)",
-                                     self.form_bf, self.btn_bf, self.lbl_bf))
+        clay.addWidget(self._group("2. Beamforming  (reutilise la CSM)",
+                                   self.form_bf, self.btn_bf, self.lbl_bf))
 
         self.form_plot = ParamForm(_SPEC_PLOT)
         self.btn_plot = QPushButton("3 - Afficher")
         self.btn_plot.setObjectName("Run")
-        self.btn_plot.clicked.connect(lambda: self._launch(3))
+        self.btn_plot.clicked.connect(self._show_result)
         self.lbl_plot = QLabel()
-        collay.addWidget(self._group("3. Affichage 3D",
-                                     self.form_plot, self.btn_plot, self.lbl_plot))
-
-        collay.addStretch(1)
+        clay.addWidget(self._group("3. Affichage (embarque)",
+                                   self.form_plot, self.btn_plot, self.lbl_plot))
+        clay.addStretch(1)
 
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
-        scroll.setWidget(col)
-        scroll.setFixedWidth(410)
-        root.addWidget(scroll)
+        scroll.setWidget(controls)
+        scroll.setFixedWidth(420)
+
+        self.result_view = ResultView()
+
+        top = QWidget()
+        toplay = QHBoxLayout(top)
+        toplay.setContentsMargins(0, 0, 0, 0)
+        toplay.addWidget(scroll)
+        toplay.addWidget(self.result_view, 1)
 
         self.log = LogConsole()
-        root.addWidget(self.log, 1)
+
+        split = QSplitter(Qt.Vertical)
+        split.addWidget(top)
+        split.addWidget(self.log)
+        split.setStretchFactor(0, 1)
+        split.setSizes([520, 180])
+        outer.addWidget(split)
 
     def _group(self, title, form, button, status):
         box = QGroupBox(title)
@@ -157,21 +168,43 @@ class BeamformingPage(QWidget):
         p.update(self.form_csm.values())
         p.update(self.form_bf.values())
         p.update(self.form_plot.values())
-        p.setdefault("df_band_bf", 1)   # champ avance laisse au defaut
+        p.setdefault("df_band_bf", 1)
         p["_cache_dir"] = self._cache_dir
         return p
 
     def _launch(self, step):
+        """Etapes 1 et 2 : calcul en sous-processus."""
         if self.runner.running:
             return
-        script = {1: _CSM_SCRIPT, 2: _BF_SCRIPT, 3: _PLOT_SCRIPT}[step]
+        script = {1: _CSM_SCRIPT, 2: _BF_SCRIPT}[step]
         msg = {1: "Etape 1 : chargement + CSM...",
-               2: "Etape 2 : beamforming...",
-               3: "Etape 3 : affichage..."}[step]
+               2: "Etape 2 : beamforming..."}[step]
         self._step = step
         self.log.clear()
         self.log.start(msg)
         self.runner.run(script, self._params())
+
+    def _show_result(self):
+        """Etape 3 : affichage EMBARQUE (in-process) depuis le cache bf.npz."""
+        import numpy as np
+        bf_file = os.path.join(self._cache_dir, "bf.npz")
+        if not os.path.exists(bf_file):
+            self.log.append("[ERREUR] Aucune carte : lance d'abord l'etape 2.")
+            return
+        data = np.load(bf_file)
+        bf = {k: data[k] for k in data.files}
+        mode = self.form_plot.values().get("visual_mode", "pyvista")
+        self.log.start(f"Affichage embarque ({mode})...")
+        try:
+            if mode == "matplotlib":
+                self.result_view.show_matplotlib(bf)
+            else:
+                self.result_view.show_pyvista(bf)
+            self.log.stop("Affichage OK.")
+        except Exception:
+            import traceback
+            self.log.append(traceback.format_exc())
+            self.log.stop("Echec de l'affichage - voir les logs.")
 
     def _on_started(self):
         for b in (self.btn_csm, self.btn_bf, self.btn_plot):
@@ -181,14 +214,13 @@ class BeamformingPage(QWidget):
         ok = (code == 0)
         if ok and self._step == 1:
             self._csm_ready = True
-            self._bf_ready = False   # la CSM a change -> beamforming a refaire
+            self._bf_ready = False
         elif ok and self._step == 2:
             self._bf_ready = True
         self.log.stop("Termine." if ok else f"Echec (code {code}) - voir les logs.")
         self._refresh()
 
     def _invalidate(self, level):
-        """Un param amont a change : les etapes aval redeviennent 'a recalculer'."""
         if level <= 1:
             self._csm_ready = False
             self._bf_ready = False
