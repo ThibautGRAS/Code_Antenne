@@ -40,6 +40,15 @@ Code de recherche : on privilégie la **lisibilité** à l'abstraction.
 
 ## 2026-06-28
 
+### App — bande de fréquence (2 poignées) + axes scène + effets modernes
+- **Fréquence = BANDE [min, max]** : slider custom **à deux poignées** (`RangeSlider`, peint main)
+  + saisies **min/max** synchronisées (`FreqBand`). `_fsel_min/_fsel_max` = bornes de la bande
+  (défaut 1900–2100 Hz). Remplace le point unique.
+- **Aperçu scène** : **axes gradués** (`show_bounds`, titres X/Y/Z en m) en plus du trièdre d'orientation.
+- **Effets modernes** : dégradés (bandeau, sidebar, boutons Run, badges, onglet actif),
+  **ombre portée** sous le bandeau (profondeur), piste/poignées stylées.
+- **Vérifié** via captures offscreen (2 thèmes).
+
 ### App — ergonomie : accordéon (fin du scroll) + slider de fréquence
 - Les **3 étapes** deviennent un **accordéon** (`CollapsibleCard`, une seule ouverte à la fois) →
   le panneau tient **sans scroll** ; **auto-avance** vers l'étape suivante après un calcul réussi.

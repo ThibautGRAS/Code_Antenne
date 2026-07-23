@@ -129,6 +129,11 @@ class ResultView(QWidget):
             inter.add_mesh(pv.PolyData(geo), color=_MIC, point_size=7,
                            render_points_as_spheres=True)
         inter.add_axes()
+        try:
+            inter.show_bounds(location="outer", ticks="outside", grid=False,
+                              xtitle="X (m)", ytitle="Y (m)", ztitle="Z (m)", color="gray")
+        except Exception:
+            pass
         inter.reset_camera()
         self._set_widget(inter)
         self._pv = inter

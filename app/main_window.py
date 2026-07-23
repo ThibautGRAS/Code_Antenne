@@ -6,10 +6,11 @@ import os
 import json
 
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QPixmap, QAction, QActionGroup
+from PySide6.QtGui import QPixmap, QAction, QActionGroup, QColor
 from PySide6.QtWidgets import (
     QMainWindow, QWidget, QHBoxLayout, QVBoxLayout, QFrame,
     QPushButton, QStackedWidget, QLabel, QButtonGroup, QFileDialog, QMessageBox,
+    QGraphicsDropShadowEffect,
 )
 
 from app.theme import THEMES, QSS_DARK
@@ -121,6 +122,13 @@ class MainWindow(QMainWindow):
         self.lbl_project = QLabel("")
         self.lbl_project.setObjectName("TopInfo")
         h.addWidget(self.lbl_project)
+
+        eff = QGraphicsDropShadowEffect(bar)   # profondeur : le bandeau "flotte" au-dessus
+        eff.setBlurRadius(18)
+        eff.setXOffset(0)
+        eff.setYOffset(3)
+        eff.setColor(QColor(0, 0, 0, 90))
+        bar.setGraphicsEffect(eff)
         return bar
 
     def _go(self, idx):

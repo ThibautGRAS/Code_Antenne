@@ -13,13 +13,15 @@ QFrame#TopBar { border: none; border-bottom: 3px solid #EF3346; }
 QLabel#AppEyebrow { color: #EF3346; font-size: 10px; font-weight: 700; letter-spacing: 2px; }
 QLabel#AppTitle { font-size: 17px; font-weight: 700; }
 
-QFrame#Sidebar { background: #0A1524; border: none; }
-QFrame#SideHead { background: #0A1524; border-bottom: 1px solid #22344F; }
+QFrame#Sidebar { background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                 stop:0 #0C1A2E, stop:1 #070F1C); border: none; }
+QFrame#SideHead { background: transparent; border-bottom: 1px solid #22344F; }
 QLabel#Logo { background: #FFFFFF; border-radius: 6px; padding: 6px 8px; }
 QPushButton#Nav { text-align: left; border: none; border-radius: 8px; padding: 11px 14px;
                   margin: 2px 10px; background: transparent; color: #C9D6EA; font-size: 13px; }
 QPushButton#Nav:hover { background: rgba(255,255,255,0.06); color: #FFFFFF; }
-QPushButton#Nav:checked { background: #EF3346; color: #FFFFFF; font-weight: 700; }
+QPushButton#Nav:checked { background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                          stop:0 #EF3346, stop:1 #C81E30); color: #FFFFFF; font-weight: 700; }
 
 QWidget#CardHead { background: transparent; }
 QLabel#Chevron { color: #93A6C0; font-size: 13px; }
@@ -31,14 +33,18 @@ QSlider::add-page:horizontal { background: #46608A; border-radius: 2px; }
 QSlider::handle:horizontal { background: #FFFFFF; border: 2px solid #EF3346;
                              width: 14px; height: 14px; margin: -6px 0; border-radius: 9px; }
 QSlider::handle:horizontal:hover { background: #FCD9E0; }
-QLabel#Badge { background: #EF3346; color: #FFFFFF; border-radius: 13px;
+QLabel#Badge { background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #F5495A, stop:1 #E5273A);
+               color: #FFFFFF; border-radius: 13px;
                min-width: 26px; max-width: 26px; min-height: 26px; max-height: 26px;
                font-size: 13px; font-weight: 700; }
 QLabel#SourceLabel { font-weight: 700; }
 
-QPushButton#Run { background: #EF3346; color: #FFFFFF; border: none; border-radius: 8px;
+QPushButton#Run { background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #F5495A, stop:1 #E5273A);
+                  color: #FFFFFF; border: none; border-radius: 8px;
                   padding: 10px 14px; font-weight: 700; }
-QPushButton#Run:hover { background: #D92435; }
+QPushButton#Run:hover { background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                        stop:0 #FF5D6C, stop:1 #EF3346); }
+QPushButton#Run:pressed { padding-top: 11px; padding-bottom: 9px; }
 
 QPlainTextEdit { background: #071120; color: #CFE0F2; border: 1px solid #24374E;
                  border-radius: 10px; font-family: Consolas, "Cascadia Mono", monospace;
@@ -64,7 +70,8 @@ QScrollBar::add-page:horizontal, QScrollBar::sub-page:horizontal { background: t
 
 QSS_DARK = _COMMON + """
 QMainWindow, QWidget { background-color: #0B1626; color: #E7EEF7; font-size: 13px; }
-QFrame#TopBar { background: #1A2C48; }
+QFrame#TopBar { background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                stop:0 #21395A, stop:1 #17293F); }
 QLabel#AppTitle { color: #FFFFFF; }
 QLabel#TopInfo { color: #93A6C0; font-size: 12px; }
 
@@ -108,7 +115,8 @@ QToolTip { background: #1A2C48; color: #E7EEF7; border: 1px solid #3A537C; paddi
 
 QSS_LIGHT = _COMMON + """
 QMainWindow, QWidget { background-color: #F4F6F9; color: #001E50; font-size: 13px; }
-QFrame#TopBar { background: #FFFFFF; }
+QFrame#TopBar { background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                stop:0 #FFFFFF, stop:1 #EFF3FA); }
 QLabel#AppTitle { color: #001E50; }
 QLabel#TopInfo { color: #5B6672; font-size: 12px; }
 

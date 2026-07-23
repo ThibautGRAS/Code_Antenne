@@ -21,7 +21,7 @@ from PySide6.QtWidgets import (
 
 from app.widgets.card import Card
 from app.widgets.collapsible import CollapsibleCard
-from app.widgets.freq_slider import FreqSlider
+from app.widgets.freq_slider import FreqBand
 from app.widgets.form import ParamForm
 from app.widgets.data_source import DataSourceWidget
 from app.widgets.param_dialog import ParamDialog
@@ -153,8 +153,8 @@ class BeamformingPage(QWidget):
         self.form_bf_main = ParamForm(_SPEC_BF_MAIN)
         self.form_adv = ParamForm(_SPEC_ADV)
         self._adv_dialog = ParamDialog("Reglages mesh (echelle / offsets)", self.form_adv, self)
-        self.freq = FreqSlider(1000, 3000, 2000, step=100)
-        lbl_freq = QLabel("Frequence a traiter")
+        self.freq = FreqBand(1000, 3000, 1900, 2100, step=100)
+        lbl_freq = QLabel("Bande de frequence a traiter")
         lbl_freq.setStyleSheet(_MUTED)
         btn_adv = QPushButton("Reglages mesh avances...")
         btn_adv.setObjectName("Ghost")
@@ -267,9 +267,8 @@ class BeamformingPage(QWidget):
         p.update(self.form_csm_freq.values())
         p.update(self.form_bf_main.values())
         p.update(self.form_adv.values())
-        f = self.freq.value()
-        p["_fsel_min"] = f      # frequence unique -> bande [f, f] (snap au bin proche cote workflow)
-        p["_fsel_max"] = f
+        p["_fsel_min"] = self.freq.low()    # bande a traiter dans la CSM precalculee
+        p["_fsel_max"] = self.freq.high()
         return p
 
     def load_project(self, d):
@@ -278,8 +277,8 @@ class BeamformingPage(QWidget):
         self.form_bf_main.set_values(d)
         self.form_adv.set_values(d)
         self._sync_freq_bounds()
-        if "_fsel_min" in d:
-            self.freq.set_value(d["_fsel_min"], emit=False)
+        if "_fsel_min" in d and "_fsel_max" in d:
+            self.freq.set_values(d["_fsel_min"], d["_fsel_max"], emit=False)
 
     # -------------------------------------------------------------- logique
     def _params(self):
