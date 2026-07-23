@@ -40,6 +40,17 @@ Code de recherche : on privilégie la **lisibilité** à l'abstraction.
 
 ## 2026-06-28
 
+### App — corrections (bande du bas, panneau résultat, aide) + touche premium
+- **Barre de progression** du bas : **masquée au repos** (fini la bande rouge parasite pleine),
+  visible seulement pendant un calcul (mode indéterminé).
+- **Panneau Résultat sans bordure** (`QFrame#ResultPanel`) : supprime le « cadre » que la colorbar
+  pyvista chevauchait ; canvas inséré (marges). NB : la position colorbar/axes *dans* le rendu vient
+  de `src/…/plot_beamforming` (hors `app/`, non modifiable par la règle app-only).
+- **Aide développée** : *Guide d'utilisation* (dialogue `QTextBrowser`) — 3 étapes, navigation OBF,
+  vues caméra, thèmes, projet, bouton Arrêter.
+- **Premium** : léger **halo rouge** sous les boutons d'action (glow).
+- **Vérifié** via captures offscreen (UI 2 thèmes + guide).
+
 ### App — bande de fréquence (2 poignées) + axes scène + effets modernes
 - **Fréquence = BANDE [min, max]** : slider custom **à deux poignées** (`RangeSlider`, peint main)
   + saisies **min/max** synchronisées (`FreqBand`). `_fsel_min/_fsel_max` = bornes de la bande

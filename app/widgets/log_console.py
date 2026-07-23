@@ -26,6 +26,7 @@ class LogConsole(QWidget):
         self.bar = QProgressBar()
         self.bar.setRange(0, 1)
         self.bar.setValue(0)
+        self.bar.setVisible(False)     # visible seulement pendant un calcul
         self.out = QPlainTextEdit()
         self.out.setReadOnly(True)
 
@@ -36,11 +37,13 @@ class LogConsole(QWidget):
     def start(self, msg="Calcul en cours..."):
         self.status.setText(msg)
         self.bar.setRange(0, 0)  # mode indetermine
+        self.bar.setVisible(True)
 
     def stop(self, msg="Termine."):
         self.status.setText(msg)
         self.bar.setRange(0, 1)
-        self.bar.setValue(1)
+        self.bar.setValue(0)
+        self.bar.setVisible(False)
 
     def append(self, text):
         for line in str(text).splitlines():

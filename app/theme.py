@@ -54,6 +54,9 @@ QProgressBar::chunk { background-color: #EF3346; border-radius: 3px; }
 
 QCheckBox::indicator:checked { background: #EF3346; border-color: #EF3346; }
 
+QTextBrowser { background: #0A1524; color: #E7EEF7; border: 1px solid #26384F;
+               border-radius: 8px; padding: 12px; font-size: 13px; }
+
 QScrollArea { border: none; background: transparent; }
 QLabel { background: transparent; }
 QSplitter::handle { background: transparent; height: 6px; }
@@ -76,6 +79,7 @@ QLabel#AppTitle { color: #FFFFFF; }
 QLabel#TopInfo { color: #93A6C0; font-size: 12px; }
 
 QFrame#Card { background: #1A2C48; border: 1px solid #2E466E; border-radius: 12px; }
+QFrame#ResultPanel { background: #1A2C48; border: none; border-radius: 12px; }
 QLabel#CardTitle { color: #FFFFFF; font-size: 14px; font-weight: 700; }
 QLabel#CardSub { color: #93A6C0; font-size: 11px; }
 
@@ -121,6 +125,7 @@ QLabel#AppTitle { color: #001E50; }
 QLabel#TopInfo { color: #5B6672; font-size: 12px; }
 
 QFrame#Card { background: #FFFFFF; border: 1px solid #E6EAF0; border-radius: 12px; }
+QFrame#ResultPanel { background: #FFFFFF; border: none; border-radius: 12px; }
 QLabel#CardTitle { color: #001E50; font-size: 14px; font-weight: 700; }
 QLabel#CardSub { color: #8A9199; font-size: 11px; }
 

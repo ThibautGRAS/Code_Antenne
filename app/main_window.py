@@ -20,6 +20,47 @@ from app.pages.placeholder_page import PlaceholderPage
 _REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 _LOGO = os.path.join(_REPO, "data", "assets", "logo-cetim.png")
 
+_GUIDE_HTML = """
+<div style="color:#E7EEF7;">
+<h2 style="color:#EF3346; margin:0 0 2px 0;">Imagerie 3D &middot; Antenne acoustique</h2>
+<p style="color:#93A6C0; margin-top:0;">Poste offline &mdash; beamforming sur mesure MU32.</p>
+<p>Le traitement se fait en 3 &eacute;tapes (panneau de gauche, en accord&eacute;on).</p>
+
+<h3 style="color:#EF3346;">1 &middot; Donn&eacute;es + CSM</h3>
+<ul>
+<li>Choisir le <b>dossier</b> puis le fichier <b>.dat</b> de mesure.</li>
+<li>R&eacute;gler la <b>plage CSM</b> (min/max) et le <b>delta_f</b> : plage <i>large</i>
+calcul&eacute;e une seule fois (&eacute;tape la plus longue).</li>
+<li>Cliquer <b>Charger + calculer la CSM</b>.</li>
+</ul>
+
+<h3 style="color:#EF3346;">2 &middot; Beamforming</h3>
+<ul>
+<li><b>Bande de fr&eacute;quence</b> : glisser les deux poign&eacute;es (ou saisir min/max),
+born&eacute;e &agrave; la plage CSM. La changer <b>ne recalcule pas</b> la CSM.</li>
+<li><b>M&eacute;thode</b> : bartlett / music / obf ; en OBF r&eacute;gler le <b>nombre de sources</b>.</li>
+<li><b>Mesh STL</b> + <i>R&eacute;glages mesh avanc&eacute;s</i> (&eacute;chelle / offsets).</li>
+<li><b>Afficher la sc&egrave;ne</b> : aper&ccedil;u objet + antenne avant calcul.</li>
+<li>Cliquer <b>Lancer le beamforming</b>.</li>
+</ul>
+
+<h3 style="color:#EF3346;">3 &middot; Affichage</h3>
+<ul>
+<li>Le r&eacute;sultat s'affiche automatiquement (rendu 3D pyvista).</li>
+<li><b>Vue de la cam&eacute;ra</b> : Haut / Face / Gauche / Droite / Iso.</li>
+<li>En <b>OBF</b>, les fl&egrave;ches naviguent entre les sources <b>sans recalcul</b>
+(la vue est conserv&eacute;e).</li>
+</ul>
+
+<h3 style="color:#FFFFFF;">Divers</h3>
+<ul>
+<li><b>Arr&ecirc;ter</b> (barre du bas) interrompt un calcul en cours.</li>
+<li>Menu <b>Projet</b> : enregistrer / recharger tous les r&eacute;glages (.json).</li>
+<li>Menu <b>Affichage</b> : th&egrave;me clair / sombre.</li>
+</ul>
+</div>
+"""
+
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -156,11 +197,34 @@ class MainWindow(QMainWindow):
             thememenu.addAction(a)
 
         aide = mb.addMenu("Aide")
+        aide.addAction("Guide d'utilisation").triggered.connect(self._guide)
+        aide.addSeparator()
         aide.addAction("A propos d'AntenneMu").triggered.connect(self._about)
 
     def apply_theme(self, name):
         self._theme_name = name
         self.setStyleSheet(THEMES.get(name, QSS_DARK))
+
+    def _guide(self):
+        from PySide6.QtWidgets import QDialog, QTextBrowser
+        dlg = QDialog(self)
+        dlg.setWindowTitle("Guide d'utilisation")
+        dlg.resize(600, 560)
+        lay = QVBoxLayout(dlg)
+        lay.setContentsMargins(16, 16, 16, 16)
+        lay.setSpacing(12)
+        tb = QTextBrowser()
+        tb.setOpenExternalLinks(False)
+        tb.setHtml(_GUIDE_HTML)
+        lay.addWidget(tb, 1)
+        btn = QPushButton("Fermer")
+        btn.setObjectName("Run")
+        btn.clicked.connect(dlg.accept)
+        row = QHBoxLayout()
+        row.addStretch(1)
+        row.addWidget(btn)
+        lay.addLayout(row)
+        dlg.exec()
 
     def _about(self):
         QMessageBox.about(

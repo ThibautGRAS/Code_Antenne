@@ -14,12 +14,12 @@ import os
 import tempfile
 
 from PySide6.QtCore import Qt
+from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (
-    QWidget, QHBoxLayout, QVBoxLayout, QPushButton, QScrollArea,
-    QLabel, QSplitter,
+    QWidget, QFrame, QHBoxLayout, QVBoxLayout, QPushButton, QScrollArea,
+    QLabel, QSplitter, QGraphicsDropShadowEffect,
 )
 
-from app.widgets.card import Card
 from app.widgets.collapsible import CollapsibleCard
 from app.widgets.freq_slider import FreqBand
 from app.widgets.form import ParamForm
@@ -102,6 +102,13 @@ class BeamformingPage(QWidget):
         self._update_nsrc()
         self._sync_freq_bounds()
         self._expand(self._cards[0])
+        for b in (self.btn_csm, self.btn_bf, self.btn_plot):   # halo rouge premium
+            glow = QGraphicsDropShadowEffect(b)
+            glow.setBlurRadius(18)
+            glow.setXOffset(0)
+            glow.setYOffset(2)
+            glow.setColor(QColor(239, 51, 70, 90))
+            b.setGraphicsEffect(glow)
         self._refresh()
 
     def _update_nsrc(self, *_):
@@ -235,16 +242,23 @@ class BeamformingPage(QWidget):
         nb.addWidget(self.btn_next)
         self.navbar.setVisible(False)
 
-        result_card = Card(title="Resultat", shadow=False)
-        result_card.add(self.navbar)
-        result_card.add(self.result_view, 1)
+        result_panel = QFrame()
+        result_panel.setObjectName("ResultPanel")
+        rp = QVBoxLayout(result_panel)
+        rp.setContentsMargins(16, 14, 16, 16)
+        rp.setSpacing(10)
+        rtitle = QLabel("Resultat")
+        rtitle.setObjectName("CardTitle")
+        rp.addWidget(rtitle)
+        rp.addWidget(self.navbar)
+        rp.addWidget(self.result_view, 1)
 
         top = QWidget()
         toplay = QHBoxLayout(top)
         toplay.setContentsMargins(0, 16, 16, 0)
         toplay.setSpacing(0)
         toplay.addWidget(scroll)
-        toplay.addWidget(result_card, 1)
+        toplay.addWidget(result_panel, 1)
 
         # ---------- bas : logs ----------
         self.log = LogConsole()
