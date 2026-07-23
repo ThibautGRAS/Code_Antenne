@@ -370,10 +370,11 @@ def plot_beamforming_3D_interactive_pyvista(
     faces_pv_bf = np.hstack([np.full((faces.shape[0], 1), 3), faces]).astype(np.int64)
     mesh_bf = pv.PolyData(grid_points, faces_pv_bf)  
     
-    # Transparence : tout ce qui est SOUS la dynamique (SPL < SPL_min) => totalement
-    # transparent ; au-dessus => opacite demandee (slider "Transparence").
+    # DANS la dynamique (SPL >= SPL_min) => OPAQUE (couleurs nettes, toujours visibles).
+    # SOUS la dynamique => opacite = map_opacity (slider Transparence : a 100% de transparence
+    # => 0 => totalement transparent, l'objet apparait).
     spl_arr = np.asarray(SPL_values, dtype=float)
-    opacity_array = np.where(spl_arr >= (SPL_min - 1e-9), float(map_opacity), 0.0)
+    opacity_array = np.where(spl_arr >= (SPL_min - 1e-9), 1.0, float(map_opacity))
 
     scalar_name = {
         'bartlett': "SPL [dB SPL]",
@@ -438,7 +439,7 @@ def plot_beamforming_3D_interactive_pyvista(
             if 0 <= hidx < len(gp):
                 center = gp[hidx]
                 diag = float(np.linalg.norm(gp.max(axis=0) - gp.min(axis=0)))
-                r = max(5e-4, 0.014 * diag)   # plus petit
+                r = max(4e-4, 0.006 * diag)   # petit repere : ne masque pas la carte
                 # bille auto-illuminee (ambient=1, diffuse=0) -> parait emettre de la lumiere
                 plotter.add_mesh(pv.Sphere(radius=r, center=center),
                                  color="#FFF6C8", ambient=1.0, diffuse=0.0, specular=0.0,

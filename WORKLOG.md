@@ -40,6 +40,14 @@ Code de recherche : on privilégie la **lisibilité** à l'abstraction.
 
 ## 2026-06-28
 
+### visu — carte visible : DANS la dynamique = opaque (correctif clé)
+- **Bug de visibilité** : l'intérieur de la dynamique était rendu à l'opacité du slider (ex. 40 %)
+  → sur une carte piquée + petite dynamique + halo, quasi rien de visible (objet gris).
+- **Corrigé** : `opacity = 1.0` **dans** la dynamique (couleurs nettes, toujours visibles) ;
+  **hors** dynamique `= map_opacity` (slider ; à 100 % de transparence → 0 → objet visible).
+- **Halo** plus petit (`0.006·diag`) pour ne pas masquer le pic ; **dynamique par défaut 15 dB**.
+- Label slider → « Transparence (zones hors dynamique) ».
+
 ### App + visu — GEO déplacé en étape ②, défauts transparence/dynamique
 - **Sélecteur GEO déplacé de l'étape ① → étape ②** (Beamforming) : les positions sont un input du
   **beamforming**, pas de la CSM → **changer le GEO ne recalcule plus la longue CSM**.
