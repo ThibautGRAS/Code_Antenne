@@ -40,6 +40,21 @@ Code de recherche : on privilégie la **lisibilité** à l'abstraction.
 
 ## 2026-06-28
 
+### App offline : nouvelle interface graphique (dossier `app/`)
+- **Quoi :** appli PySide6 autonome (`app/`, lancée par `python -m app` depuis la racine)
+  pour exécuter les workflows offline sans coder. **Squelette complet** (thème sombre,
+  navigation latérale, console de logs) + **page Beamforming câblée** de bout en bout ;
+  SPL/Puissance et Calibration en pages « à venir ».
+- **Archi :** le GUI est un **lanceur PySide6 pur** ; chaque calcul tourne en
+  **sous-processus** (`QProcess` → `app/workflows/beamforming_run.py`), équivalent CLI →
+  aucun conflit de liaison Qt (PySide6 ↔ PyQt5/pyvista), UI non gelée, visu ouverte par
+  l'enfant. **N'importe pas `src/live`** ; **ne modifie pas `src/`** (orchestration via
+  `Config(overrides=...)`).
+- **Vérifié (offscreen) :** 13 fichiers compilent, la fenêtre se construit, le process GUI
+  ne tire aucun module lourd ni `src.live`, les fonctions `src` appelées existent.
+- **À tester (toi) :** `python -m app` → onglet Beamforming → données + params → « Lancer »
+  → logs + fenêtre 3D.
+
 ### Live allégé : `beamforming/__init__` paresseux + imports morts retirés
 - **Quoi :** `beamforming/__init__.py` devient paresseux (PEP 562 `__getattr__`) — plus
   d'import en cascade des sous-modules de visu. `beamforming_signal` perd ses imports morts
@@ -150,6 +165,8 @@ Code de recherche : on privilégie la **lisibilité** à l'abstraction.
   reste de l'architecture (packages, autres points d'entrée) est inchangé.
 
 ## Backlog structurel (revue d'archi — NON fait, à planifier)
+- [ ] **App offline (`app/`)** : brancher les pages SPL/Puissance et Calibration
+      (Beamforming fait) ; workflows `app/workflows/spl_power_run.py` + `calibration_run.py`.
 - [x] **Packaging** : `pyproject.toml` ajouté, `pip install -e .` fonctionnel (2026-06-28).
 - [x] **requirements** : `requirements_antennemu.txt` supprimé ; `pyproject.toml` = source
       unique des dépendances. Install : `pip install -e .` (2026-06-28).
