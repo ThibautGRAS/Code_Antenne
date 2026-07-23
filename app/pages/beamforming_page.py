@@ -15,10 +15,11 @@ import tempfile
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
-    QWidget, QHBoxLayout, QVBoxLayout, QGroupBox, QPushButton, QScrollArea,
+    QWidget, QHBoxLayout, QVBoxLayout, QPushButton, QScrollArea,
     QLabel, QSplitter,
 )
 
+from app.widgets.card import Card
 from app.widgets.form import ParamForm
 from app.widgets.data_source import DataSourceWidget
 from app.widgets.param_dialog import ParamDialog
@@ -115,108 +116,124 @@ class BeamformingPage(QWidget):
     # ------------------------------------------------------------------ UI
     def _build(self):
         outer = QVBoxLayout(self)
+        outer.setContentsMargins(0, 0, 0, 0)
+        outer.setSpacing(0)
 
+        # ---------- colonne gauche : cartes d'etapes (scrollable) ----------
         controls = QWidget()
         clay = QVBoxLayout(controls)
-        clay.setContentsMargins(0, 0, 0, 0)
+        clay.setContentsMargins(16, 0, 12, 16)
+        clay.setSpacing(14)
 
-        # --- Etape 1 ---
+        # Etape 1
         self.data_source = DataSourceWidget()
         self.form_csm_freq = ParamForm(_SPEC_CSM_FREQ)
-        self.btn_csm = QPushButton("1 - Charger + CSM")
+        self.btn_csm = QPushButton("Charger + calculer la CSM")
         self.btn_csm.setObjectName("Run")
         self.btn_csm.clicked.connect(lambda: self._launch(1))
         self.lbl_csm = QLabel()
-        g1 = QGroupBox("1. Donnees + CSM  (le plus long)")
-        g1l = QVBoxLayout(g1)
-        g1l.addWidget(self.data_source)
-        g1l.addWidget(self.form_csm_freq)
-        g1l.addWidget(self.btn_csm)
         self.lbl_csm.setStyleSheet(_MUTED)
-        g1l.addWidget(self.lbl_csm)
-        clay.addWidget(g1)
+        c1 = Card(step=1, title="Donnees + CSM",
+                  subtitle="Chargement du .dat + FFT (le plus long)")
+        c1.add(self.data_source)
+        c1.add(self.form_csm_freq)
+        c1.add(self.btn_csm)
+        c1.add(self.lbl_csm)
+        clay.addWidget(c1)
 
-        # --- Etape 2 ---
+        # Etape 2
         self.form_bf_main = ParamForm(_SPEC_BF_MAIN)
         self.form_adv = ParamForm(_SPEC_ADV)
         self._adv_dialog = ParamDialog("Reglages mesh (echelle / offsets)", self.form_adv, self)
         btn_adv = QPushButton("Reglages mesh avances...")
+        btn_adv.setObjectName("Ghost")
         btn_adv.clicked.connect(self._adv_dialog.exec)
-        self.btn_bf = QPushButton("2 - Beamforming")
+        self.btn_scene = QPushButton("Afficher la scene")
+        self.btn_scene.setObjectName("Ghost")
+        self.btn_scene.clicked.connect(self._show_scene)
+        self.btn_bf = QPushButton("Lancer le beamforming")
         self.btn_bf.setObjectName("Run")
         self.btn_bf.clicked.connect(lambda: self._launch(2))
         self.lbl_bf = QLabel()
-        g2 = QGroupBox("2. Beamforming  (reutilise la CSM)")
-        g2l = QVBoxLayout(g2)
-        g2l.addWidget(self.form_bf_main)
-        g2l.addWidget(btn_adv)
-        self.btn_scene = QPushButton("Afficher la scene (STL + antenne)")
-        self.btn_scene.clicked.connect(self._show_scene)
-        g2l.addWidget(self.btn_scene)
-        g2l.addWidget(self.btn_bf)
         self.lbl_bf.setStyleSheet(_MUTED)
-        g2l.addWidget(self.lbl_bf)
-        clay.addWidget(g2)
+        c2 = Card(step=2, title="Beamforming",
+                  subtitle="Reutilise la CSM (choix de la frequence)")
+        c2.add(self.form_bf_main)
+        row = QHBoxLayout()
+        row.setSpacing(8)
+        row.addWidget(btn_adv)
+        row.addWidget(self.btn_scene)
+        c2.add_layout(row)
+        c2.add(self.btn_bf)
+        c2.add(self.lbl_bf)
+        clay.addWidget(c2)
 
-        # --- Etape 3 ---
+        # Etape 3
         self.form_plot = ParamForm(_SPEC_PLOT)
-        self.btn_plot = QPushButton("3 - Afficher")
+        self.btn_plot = QPushButton("Afficher le resultat")
         self.btn_plot.setObjectName("Run")
         self.btn_plot.clicked.connect(self._show_result)
         self.lbl_plot = QLabel()
-        g3 = QGroupBox("3. Affichage (embarque)")
-        g3l = QVBoxLayout(g3)
-        g3l.addWidget(self.form_plot)
-        g3l.addWidget(self.btn_plot)
         self.lbl_plot.setStyleSheet(_MUTED)
-        g3l.addWidget(self.lbl_plot)
-        clay.addWidget(g3)
+        c3 = Card(step=3, title="Affichage",
+                  subtitle="Rendu embarque (matplotlib / pyvista)")
+        c3.add(self.form_plot)
+        c3.add(self.btn_plot)
+        c3.add(self.lbl_plot)
+        clay.addWidget(c3)
         clay.addStretch(1)
 
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setWidget(controls)
-        scroll.setFixedWidth(400)
+        scroll.setFixedWidth(392)
 
+        # ---------- droite : carte resultat (navbar + vue) ----------
         self.result_view = ResultView()
 
-        # Barre de navigation entre sources (OBF) : visible si plusieurs cartes.
         self.navbar = QWidget()
         nb = QHBoxLayout(self.navbar)
-        nb.setContentsMargins(0, 0, 0, 0)
-        self.btn_prev = QPushButton("<")
-        self.btn_prev.setFixedWidth(40)
+        nb.setContentsMargins(0, 0, 0, 8)
+        nb.setSpacing(8)
+        self.btn_prev = QPushButton("◀")
+        self.btn_prev.setObjectName("Ghost")
+        self.btn_prev.setFixedWidth(46)
         self.btn_prev.clicked.connect(lambda: self._nav(-1))
         self.lbl_source = QLabel("")
         self.lbl_source.setAlignment(Qt.AlignCenter)
-        self.lbl_source.setStyleSheet("font-weight: bold;")
-        self.btn_next = QPushButton(">")
-        self.btn_next.setFixedWidth(40)
+        self.lbl_source.setStyleSheet("font-weight: 700; color: #001E50;")
+        self.btn_next = QPushButton("▶")
+        self.btn_next.setObjectName("Ghost")
+        self.btn_next.setFixedWidth(46)
         self.btn_next.clicked.connect(lambda: self._nav(1))
         nb.addWidget(self.btn_prev)
         nb.addWidget(self.lbl_source, 1)
         nb.addWidget(self.btn_next)
         self.navbar.setVisible(False)
 
-        result_col = QWidget()
-        rcl = QVBoxLayout(result_col)
-        rcl.setContentsMargins(0, 0, 0, 0)
-        rcl.addWidget(self.navbar)
-        rcl.addWidget(self.result_view, 1)
+        result_card = Card(title="Resultat", shadow=False)
+        result_card.add(self.navbar)
+        result_card.add(self.result_view, 1)
 
         top = QWidget()
         toplay = QHBoxLayout(top)
-        toplay.setContentsMargins(0, 0, 0, 0)
+        toplay.setContentsMargins(0, 16, 16, 0)
+        toplay.setSpacing(0)
         toplay.addWidget(scroll)
-        toplay.addWidget(result_col, 1)
+        toplay.addWidget(result_card, 1)
 
+        # ---------- bas : logs ----------
         self.log = LogConsole()
+        logwrap = QWidget()
+        lw = QVBoxLayout(logwrap)
+        lw.setContentsMargins(16, 0, 16, 14)
+        lw.addWidget(self.log)
 
         split = QSplitter(Qt.Vertical)
         split.addWidget(top)
-        split.addWidget(self.log)
+        split.addWidget(logwrap)
         split.setStretchFactor(0, 1)
-        split.setSizes([520, 180])
+        split.setSizes([560, 170])
         outer.addWidget(split)
 
     # ------------------------------------------------------ projet (get/load)

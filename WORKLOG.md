@@ -40,6 +40,17 @@ Code de recherche : on privilégie la **lisibilité** à l'abstraction.
 
 ## 2026-06-28
 
+### App — refonte visuelle moderne (cartes, barre supérieure, thème raffiné)
+- **Barre supérieure** : eyebrow « CAMÉRA ACOUSTIQUE » + titre de page (suit la navigation) +
+  actions **Projet** (Ouvrir / Enregistrer), filet rouge 3px. Ancien `menuBar` retiré.
+- **Cartes** (`app/widgets/card.py`) : surface blanche, coins 12px, **ombre teintée navy**,
+  en-tête **badge numéroté** + titre + sous-titre. Remplacent les `QGroupBox` (3 étapes + résultat).
+- **Sidebar** : marque ANTENNEMU / POSTE OFFLINE + navigation (état actif rouge).
+- **Thème raffiné** : bordures 1px, rayons 8-12px, focus bleu, boutons Run rouges / Ghost
+  outline, **scrollbars fines**, **console de logs sombre**, espacements généreux.
+- **Vérifié (offscreen) :** compile, fenêtre construite (topbar + sidebar + 4 cartes),
+  navigation met le titre à jour, QSS appliqué.
+
 ### App — thème (charte), aperçu scène épuré, vue conservée en navigation OBF
 - **Thème** : QSS aligné sur la charte — navy `#001E50` (encre), rouge `#EF3346` (accent),
   surfaces claires `#F4F6F9`/blanc, cyan/rose, gris froid ; **filet rouge 3px** sous le menu ;
