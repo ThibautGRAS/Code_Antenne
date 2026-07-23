@@ -35,9 +35,13 @@ _WF = os.path.join(_APP, "workflows")
 _CSM_SCRIPT = os.path.join(_WF, "csm_run.py")
 _BF_SCRIPT = os.path.join(_WF, "beamforming_run.py")
 _DATA_MESH = os.path.join(os.path.dirname(_APP), "data", "data_mesh")
+_DATA_GEO = os.path.join(os.path.dirname(_APP), "data", "data_geo")
 
 # Etape 1 : plage de CSM (le plus long). La source (dossier + index) est a part.
 _SPEC_CSM_FREQ = [
+    {"key": "geo_name", "label": "Positions micros (GEO)", "type": "file",
+     "default": "GEO_256_revised3.csv", "base_dir": _DATA_GEO, "filter": "GEO CSV (*.csv)",
+     "tip": "CSV des positions des micros (colonnes X;Y;Z). Defaut = antenne du projet."},
     {"key": "fmin_bf", "label": "Plage CSM : min (Hz)", "type": "int",
      "default": 1000, "min": 0, "max": 100000,
      "tip": "Plage LARGE a precalculer une fois ; l'etape 2 choisit une frequence dedans."},
@@ -89,6 +93,7 @@ class BeamformingPage(QWidget):
         self.freq.changed.connect(lambda: self._invalidate(2))
         self.form_csm_freq.changed.connect(self._sync_freq_bounds)
         self.sld_opacity.changed.connect(self._apply_display)   # transparence -> re-rendu
+        self.sld_dyn.changed.connect(self._apply_display)        # dynamique dB -> re-rendu
         self.sld_scale.changed.connect(self._apply_display)      # echelle mesh -> re-rendu
         for c in self._cards:
             c.clicked.connect(self._expand)
@@ -191,13 +196,18 @@ class BeamformingPage(QWidget):
         c3.add(self.btn_plot)
         c3.add(self.lbl_plot)
         self.sld_opacity = LabeledSlider(0, 100, 0, decimals=0, suffix=" %")
+        self.sld_dyn = LabeledSlider(3, 40, 10, decimals=0, suffix=" dB")
         self.sld_scale = LabeledSlider(0.5, 1.5, 0.95, decimals=2)
         lbl_tr = QLabel("Transparence de la carte")
         lbl_tr.setStyleSheet(_MUTED)
+        lbl_dy = QLabel("Dynamique (dB)")
+        lbl_dy.setStyleSheet(_MUTED)
         lbl_sc = QLabel("Echelle mesh (STL / BF)")
         lbl_sc.setStyleSheet(_MUTED)
         c3.add(lbl_tr)
         c3.add(self.sld_opacity)
+        c3.add(lbl_dy)
+        c3.add(self.sld_dyn)
         c3.add(lbl_sc)
         c3.add(self.sld_scale)
         lbl_view = QLabel("Vue de la camera")
@@ -286,6 +296,7 @@ class BeamformingPage(QWidget):
         p.update(self.form_bf_main.values())
         p.update(self.form_adv.values())
         p["factor"] = self.sld_scale.value()   # echelle mesh (slider carte Affichage)
+        p["dyn"] = self.sld_dyn.value()        # dynamique dB (slider carte Affichage)
         p["_fsel_min"] = self.freq.low()    # bande a traiter dans la CSM precalculee
         p["_fsel_max"] = self.freq.high()
         return p
@@ -297,6 +308,8 @@ class BeamformingPage(QWidget):
         self.form_adv.set_values(d)
         if "factor" in d:
             self.sld_scale.set_value(d["factor"])
+        if "dyn" in d:
+            self.sld_dyn.set_value(d["dyn"])
         self._sync_freq_bounds()
         if "_fsel_min" in d and "_fsel_max" in d:
             self.freq.set_values(d["_fsel_min"], d["_fsel_max"], emit=False)
@@ -367,6 +380,7 @@ class BeamformingPage(QWidget):
         self._config.bg_top = VIEW.bg_top
         self._config.fg = VIEW.fg
         self._config.map_opacity = VIEW.opacity      # slider transparence
+        self._config.dyn = self.sld_dyn.value()      # slider dynamique (dB)
         self._config.factor = self.sld_scale.value() # slider echelle mesh
         spl = self._maps[self._map_index]
         label = self._labels[self._map_index]

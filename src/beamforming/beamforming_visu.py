@@ -370,9 +370,10 @@ def plot_beamforming_3D_interactive_pyvista(
     faces_pv_bf = np.hstack([np.full((faces.shape[0], 1), 3), faces]).astype(np.int64)
     mesh_bf = pv.PolyData(grid_points, faces_pv_bf)  
     
-    # Opacité dynamique
-    SPL_norm = (SPL_display - SPL_min) / (SPL_max - SPL_min + 1e-12)
-    opacity_array = 0.95 * SPL_norm
+    # Transparence : tout ce qui est SOUS la dynamique (SPL < SPL_min) => totalement
+    # transparent ; au-dessus => opacite demandee (slider "Transparence").
+    spl_arr = np.asarray(SPL_values, dtype=float)
+    opacity_array = np.where(spl_arr >= (SPL_min - 1e-9), float(map_opacity), 0.0)
 
     scalar_name = {
         'bartlett': "SPL [dB SPL]",
@@ -393,7 +394,7 @@ def plot_beamforming_3D_interactive_pyvista(
         show_edges=False,
         smooth_shading=True,          # surface lissee (pas de facettes)
         clim=[SPL_min, SPL_max],
-        opacity=map_opacity,   # opacite globale de la carte (slider "Transparence" cote UI)
+        opacity=opacity_array,   # 0 sous la dynamique (transparent), sinon slider Transparence
         # Colorbar verticale a droite (evite le chevauchement avec la grille d'axes en bas).
         scalar_bar_args=dict(
             title=scalar_name,

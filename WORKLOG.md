@@ -40,6 +40,16 @@ Code de recherche : on privilégie la **lisibilité** à l'abstraction.
 
 ## 2026-06-28
 
+### App + visu — sélecteur GEO (positions micros) + transparence sous-dynamique + slider Dynamique
+- **Étape ①** : sélecteur **« Positions micros (GEO) »** (type file, défaut `GEO_256_revised3.csv`
+  dans `data/data_geo`) → surcharge `geo_name` (Config recalcule `geo_file`). Changer le GEO
+  invalide la CSM (recompute) — cohérent (les positions changent).
+- **Transparence** : tout ce qui est **sous la dynamique** (`SPL < SPL_max - dyn`) est **totalement
+  transparent** (opacité 0) ; au-dessus = slider *Transparence*. (`beamforming_visu`, autorisé)
+- Nouveau **slider « Dynamique (dB) »** dans la carte Affichage (3-40, défaut 10) → `cfg.dyn`,
+  re-rendu live (affichage seul, pas de recalcul).
+- **Vérifié** : compile, `get_project` (geo_name/dyn/factor) accepté par Config, sélecteur GEO visible.
+
 ### App — logo CETIM retiré, Cubeam agrandi
 - **Logo CETIM + en-tête de sidebar retirés** → sidebar = **navigation seule** (largeur 210).
 - **Logo Cubeam agrandi** (64 px), toujours thème-aware (blanc en sombre / couleur en clair),
