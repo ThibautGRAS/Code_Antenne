@@ -40,6 +40,13 @@ Code de recherche : on privilégie la **lisibilité** à l'abstraction.
 
 ## 2026-06-28
 
+### App — logo produit « Cubeam 3D » en haut à droite
+- Chargé depuis `app/assets/cubeam3d.png` (fallback `data/assets/cubeam3d.png`), affiché à droite
+  du bandeau sur plaque blanche (`Logo2`), mis à l'échelle en hauteur. Fichier absent → rien
+  (pas de crash). `app/assets/README.txt` indique où déposer le PNG.
+- NB : une image collée ne peut pas être écrite sur disque par l'assistant → l'utilisateur dépose
+  le fichier lui-même.
+
 ### App + visu — sliders Transparence + Échelle mesh (carte Affichage)
 - **Slider « Transparence de la carte »** (0-100 %) → opacité de la carte SPL (`map_opacity` via
   `cfg`), **re-rendu live**. Défaut 0 % (opaque). Remplace le choix opaque/fondu figé.

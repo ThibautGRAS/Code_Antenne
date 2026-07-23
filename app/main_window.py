@@ -20,6 +20,12 @@ from app.pages.placeholder_page import PlaceholderPage
 
 _REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 _LOGO = os.path.join(_REPO, "data", "assets", "logo-cetim.png")
+_ASSETS_APP = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets")
+# Logo produit "Cubeam 3D" (a deposer par l'utilisateur) : app/assets ou data/assets.
+_CUBEAM_CANDIDATES = [
+    os.path.join(_ASSETS_APP, "cubeam3d.png"),
+    os.path.join(_REPO, "data", "assets", "cubeam3d.png"),
+]
 
 _GUIDE_HTML = """
 <div style="color:#E7EEF7;">
@@ -164,6 +170,17 @@ class MainWindow(QMainWindow):
         self.lbl_project = QLabel("")
         self.lbl_project.setObjectName("TopInfo")
         h.addWidget(self.lbl_project)
+
+        # Logo produit "Cubeam 3D" en haut a droite (si le fichier est present)
+        cpath = next((p for p in _CUBEAM_CANDIDATES if os.path.exists(p)), None)
+        if cpath:
+            cpix = QPixmap(cpath)
+            if not cpix.isNull():
+                clogo = QLabel()
+                clogo.setObjectName("Logo2")
+                clogo.setPixmap(cpix.scaledToHeight(44, Qt.SmoothTransformation))
+                h.addSpacing(16)
+                h.addWidget(clogo)
 
         eff = QGraphicsDropShadowEffect(bar)   # ombre navy sobre sous le bandeau
         eff.setBlurRadius(16)

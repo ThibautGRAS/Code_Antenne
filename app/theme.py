@@ -15,6 +15,7 @@ QFrame#TopBar { border: none; border-bottom: 3px solid #EF3346; }
 QLabel#AppTitle { font-size: 18px; font-weight: 700; letter-spacing: 0.3px; }
 
 QLabel#Logo { background: #FFFFFF; border-radius: 4px; padding: 6px 8px; }
+QLabel#Logo2 { background: #FFFFFF; border-radius: 4px; padding: 4px 8px; }
 QLabel#Brand { font-size: 15px; font-weight: 700; letter-spacing: 2px; }
 QPushButton#Nav { text-align: left; border: none; border-radius: 4px; padding: 11px 14px;
                   margin: 2px 10px; background: transparent; font-size: 13px; }
