@@ -40,6 +40,17 @@ Code de recherche : on privilégie la **lisibilité** à l'abstraction.
 
 ## 2026-06-28
 
+### App + visu — rendu 3D intégré (fond sombre), bandeau pro, effets au survol
+- **Rendu pyvista sur fond sombre** dégradé (navy) assorti à l'UI, axes/grille + colorbar en
+  **clair** → le 3D ne fait plus « ajouté » (fini le grand rectangle blanc). `beamforming_visu.py`
+  (fichier autorisé) + aperçu scène côté `app/`.
+- **Bandeau plus pro** : base **alignée** avec le bloc logo (filet rouge continu, hauteur 70),
+  **titre + sous-titre discret** (fini l'eyebrow rouge).
+- **Boutons d'action** : **halo rouge animé** au survol (`app/widgets/effects.py`, `QPropertyAnimation`).
+- **Panneau résultat** : écart avec les étapes (fin du « collé ») + état vide plus soigné.
+- **Vérifié** via captures offscreen (chrome 2 thèmes) ; le fond 3D sombre reste à confirmer à
+  l'écran (rendu pyvista = OpenGL, non capturable en headless).
+
 ### src (exception autorisée pour ce fichier) — colorbar pyvista verticale à droite
 - `beamforming_visu.py` / `plot_beamforming_3D_interactive_pyvista` : `add_mesh` reçoit
   `scalar_bar_args` (vertical, `position_x=0.88`, à droite) → la colorbar ne chevauche plus la

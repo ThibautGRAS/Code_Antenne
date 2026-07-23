@@ -285,7 +285,12 @@ def plot_beamforming_3D_interactive_pyvista(
     SPL_display = np.clip(SPL_values, SPL_min, SPL_max)
 
     # --- Plotter ---
-    plotter = pv.Plotter() 
+    plotter = pv.Plotter()
+    # Fond sombre (degrade navy) integre a l'UI ; textes/axes en clair.
+    try:
+        plotter.set_background("#16273F", top="#0B1626")
+    except Exception:
+        plotter.set_background("#16273F")
 
     # ============================================================
     # OBJ scanné (optionnel) OU STL de base
@@ -383,7 +388,7 @@ def plot_beamforming_3D_interactive_pyvista(
             position_x=0.88, position_y=0.12,
             width=0.07, height=0.76,
             title_font_size=15, label_font_size=12,
-            n_labels=5, fmt="%.1f",
+            n_labels=5, fmt="%.1f", color="#E7EEF7",
         ),
     )
 
@@ -400,7 +405,7 @@ def plot_beamforming_3D_interactive_pyvista(
     # Axes + grille
     # ============================================================
     plotter.add_axes()
-    plotter.show_grid()
+    plotter.show_grid(color="#B8C4D6")
 
     return plotter
 

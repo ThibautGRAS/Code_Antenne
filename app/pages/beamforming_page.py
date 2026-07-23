@@ -14,12 +14,12 @@ import os
 import tempfile
 
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (
     QWidget, QFrame, QHBoxLayout, QVBoxLayout, QPushButton, QScrollArea,
-    QLabel, QSplitter, QGraphicsDropShadowEffect,
+    QLabel, QSplitter,
 )
 
+from app.widgets.effects import hover_glow
 from app.widgets.collapsible import CollapsibleCard
 from app.widgets.freq_slider import FreqBand
 from app.widgets.form import ParamForm
@@ -102,13 +102,8 @@ class BeamformingPage(QWidget):
         self._update_nsrc()
         self._sync_freq_bounds()
         self._expand(self._cards[0])
-        for b in (self.btn_csm, self.btn_bf, self.btn_plot):   # halo rouge premium
-            glow = QGraphicsDropShadowEffect(b)
-            glow.setBlurRadius(18)
-            glow.setXOffset(0)
-            glow.setYOffset(2)
-            glow.setColor(QColor(239, 51, 70, 90))
-            b.setGraphicsEffect(glow)
+        # halo rouge qui s'intensifie au survol (effet premium)
+        self._glows = [hover_glow(b) for b in (self.btn_csm, self.btn_bf, self.btn_plot)]
         self._refresh()
 
     def _update_nsrc(self, *_):
@@ -256,7 +251,7 @@ class BeamformingPage(QWidget):
         top = QWidget()
         toplay = QHBoxLayout(top)
         toplay.setContentsMargins(0, 16, 16, 0)
-        toplay.setSpacing(0)
+        toplay.setSpacing(14)
         toplay.addWidget(scroll)
         toplay.addWidget(result_panel, 1)
 

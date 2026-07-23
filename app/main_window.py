@@ -103,7 +103,7 @@ class MainWindow(QMainWindow):
         # En-tete : logo CETIM sur plaque blanche, zone delimitee (bordure basse)
         head = QFrame()
         head.setObjectName("SideHead")
-        head.setFixedHeight(74)
+        head.setFixedHeight(70)
         hl = QHBoxLayout(head)
         hl.setContentsMargins(14, 12, 14, 12)
         logo = QLabel()
@@ -144,19 +144,19 @@ class MainWindow(QMainWindow):
     def _topbar(self):
         bar = QFrame()
         bar.setObjectName("TopBar")
-        bar.setFixedHeight(64)
+        bar.setFixedHeight(70)
         h = QHBoxLayout(bar)
-        h.setContentsMargins(24, 8, 18, 8)
+        h.setContentsMargins(26, 8, 20, 8)
         h.setSpacing(0)
 
         tit = QVBoxLayout()
-        tit.setSpacing(1)
-        self.page_eyebrow = QLabel(self._pages[0][0].upper())
-        self.page_eyebrow.setObjectName("AppEyebrow")
+        tit.setSpacing(2)
         title = QLabel("Imagerie 3D · Antenne acoustique")
         title.setObjectName("AppTitle")
-        tit.addWidget(self.page_eyebrow)
+        self.page_eyebrow = QLabel(self._pages[0][0])
+        self.page_eyebrow.setObjectName("AppSub")
         tit.addWidget(title)
+        tit.addWidget(self.page_eyebrow)
         h.addLayout(tit)
         h.addStretch(1)
 
@@ -174,7 +174,7 @@ class MainWindow(QMainWindow):
 
     def _go(self, idx):
         self.stack.setCurrentIndex(idx)
-        self.page_eyebrow.setText(self._pages[idx][0].upper())
+        self.page_eyebrow.setText(self._pages[idx][0])
 
     # ------------------------------------------------------------ menu
     def _build_menu(self):

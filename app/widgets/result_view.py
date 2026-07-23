@@ -27,9 +27,9 @@ class ResultView(QWidget):
         self._lay.setContentsMargins(0, 0, 0, 0)
         self._current = None
         self._pv = None        # QtInteractor courant
-        self._placeholder = QLabel("Le resultat s'affichera ici.\nLance 1 -> 2 -> 3.")
+        self._placeholder = QLabel("Le resultat 3D s'affichera ici\n\nLancez les etapes  1  →  2  →  3")
         self._placeholder.setAlignment(Qt.AlignCenter)
-        self._placeholder.setStyleSheet("color: #8A9199;")
+        self._placeholder.setStyleSheet("color: #5E718C; font-size: 14px;")
         self._lay.addWidget(self._placeholder)
 
     def _set_widget(self, w):
@@ -120,9 +120,12 @@ class ResultView(QWidget):
 
         inter = QtInteractor(self)
         try:
-            inter.set_background(_BG)
+            inter.set_background("#16273F", top="#0B1626")   # assorti a l'UI sombre
         except Exception:
-            pass
+            try:
+                inter.set_background("#16273F")
+            except Exception:
+                pass
         inter.add_mesh(mesh, color=_MESH, show_edges=False)
         geo = np.asarray(geo_positions, dtype=float)
         if geo.size:
@@ -131,7 +134,7 @@ class ResultView(QWidget):
         inter.add_axes()
         try:
             inter.show_bounds(location="outer", ticks="outside", grid=False,
-                              xtitle="X (m)", ytitle="Y (m)", ztitle="Z (m)", color="gray")
+                              xtitle="X (m)", ytitle="Y (m)", ztitle="Z (m)", color="#B8C4D6")
         except Exception:
             pass
         inter.reset_camera()

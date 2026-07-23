@@ -11,7 +11,7 @@ _COMMON = """
 
 QFrame#TopBar { border: none; border-bottom: 3px solid #EF3346; }
 QLabel#AppEyebrow { color: #EF3346; font-size: 10px; font-weight: 700; letter-spacing: 2px; }
-QLabel#AppTitle { font-size: 17px; font-weight: 700; }
+QLabel#AppTitle { font-size: 18px; font-weight: 700; letter-spacing: 0.3px; }
 
 QFrame#Sidebar { background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
                  stop:0 #0C1A2E, stop:1 #070F1C); border: none; }
@@ -76,6 +76,7 @@ QMainWindow, QWidget { background-color: #0B1626; color: #E7EEF7; font-size: 13p
 QFrame#TopBar { background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
                 stop:0 #21395A, stop:1 #17293F); }
 QLabel#AppTitle { color: #FFFFFF; }
+QLabel#AppSub { color: #93A6C0; font-size: 11px; letter-spacing: 0.5px; }
 QLabel#TopInfo { color: #93A6C0; font-size: 12px; }
 
 QFrame#Card { background: #1A2C48; border: 1px solid #2E466E; border-radius: 12px; }
@@ -122,6 +123,7 @@ QMainWindow, QWidget { background-color: #F4F6F9; color: #001E50; font-size: 13p
 QFrame#TopBar { background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
                 stop:0 #FFFFFF, stop:1 #EFF3FA); }
 QLabel#AppTitle { color: #001E50; }
+QLabel#AppSub { color: #5B6672; font-size: 11px; letter-spacing: 0.5px; }
 QLabel#TopInfo { color: #5B6672; font-size: 12px; }
 
 QFrame#Card { background: #FFFFFF; border: 1px solid #E6EAF0; border-radius: 12px; }
