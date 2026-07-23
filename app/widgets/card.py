@@ -44,10 +44,10 @@ class Card(QFrame):
 
         if shadow:
             eff = QGraphicsDropShadowEffect(self)
-            eff.setBlurRadius(22)
+            eff.setBlurRadius(26)
             eff.setXOffset(0)
-            eff.setYOffset(3)
-            eff.setColor(QColor(0, 30, 80, 35))
+            eff.setYOffset(4)
+            eff.setColor(QColor(0, 0, 0, 120))
             self.setGraphicsEffect(eff)
 
     def add(self, w, stretch=0):

@@ -74,9 +74,9 @@ _SPEC_PLOT = [
      "choices": ["pyvista", "matplotlib"], "default": "pyvista"},
 ]
 
-_OK = "color: #1F9D57; font-weight: bold;"
-_TODO = "color: #F08A24; font-weight: bold;"
-_MUTED = "color: #8A9199;"
+_OK = "color: #3DD68C; font-weight: bold;"
+_TODO = "color: #F5A623; font-weight: bold;"
+_MUTED = "color: #93A6C0;"
 
 
 class BeamformingPage(QWidget):
@@ -201,7 +201,7 @@ class BeamformingPage(QWidget):
         self.btn_prev.clicked.connect(lambda: self._nav(-1))
         self.lbl_source = QLabel("")
         self.lbl_source.setAlignment(Qt.AlignCenter)
-        self.lbl_source.setStyleSheet("font-weight: 700; color: #001E50;")
+        self.lbl_source.setStyleSheet("font-weight: 700; color: #E7EEF7;")
         self.btn_next = QPushButton("▶")
         self.btn_next.setObjectName("Ghost")
         self.btn_next.setFixedWidth(46)

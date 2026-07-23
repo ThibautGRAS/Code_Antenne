@@ -40,6 +40,13 @@ Code de recherche : on privilégie la **lisibilité** à l'abstraction.
 
 ## 2026-06-28
 
+### App — thème sombre
+- **Fond navy profond** `#0E1B2E`, **cartes surélevées** `#16273F` (ombre noire douce), champs
+  `#1C2F4C` + menus/combos/déroulants assortis, texte clair `#E7EEF7`, accent rouge, focus bleu.
+- Cases à cocher, scrollbars, tooltips, barre de progression et console de logs stylés dark.
+- Statuts adaptés au fond sombre (vert `#3DD68C` / orange `#F5A623` / gris `#93A6C0`).
+- **Vérifié (offscreen) :** compile + construction fenêtre OK.
+
 ### App — refonte visuelle moderne (cartes, barre supérieure, thème raffiné)
 - **Barre supérieure** : eyebrow « CAMÉRA ACOUSTIQUE » + titre de page (suit la navigation) +
   actions **Projet** (Ouvrir / Enregistrer), filet rouge 3px. Ancien `menuBar` retiré.
