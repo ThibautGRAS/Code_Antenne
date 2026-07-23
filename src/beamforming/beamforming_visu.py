@@ -377,34 +377,24 @@ def plot_beamforming_3D_interactive_pyvista(
         'omp':      "OMP activity (a.u.)"
     }.get(method_l, "Amplitude")
 
-    # On n'affiche QUE la partie DANS la dynamique (SPL >= SPL_min) : on la DECOUPE (threshold)
-    # et on la rend en opacite SCALAIRE (slider Transparence). Sous la dynamique : rien n'est
-    # dessine -> l'objet (mesh de base) apparait = "totalement transparent".
-    # NB : une opacite en TABLEAU rendait tout le mesh translucide -> masque par la base opaque
-    #      -> objet tout gris. Le threshold + opacite scalaire evite ce piege VTK.
-    spl_arr = np.asarray(SPL_values, dtype=float)
-    within = (spl_arr >= (SPL_min - 1e-9)).astype(np.float32)
+    # FONDU (comme les versions precedentes) : opacite proportionnelle au niveau -> 0 sous la
+    # dynamique (transparent), jusqu'a map_opacity au pic. map_opacity = slider Transparence.
+    SPL_norm = np.clip((SPL_display - SPL_min) / (SPL_max - SPL_min + 1e-12), 0.0, 1.0)
+    opacity_array = float(map_opacity) * SPL_norm
     if len(SPL_values) == len(faces):
         mesh_bf.cell_data[scalar_name] = SPL_display
-        mesh_bf.cell_data["_within"] = within
     else:
         mesh_bf.point_data[scalar_name] = SPL_display
-        mesh_bf.point_data["_within"] = within
 
-    try:
-        sub = mesh_bf.threshold(0.5, scalars="_within")
-    except Exception:
-        sub = mesh_bf
-    if getattr(sub, "n_cells", 0):
-        plotter.add_mesh(
-            sub, scalars=scalar_name, cmap=cmap, clim=[SPL_min, SPL_max],
-            opacity=float(map_opacity), show_edges=False, smooth_shading=True,
-            scalar_bar_args=dict(
-                title=scalar_name, vertical=True,
-                position_x=0.88, position_y=0.12, width=0.07, height=0.76,
-                title_font_size=15, label_font_size=12, n_labels=5, fmt="%.1f", color=fg,
-            ),
-        )
+    plotter.add_mesh(
+        mesh_bf, scalars=scalar_name, cmap=cmap, clim=[SPL_min, SPL_max],
+        opacity=opacity_array, show_edges=False, smooth_shading=True,
+        scalar_bar_args=dict(
+            title=scalar_name, vertical=True,
+            position_x=0.88, position_y=0.12, width=0.07, height=0.76,
+            title_font_size=15, label_font_size=12, n_labels=5, fmt="%.1f", color=fg,
+        ),
+    )
 
 
     

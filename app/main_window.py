@@ -18,6 +18,8 @@ from app.view_settings import VIEW, CMAPS
 from app.pages.beamforming_page import BeamformingPage
 from app.pages.placeholder_page import PlaceholderPage
 
+APP_VERSION = "1.0.0"
+
 _REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 _LOGO = os.path.join(_REPO, "data", "assets", "logo-cetim.png")
 _ASSETS_APP = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets")
@@ -166,6 +168,9 @@ class MainWindow(QMainWindow):
                 btn.setChecked(True)
 
         sl.addStretch(1)
+        ver = QLabel(f"Cubeam 3D  ·  v{APP_VERSION}")
+        ver.setObjectName("Version")
+        sl.addWidget(ver)
         return side
 
     def _topbar(self):

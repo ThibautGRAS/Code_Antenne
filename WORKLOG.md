@@ -40,6 +40,17 @@ Code de recherche : on privilégie la **lisibilité** à l'abstraction.
 
 ## 2026-06-28
 
+### App/visu — fondu restauré, sélecteur OBJ, échelle OBJ/BF grisée, toggle accordéon, version
+- **Rendu : FONDU restauré** (opacité ∝ niveau, 0 sous la dynamique) = le rendu des versions
+  précédentes. (Mon « gris » en test venait de l'**OpenGL logiciel headless** — la translucidité
+  par-point y est mal rendue ; sur **GPU réel** le fondu marche, comme dans l'ancien code.)
+- **Sélecteur « .obj (option) » sous le Mesh STL** : si présent → objet **texturé** (mode OBJ,
+  `scanned_mesh`) au lieu du STL gris ; vide → STL gris.
+- **Slider « Echelle OBJ / BF »** : **grisé** si pas d'OBJ (ne sert qu'à aligner l'OBJ scanné sur la
+  grille BF).
+- **Accordéon** : clic sur une carte ouverte la **replie** (bascule).
+- **Version** « Cubeam 3D · v1.0.0 » en bas à gauche de la sidebar (`APP_VERSION`).
+
 ### App/visu — échelle défaut 1.0, accordéon état fiable, carte opaque par défaut (net)
 - **Échelle mesh défaut 1.0** (slider).
 - **CollapsibleCard** : état via booléen interne `_expanded` (fiable ; `isVisible` était faussé

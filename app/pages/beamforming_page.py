@@ -56,6 +56,10 @@ _SPEC_BF_MAIN = [
     {"key": "mesh_name", "label": "Mesh STL", "type": "file", "default": "Source_3D_centre_m.stl",
      "base_dir": _DATA_MESH, "filter": "Mesh STL (*.stl)",
      "tip": "Fichier .stl (par defaut dans data/data_mesh)."},
+    {"key": "obj_name", "label": "Objet 3D (.obj, option)", "type": "file", "default": "",
+     "base_dir": _DATA_MESH, "filter": "Objet 3D (*.obj)",
+     "tip": "Optionnel : objet scanne texture. Si present -> affiche avec sa texture (mode OBJ) "
+            "au lieu du STL gris. Vide -> STL gris."},
     {"key": "geo_name", "label": "Positions micros (GEO)", "type": "file",
      "default": "GEO_256_revised3.csv", "base_dir": _DATA_GEO, "filter": "GEO CSV (*.csv)",
      "tip": "CSV des positions des micros (X;Y;Z). Le changer NE recalcule PAS la CSM."},
@@ -94,9 +98,10 @@ class BeamformingPage(QWidget):
         self.form_csm_freq.changed.connect(self._sync_freq_bounds)
         self.sld_opacity.changed.connect(self._apply_display)   # transparence -> re-rendu
         self.sld_dyn.changed.connect(self._apply_display)        # dynamique dB -> re-rendu
-        self.sld_scale.changed.connect(self._apply_display)      # echelle mesh -> re-rendu
+        self.sld_scale.changed.connect(self._apply_display)      # echelle OBJ/BF -> re-rendu
+        self.form_bf_main.changed.connect(self._update_scale_enabled)  # grise l'echelle sans OBJ
         for c in self._cards:
-            c.clicked.connect(self._expand)
+            c.clicked.connect(self._on_card_click)   # clic = bascule (ouvre / replie)
         self.runner.started.connect(self._on_started)
         self.runner.output.connect(self.log.append)
         self.runner.finished.connect(self._on_finished)
@@ -106,9 +111,22 @@ class BeamformingPage(QWidget):
         if mw is not None:
             mw.currentTextChanged.connect(self._update_nsrc)
         self._update_nsrc()
+        self._update_scale_enabled()
         self._sync_freq_bounds()
         self._expand(self._cards[0])
         self._refresh()
+
+    def _on_card_click(self, card):
+        """Clic sur l'en-tete : bascule (une carte ouverte se replie ; sinon on l'ouvre)."""
+        if card.is_expanded():
+            card.set_expanded(False)
+        else:
+            self._expand(card)
+
+    def _update_scale_enabled(self, *_):
+        """L'echelle OBJ/BF ne sert que si un .obj est charge -> grisee sinon."""
+        has_obj = bool(self.form_bf_main.values().get("obj_name", "").strip())
+        self.sld_scale.setEnabled(has_obj)
 
     def _update_nsrc(self, *_):
         """Nb sources n'a de sens qu'en MUSIC/OBF -> grise en bartlett."""
@@ -202,7 +220,7 @@ class BeamformingPage(QWidget):
         lbl_tr.setStyleSheet(_MUTED)
         lbl_dy = QLabel("Dynamique (dB)")
         lbl_dy.setStyleSheet(_MUTED)
-        lbl_sc = QLabel("Echelle mesh (STL / BF)")
+        lbl_sc = QLabel("Echelle OBJ / BF")
         lbl_sc.setStyleSheet(_MUTED)
         c3.add(lbl_tr)
         c3.add(self.sld_opacity)
