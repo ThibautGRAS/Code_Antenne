@@ -291,6 +291,11 @@ def plot_beamforming_3D_interactive_pyvista(
         plotter.set_background("#16273F", top="#0B1626")
     except Exception:
         plotter.set_background("#16273F")
+    # Rendu plus lisse et moderne (anti-crenelage).
+    try:
+        plotter.enable_anti_aliasing("fxaa")
+    except Exception:
+        pass
 
     # ============================================================
     # OBJ scanné (optionnel) OU STL de base
@@ -379,6 +384,7 @@ def plot_beamforming_3D_interactive_pyvista(
         scalars=scalar_name,
         cmap="jet",
         show_edges=False,
+        smooth_shading=True,          # surface lissee (pas de facettes)
         clim=[SPL_min, SPL_max],
         opacity=opacity_array,
         # Colorbar verticale a droite (evite le chevauchement avec la grille d'axes en bas).

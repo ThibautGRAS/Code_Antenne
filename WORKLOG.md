@@ -40,6 +40,15 @@ Code de recherche : on privilégie la **lisibilité** à l'abstraction.
 
 ## 2026-06-28
 
+### App — champs épurés (fin des flèches spinbox) + Mesh STL lecture seule + rendu 3D lissé
+- **Flèches up/down des spinbox supprimées** (vieillottes / mal alignées) → champs numériques épurés
+  (saisie directe ; la fréquence garde son slider). Les combos gardent leur flèche déroulante.
+- **Champ « Mesh STL » en lecture seule** (choix via *Parcourir…*) + style lecture seule distinct —
+  l'édition texte du chemin n'avait pas de sens.
+- **Rendu pyvista** : `smooth_shading` (surface lissée, plus de facettes) + anti-crénelage **FXAA**
+  (`beamforming_visu.py`, fichier autorisé). API validée (pyvista 0.48.4).
+- **Vérifié** via captures offscreen (formulaire sans flèches, combo avec flèche).
+
 ### App — refonte « à plat » alignée charte (fin du look 2010) + fixes
 - **Refonte QSS plate / éditoriale** conforme à la charte : **suppression des dégradés**, rayons
   ramenés à **4-6 px**, **ombres teintées navy** (plus de noir), filets nets. (Mes dégradés/glows/

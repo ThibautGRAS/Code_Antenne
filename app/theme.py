@@ -49,6 +49,10 @@ QSlider::handle:horizontal { background: #FFFFFF; border: 2px solid #EF3346;
 QProgressBar { border: none; border-radius: 2px; background: #22344F; max-height: 5px; }
 QProgressBar::chunk { background-color: #EF3346; border-radius: 2px; }
 
+/* Champs numeriques epures : pas de fleches natives (vieillottes) -> saisie directe. */
+QSpinBox::up-button, QSpinBox::down-button,
+QDoubleSpinBox::up-button, QDoubleSpinBox::down-button { width: 0; height: 0; border: none; }
+
 QScrollArea { border: none; background: transparent; }
 QLabel { background: transparent; }
 QSplitter::handle { background: transparent; height: 6px; }
@@ -91,6 +95,7 @@ QLineEdit, QSpinBox, QDoubleSpinBox, QComboBox {
     padding: 6px 8px; min-height: 18px; }
 QLineEdit:focus, QSpinBox:focus, QDoubleSpinBox:focus, QComboBox:focus { border-color: #4E7BC0; }
 QLineEdit:disabled, QSpinBox:disabled, QComboBox:disabled { background: #172740; color: #66798F; }
+QLineEdit:read-only { background: #14243B; color: #AEBED4; }
 QComboBox QAbstractItemView { background: #16273F; color: #E7EEF7; border: 1px solid #38517A;
     selection-background-color: #2A4670; selection-color: #FFFFFF; outline: none; }
 
@@ -137,6 +142,7 @@ QLineEdit, QSpinBox, QDoubleSpinBox, QComboBox {
     padding: 6px 8px; min-height: 18px; }
 QLineEdit:focus, QSpinBox:focus, QDoubleSpinBox:focus, QComboBox:focus { border-color: #1F6FE0; }
 QLineEdit:disabled, QSpinBox:disabled, QComboBox:disabled { background: #F4F6F9; color: #AEB6BF; }
+QLineEdit:read-only { background: #EEF2F7; color: #5B6672; }
 QComboBox QAbstractItemView { background: #FFFFFF; color: #001E50; border: 1px solid #C1C7C6;
     selection-background-color: #EEF4FB; selection-color: #001E50; outline: none; }
 

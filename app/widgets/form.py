@@ -80,8 +80,12 @@ class ParamForm(QWidget):
         elif t == "bool":
             w = QCheckBox()
             w.setChecked(bool(s["default"]))
-        else:  # "str" ou "folder"
+        else:  # "str" / "folder" / "file"
             w = QLineEdit(str(s.get("default", "") or ""))
+            if t == "file":
+                # Le fichier se choisit via "Parcourir..." : affichage en lecture seule
+                # (editer le chemin a la main n'a pas de sens).
+                w.setReadOnly(True)
         if s.get("tip"):
             w.setToolTip(s["tip"])
         self._connect_change(t, w)
