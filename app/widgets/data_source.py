@@ -6,7 +6,7 @@ read_info.load_validation_data (sorted glob "*.dat") -> l'index choisi = chosen_
 """
 
 import os
-import glob
+from pathlib import Path
 
 from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
@@ -56,10 +56,12 @@ class DataSourceWidget(QWidget):
         self._index.clear()
         files = []
         if folder and os.path.isdir(folder):
-            files = sorted(glob.glob(os.path.join(folder, "*.dat")))
+            # MEME tri que read_info.load_validation_data : sorted(Path.glob("*.dat"))
+            # (tri de Path, insensible a la casse sous Windows) -> l'index concorde.
+            files = sorted(Path(folder).glob("*.dat"))
         if files:
             for i, f in enumerate(files):
-                self._index.addItem(f"{i} : {os.path.basename(f)}")
+                self._index.addItem(f"{i} : {f.name}")
         else:
             self._index.addItem("(aucun .dat trouve)")
         self._index.blockSignals(False)

@@ -40,6 +40,14 @@ Code de recherche : on privilégie la **lisibilité** à l'abstraction.
 
 ## 2026-06-28
 
+### App — fix ordre des `.dat` (index 0/1 inversé)
+- **Bug :** le dropdown triait avec `sorted(glob.glob(...))` (chaînes, sensible à la casse)
+  alors que `read_info.load_validation_data` trie avec `sorted(Path.glob("*.dat"))` (Path,
+  insensible à la casse sous Windows) → l'index affiché ne correspondait pas au fichier
+  réellement chargé (0 et 1 intervertis sur `DATA_SOURCE`).
+- **Fix :** `DataSourceWidget` trie désormais avec `sorted(Path.glob("*.dat"))`, identique à
+  `read_info` → l'index concorde. Vérifié : ordre du dropdown == ordre de `read_info`.
+
 ### App — OBF : navigation entre sources + affichage auto après beamforming
 - **OBF multi-sources :** l'étape ② calcule et met en cache **toutes** les cartes (somme
   « Toutes les sources » + 1 carte par source/valeur propre) ; l'affichage propose des
