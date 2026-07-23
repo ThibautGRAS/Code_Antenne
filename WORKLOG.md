@@ -40,6 +40,12 @@ Code de recherche : on privilégie la **lisibilité** à l'abstraction.
 
 ## 2026-06-28
 
+### App — logos agrandis + plaque arrondie (dark à finaliser)
+- CETIM + Cubeam **agrandis** (sidebar 228, en-têtes 86 px ; CETIM 178w, Cubeam 52h), **plaque
+  blanche arrondie** (8 px) + padding. OK en thème clair.
+- En **sombre**, la plaque blanche fait « boîte » : pour un rendu sans plaque il faut des
+  **variantes claires (blanc)** des logos (à fournir) → thème-aware à brancher ensuite.
+
 ### App — logo Cubeam 3D (SVG) branché en haut à droite
 - Chargement adapté aux fichiers réels déposés : **SVG prioritaire** (`Cubeam3D_logo_corrige_v2.svg`)
   **rendu net** via `QSvgRenderer` à la hauteur voulue, repli PNG (`logo.png`). Affiché à droite du

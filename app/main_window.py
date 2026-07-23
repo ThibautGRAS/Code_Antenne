@@ -128,7 +128,7 @@ class MainWindow(QMainWindow):
     def _sidebar(self):
         side = QFrame()
         side.setObjectName("Sidebar")
-        side.setFixedWidth(212)
+        side.setFixedWidth(228)
         sl = QVBoxLayout(side)
         sl.setContentsMargins(0, 0, 0, 0)
         sl.setSpacing(0)
@@ -136,14 +136,14 @@ class MainWindow(QMainWindow):
         # En-tete : logo CETIM sur plaque blanche, zone delimitee (bordure basse)
         head = QFrame()
         head.setObjectName("SideHead")
-        head.setFixedHeight(70)
+        head.setFixedHeight(86)
         hl = QHBoxLayout(head)
         hl.setContentsMargins(14, 12, 14, 12)
         logo = QLabel()
         logo.setObjectName("Logo")
         pix = QPixmap(_LOGO)
         if not pix.isNull():
-            logo.setPixmap(pix.scaledToWidth(168, Qt.SmoothTransformation))  # lockup large -> largeur
+            logo.setPixmap(pix.scaledToWidth(178, Qt.SmoothTransformation))  # lockup large -> largeur
         hl.addWidget(logo)
         sl.addWidget(head)
 
@@ -177,7 +177,7 @@ class MainWindow(QMainWindow):
     def _topbar(self):
         bar = QFrame()
         bar.setObjectName("TopBar")
-        bar.setFixedHeight(70)
+        bar.setFixedHeight(86)
         h = QHBoxLayout(bar)
         h.setContentsMargins(26, 8, 20, 8)
         h.setSpacing(0)
@@ -200,7 +200,7 @@ class MainWindow(QMainWindow):
         # Logo produit "Cubeam 3D" en haut a droite (si le fichier est present)
         cpath = next((p for p in _CUBEAM_CANDIDATES if os.path.exists(p)), None)
         if cpath:
-            cpix = _logo_pixmap(cpath, 44)
+            cpix = _logo_pixmap(cpath, 52)
             if cpix is not None and not cpix.isNull():
                 clogo = QLabel()
                 clogo.setObjectName("Logo2")
