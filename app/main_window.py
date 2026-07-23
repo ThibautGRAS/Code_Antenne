@@ -21,11 +21,37 @@ from app.pages.placeholder_page import PlaceholderPage
 _REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 _LOGO = os.path.join(_REPO, "data", "assets", "logo-cetim.png")
 _ASSETS_APP = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets")
-# Logo produit "Cubeam 3D" (a deposer par l'utilisateur) : app/assets ou data/assets.
+# Logo produit "Cubeam 3D" : SVG (net) prioritaire, sinon PNG.
 _CUBEAM_CANDIDATES = [
+    os.path.join(_ASSETS_APP, "Cubeam3D_logo_corrige_v2.svg"),
+    os.path.join(_ASSETS_APP, "Cubeam3D_logo_corrige_sous_titre_v2.svg"),
+    os.path.join(_ASSETS_APP, "logo.png"),
     os.path.join(_ASSETS_APP, "cubeam3d.png"),
     os.path.join(_REPO, "data", "assets", "cubeam3d.png"),
 ]
+
+
+def _logo_pixmap(path, height):
+    """Charge un logo (SVG rendu net a la hauteur voulue, sinon PNG mis a l'echelle)."""
+    if path.lower().endswith(".svg"):
+        try:
+            from PySide6.QtSvg import QSvgRenderer
+            from PySide6.QtGui import QPainter
+            r = QSvgRenderer(path)
+            if not r.isValid():
+                return None
+            ds = r.defaultSize()
+            w = int(height * ds.width() / ds.height()) if ds.height() > 0 else height * 4
+            pm = QPixmap(max(1, w), int(height))
+            pm.fill(Qt.transparent)
+            p = QPainter(pm)
+            r.render(p)
+            p.end()
+            return pm
+        except Exception:
+            return None
+    pm = QPixmap(path)
+    return None if pm.isNull() else pm.scaledToHeight(int(height), Qt.SmoothTransformation)
 
 _GUIDE_HTML = """
 <div style="color:#E7EEF7;">
@@ -174,11 +200,11 @@ class MainWindow(QMainWindow):
         # Logo produit "Cubeam 3D" en haut a droite (si le fichier est present)
         cpath = next((p for p in _CUBEAM_CANDIDATES if os.path.exists(p)), None)
         if cpath:
-            cpix = QPixmap(cpath)
-            if not cpix.isNull():
+            cpix = _logo_pixmap(cpath, 44)
+            if cpix is not None and not cpix.isNull():
                 clogo = QLabel()
                 clogo.setObjectName("Logo2")
-                clogo.setPixmap(cpix.scaledToHeight(44, Qt.SmoothTransformation))
+                clogo.setPixmap(cpix)
                 h.addSpacing(16)
                 h.addWidget(clogo)
 

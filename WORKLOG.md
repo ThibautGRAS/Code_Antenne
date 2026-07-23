@@ -40,6 +40,11 @@ Code de recherche : on privilégie la **lisibilité** à l'abstraction.
 
 ## 2026-06-28
 
+### App — logo Cubeam 3D (SVG) branché en haut à droite
+- Chargement adapté aux fichiers réels déposés : **SVG prioritaire** (`Cubeam3D_logo_corrige_v2.svg`)
+  **rendu net** via `QSvgRenderer` à la hauteur voulue, repli PNG (`logo.png`). Affiché à droite du
+  bandeau sur plaque blanche (`Logo2`) → équilibre le logo CETIM à gauche. Vérifié (capture).
+
 ### App — logo produit « Cubeam 3D » en haut à droite
 - Chargé depuis `app/assets/cubeam3d.png` (fallback `data/assets/cubeam3d.png`), affiché à droite
   du bandeau sur plaque blanche (`Logo2`), mis à l'échelle en hauteur. Fichier absent → rien
