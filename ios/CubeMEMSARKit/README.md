@@ -15,6 +15,9 @@ Prototype natif iPhone pour cartographier une face de l’antenne MEMS.
 - Mode de centre : centroïde blanc, centre contour, ou comparaison des deux.
 - Filtre de taille physique : ARKit utilise les intrinsèques caméra et la distance au plan pour comparer la taille apparente d’un candidat à un diamètre réel de capsule réglable.
 - Les observations de capsules sont suspendues pendant les panoramiques rapides, mais le rectangle et les micros déjà reconstruits restent ancrés.
+- Après verrouillage, un ArUco revu sert de boucle de fermeture : sa pose 6-DoF recale progressivement le repère cube au lieu de provoquer un saut brutal.
+- Les rayons et positions de micros déjà reconstruits sont corrigés avec le même déplacement rigide afin de conserver un nuage cohérent.
+- L’interface indique la qualité du repère en fonction de la distance parcourue depuis le dernier recalage : vert < 2,5 m, orange 2,5–4 m, rouge au-delà ou si le tracking AR est limité.
 
 ## Hypothèses du premier test
 
@@ -57,6 +60,9 @@ Dans Xcode :
 6. Régler le diamètre réel de la capsule dans Réglages (valeur provisoire par défaut : 30 mm, tolérance ±60 %).
 7. Se déplacer latéralement devant la face : les capsules deviennent provisoires puis validées si leur triangulation reste dans le plan ±Δ.
 8. Si le téléphone bouge trop vite, l’application conserve la face mais n’ajoute pas de nouveaux rayons flous jusqu’au retour à un mouvement plus lent.
+9. Après environ 2–3 m de déplacement, repasser brièvement sur un ArUco. L’application compare sa pose observée à la pose attendue et applique un recalage doux.
+10. Avec deux ou plusieurs ArUco visibles, les corrections issues de plusieurs marqueurs sont moyennées avant application.
+11. Une correction anormalement grande (>35 cm ou >20°) est rejetée plutôt que de déplacer tout le nuage sur une détection douteuse.
 
 ## Vidéo de test
 
@@ -73,3 +79,11 @@ Le détecteur blanc 2D est volontairement permissif : sur la vidéo compressée,
 3. distance finale au plan micro avec tolérance ±Δ.
 
 Le diamètre de capsule par défaut (30 mm) est une valeur de départ et doit être remplacé par la dimension réelle mesurée sur le montage.
+
+## Recalage anti-dérive
+
+La reconstruction ne demande pas qu’un ArUco reste visible en permanence. ARKit assure la continuité du suivi entre deux passages sur les marqueurs. Lorsqu’un marqueur réapparaît, l’application connaît sa transformation locale enregistrée au moment du verrouillage de la face. Sa nouvelle pose ARKit permet donc d’estimer une nouvelle pose du repère cube.
+
+La correction est volontairement lissée : coefficient 0,12 avec un seul marqueur, 0,24 avec deux et 0,38 avec trois ou quatre. Le but est de corriger une dérive lente sans faire « sauter » le rectangle ou les points. Les positions et les anciens rayons de triangulation reçoivent la même correction rigide.
+
+Cette logique constitue une première boucle de fermeture. Pour une version métrologique finale, les seuils et coefficients devront être validés sur l’iPhone cible avec des positions de référence mesurées.
