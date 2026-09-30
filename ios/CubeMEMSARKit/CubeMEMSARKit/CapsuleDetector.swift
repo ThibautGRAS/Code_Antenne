@@ -3,7 +3,7 @@ import CoreVideo
 import Foundation
 
 struct CapsuleDetection {
-    enum Kind {
+    enum Kind: Equatable {
         case white
         case orange
     }
