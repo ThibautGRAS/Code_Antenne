@@ -1,0 +1,22 @@
+name: CubeMEMSARKit
+options:
+  bundleIdPrefix: fr.cetim
+settings:
+  base:
+    IPHONEOS_DEPLOYMENT_TARGET: "16.0"
+    SWIFT_VERSION: "5.0"
+targets:
+  CubeMEMSARKit:
+    type: application
+    platform: iOS
+    sources:
+      - path: CubeMEMSARKit
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: fr.cetim.CubeMEMSARKit
+        INFOPLIST_FILE: CubeMEMSARKit/Info.plist
+        TARGETED_DEVICE_FAMILY: "1"
+        SUPPORTS_MACCATALYST: NO
+        GENERATE_INFOPLIST_FILE: NO
+    scheme:
+      testTargets: []
