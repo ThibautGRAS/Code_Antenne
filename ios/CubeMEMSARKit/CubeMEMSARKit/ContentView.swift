@@ -57,8 +57,8 @@ struct ContentView: View {
                         }
                     }
 
-                    Section {
-                        Text("Le rectangle est verrouillé dès que les quatre ArUco ont été vus au moins une fois. Ils n’ont pas besoin d’être visibles simultanément.")
+                    Section("Recalage du repère") {
+                        Text("Après le verrouillage, ARKit continue seul. Quand un ArUco réapparaît, sa pose 6-DoF sert à recaler doucement le repère du cube sans effacer les micros déjà reconstruits. Un passage périodique sur un marqueur limite la dérive.")
                             .font(.footnote)
                             .foregroundStyle(.secondary)
                     }
@@ -79,11 +79,11 @@ struct ContentView: View {
                 Text("Cube MEMS AR")
                     .font(.headline)
                 Spacer()
-                Text(model.faceLocked ? "FACE VERROUILLÉE" : "ACQUISITION")
+                Text(model.referenceQuality.rawValue)
                     .font(.caption2.bold())
                     .padding(.horizontal, 8)
                     .padding(.vertical, 5)
-                    .background(model.faceLocked ? Color.green.opacity(0.22) : Color.orange.opacity(0.22))
+                    .background(referenceColor.opacity(0.22))
                     .clipShape(Capsule())
             }
 
@@ -105,6 +105,26 @@ struct ContentView: View {
                         .clipShape(Capsule())
                 }
                 Spacer()
+            }
+
+            if model.faceLocked {
+                HStack(spacing: 6) {
+                    Circle()
+                        .fill(referenceColor)
+                        .frame(width: 8, height: 8)
+
+                    Text("\(model.distanceSinceRecalibrationM, specifier: "%.1f") m depuis recalage")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+
+                    if let error = model.lastRecalibrationErrorMm {
+                        Text("• ε \(error, specifier: "%.1f") mm")
+                            .font(.caption2.monospacedDigit())
+                            .foregroundStyle(.secondary)
+                    }
+
+                    Spacer()
+                }
             }
         }
         .padding(10)
@@ -162,6 +182,15 @@ struct ContentView: View {
         }
         .padding(10)
         .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 14))
+    }
+
+    private var referenceColor: Color {
+        switch model.referenceQuality {
+        case .acquiring: return .orange
+        case .good: return .green
+        case .watch: return .orange
+        case .poor: return .red
+        }
     }
 
     private func metric(_ value: String, _ label: String) -> some View {
