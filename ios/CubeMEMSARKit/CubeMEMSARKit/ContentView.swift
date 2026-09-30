@@ -46,6 +46,12 @@ struct ContentView: View {
                         LabeledContent("Association") {
                             Stepper("\(model.associationCm, specifier: "%.0f") cm", value: $model.associationCm, in: 3...30, step: 1)
                         }
+                        LabeledContent("Diamètre capsule") {
+                            Stepper("\(model.capsuleDiameterMm, specifier: "%.0f") mm", value: $model.capsuleDiameterMm, in: 10...60, step: 1)
+                        }
+                        LabeledContent("Tolérance taille") {
+                            Stepper("±\(model.capsuleSizeTolerancePct, specifier: "%.0f") %", value: $model.capsuleSizeTolerancePct, in: 20...100, step: 5)
+                        }
                         LabeledContent("Baseline mini") {
                             Stepper("\(model.minBaselineCm, specifier: "%.0f") cm", value: $model.minBaselineCm, in: 5...100, step: 5)
                         }
@@ -115,6 +121,12 @@ struct ContentView: View {
                 Text("Écart centroïde / contour : \(delta, specifier: "%.1f") mm")
                     .font(.caption2)
                     .foregroundStyle(.yellow)
+            }
+
+            if model.sizeRejectedThisFrame > 0 {
+                Text("Filtre taille physique : \(model.sizeRejectedThisFrame) candidat(s) écarté(s) sur la dernière image.")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
             }
 
             HStack(spacing: 8) {
