@@ -20,6 +20,7 @@ final class ScanModel: ObservableObject {
     @Published var provisionalMicros = 0
     @Published var rejectedMicros = 0
     @Published var meanCenterDeltaMm: Double? = nil
+    @Published var sizeRejectedThisFrame = 0
 
     @Published var markerSizeCm: Double = 8.0
     @Published var planeOffsetCm: Double = 3.0
@@ -27,6 +28,8 @@ final class ScanModel: ObservableObject {
     @Published var whiteThreshold: Double = 0.82
     @Published var minBaselineCm: Double = 20.0
     @Published var associationCm: Double = 10.0
+    @Published var capsuleDiameterMm: Double = 30.0
+    @Published var capsuleSizeTolerancePct: Double = 60.0
     @Published var centerMode: CapsuleCenterMode = .compare
 
     @Published var resetToken = UUID()
@@ -40,6 +43,7 @@ final class ScanModel: ObservableObject {
         provisionalMicros = 0
         rejectedMicros = 0
         meanCenterDeltaMm = nil
+        sizeRejectedThisFrame = 0
         status = "Scan réinitialisé."
     }
 }
