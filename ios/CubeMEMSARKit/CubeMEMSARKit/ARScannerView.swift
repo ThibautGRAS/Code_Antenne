@@ -128,6 +128,7 @@ struct ARScannerView: UIViewRepresentable {
                 model.provisionalMicros = 0
                 model.rejectedMicros = 0
                 model.meanCenterDeltaMm = nil
+                model.sizeRejectedThisFrame = 0
                 model.status = "Repère AR réinitialisé. Montre les ArUco un par un."
             }
         }
@@ -448,6 +449,7 @@ struct ARScannerView: UIViewRepresentable {
 
             var observations: [DetectionObservation] = []
             var centerDeltasMm: [Double] = []
+            var sizeRejected = 0
 
             for detection in detections {
                 let selectedScreen = screenPoint(
@@ -463,6 +465,17 @@ struct ARScannerView: UIViewRepresentable {
                     origin: ray.origin,
                     direction: ray.direction
                 ) else { continue }
+
+                if detection.kind == .white,
+                   !passesPhysicalSizeFilter(
+                        detection: detection,
+                        worldPoint: nominal.world,
+                        frame: frame
+                   )
+                {
+                    sizeRejected += 1
+                    continue
+                }
 
                 if model.centerMode == .compare, detection.kind == .white {
                     let cScreen = screenPoint(
@@ -506,11 +519,52 @@ struct ARScannerView: UIViewRepresentable {
             updateTracks(with: observations)
 
             Task { @MainActor in
-                if !centerDeltasMm.isEmpty {
-                    model.meanCenterDeltaMm =
-                        centerDeltasMm.reduce(0, +) / Double(centerDeltasMm.count)
-                }
+                model.sizeRejectedThisFrame = sizeRejected
+                model.meanCenterDeltaMm = centerDeltasMm.isEmpty
+                    ? nil
+                    : centerDeltasMm.reduce(0, +) / Double(centerDeltasMm.count)
             }
+        }
+
+        private func passesPhysicalSizeFilter(
+            detection: CapsuleDetection,
+            worldPoint: SIMD3<Float>,
+            frame: ARFrame
+        ) -> Bool {
+            if detection.kind == .orange {
+                return true
+            }
+
+            let physicalDiameter = Float(model.capsuleDiameterMm / 1000.0)
+            let tolerance = Float(model.capsuleSizeTolerancePct / 100.0)
+
+            let cameraFromWorld = simd_inverse(frame.camera.transform)
+            let cameraPoint4 = cameraFromWorld * SIMD4<Float>(
+                worldPoint.x,
+                worldPoint.y,
+                worldPoint.z,
+                1
+            )
+            let depth = abs(cameraPoint4.z)
+            guard depth > 0.05 else { return false }
+
+            let intrinsics = frame.camera.intrinsics
+            let focalPixels = 0.5 * (
+                intrinsics.columns.0.x +
+                intrinsics.columns.1.y
+            )
+
+            let expectedPixels = focalPixels * physicalDiameter / depth
+            let observedPixels = Float(detection.diameterPixels)
+
+            // Broad tolerance on purpose for the first tests:
+            // perspective, partial masks and the net can alter the apparent blob size.
+            let lowerScale = max(0.10, 1.0 - tolerance)
+            let upperScale = 1.0 + tolerance
+            let lower = expectedPixels * lowerScale
+            let upper = expectedPixels * upperScale
+
+            return observedPixels >= lower && observedPixels <= upper
         }
 
         private func screenPoint(
