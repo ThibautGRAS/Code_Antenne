@@ -1,4 +1,16 @@
 <!doctype html>
-<html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="apple-mobile-web-app-capable" content="yes"><title>Cube MEMS POC</title><link rel="stylesheet" href="style.css"></head><body>
-<header><h1>Cube MEMS — reconstruction V0</h1><p>Cube 2 × 2 × 2 m · caméra iPhone · recalage d’une face · points 3D</p></header>
-<main><section class="card"><div class="bar"><button id="camBtn">Caméra</button><button id="shotBtn" disabled>Capturer</button><button id="fileBtn">Photo</button><input id="file" type="file" accept="image/*" hidden></div><video id="video" playsinline muted></video><canvas id="image" width="720" height="540" hidden></canvas><div class="bar"><select id="face"><option value="rear">Arrière</option><option value="front">Avant</option><option value="left">Gauche</option><option value="right">Droite</option><option value="top">Haut</option></select><button id="cornersBtn">4 coins</button><button id="detectBtn">Détecter blanc</button><button id="addBtn">Ajouter vue</button></div><div class="bar small"><label>Seuil blanc <input id="thr" type="range" min="160" max="250" value="215"></label></div><div id="status">Charge une photo ou démarre la caméra.</div></section><section class="card"><div class="bar"><button id="resetBtn">Recentrer</button><button id="csvBtn">CSV</button><button id="clearBtn">Effacer</button></div><canvas id="three" width="720" height="660"></canvas><div id="count">0 micros</div><div id="table"></div></section></main><footer>V0 web : la pose ARKit continue viendra dans la version native iPhone.</footer><script src="app.js"></script></body></html>
+<html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="apple-mobile-web-app-capable" content="yes"><title>Cube MEMS POC V1</title><link rel="stylesheet" href="style.css"></head><body>
+<header><h1>Cube MEMS — reconstruction V1</h1><p>Cube 2 × 2 × 2 m · ArUco 0-3 · détection des pastilles blanches · filtre de plan par cohérence multi-vues</p></header>
+<main>
+<section class="card">
+<div class="bar"><button id="camBtn">Caméra</button><button id="scanBtn" disabled>Scan auto ArUco</button><button id="shotBtn" disabled>Capturer</button><button id="fileBtn">Photo</button><input id="file" type="file" accept="image/*" hidden></div>
+<video id="video" playsinline muted></video><canvas id="image" width="720" height="540" hidden></canvas>
+<div class="bar"><select id="face"><option value="rear">Arrière</option><option value="front">Avant</option><option value="left">Gauche</option><option value="right">Droite</option><option value="top">Haut</option></select><button id="cornersBtn">4 coins manuels</button><button id="detectBtn">Détecter blanc</button><button id="addBtn">Ajouter vue</button></div>
+<div class="bar small"><label>Seuil blanc <input id="thr" type="range" min="160" max="250" value="215"></label><label>Marge centre ArUco → coin <input id="margin" type="number" min="0" max="30" step="1" value="0"> cm</label></div>
+<div id="arucoStatus" class="statusline">ArUco : 0/4 · points stables : 0 · provisoires : 0</div>
+<div id="status">Démarre la caméra. En scan auto, déplace-toi latéralement pour filtrer les objets derrière la face.</div>
+</section>
+<section class="card"><div class="bar"><button id="resetBtn">Recentrer</button><button id="csvBtn">CSV</button><button id="clearBtn">Effacer</button></div><canvas id="three" width="720" height="660"></canvas><div id="count">0 micros</div><div id="table"></div></section>
+</main>
+<footer>Le filtre de profondeur V1 est géométrique : les points réellement dans le plan ArUco restent fixes après rectification ; les objets derrière dérivent avec la parallaxe lorsque tu bouges la caméra.</footer>
+<script src="aruco-lite.js"></script><script src="app.js"></script></body></html>
