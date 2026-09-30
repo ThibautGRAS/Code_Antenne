@@ -9,7 +9,6 @@ enum CapsuleCenterMode: String, CaseIterable, Identifiable {
     var id: String { rawValue }
 }
 
-@MainActor
 final class ScanModel: ObservableObject {
     @Published var isScanning = false
     @Published var status = "Prêt. Démarre le scan puis montre les ArUco un par un."
