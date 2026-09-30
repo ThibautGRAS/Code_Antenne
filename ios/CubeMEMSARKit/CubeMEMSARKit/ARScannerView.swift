@@ -44,6 +44,8 @@ struct ARScannerView: UIViewRepresentable {
         private var frameCounter = 0
         private var lastDetectionTime: TimeInterval = 0
         private var detectionRunning = false
+        private var lastCameraTransform: simd_float4x4?
+        private var lastCameraTimestamp: TimeInterval?
 
         private var lastResetToken: UUID
         private var lastMarkerSizeCm: Double
@@ -99,6 +101,8 @@ struct ARScannerView: UIViewRepresentable {
             markerCenters.removeAll()
             tracks.removeAll()
             frameCounter = 0
+            lastCameraTransform = nil
+            lastCameraTimestamp = nil
             faceTransform = nil
             faceWidth = 2
             faceHeight = 2
@@ -148,15 +152,28 @@ struct ARScannerView: UIViewRepresentable {
                 }
             )
 
+            let tooFast = cameraMotionTooFast(frame)
+            let trackingUsable: Bool
+            switch frame.camera.trackingState {
+            case .normal:
+                trackingUsable = true
+            default:
+                trackingUsable = false
+            }
+
             Task { @MainActor in
                 model.visibleMarkerIDs = visible
 
                 switch frame.camera.trackingState {
                 case .normal:
                     if model.isScanning {
-                        model.status = faceTransform == nil
-                            ? "Tracking AR OK. Parcours les quatre ArUco ; ils sont mémorisés."
-                            : "Face verrouillée. Déplace-toi latéralement pour trianguler les capsules."
+                        if faceTransform == nil {
+                            model.status = "Tracking AR OK. Parcours les quatre ArUco ; ils sont mémorisés."
+                        } else if tooFast {
+                            model.status = "Mouvement rapide : rectangle conservé, détection micros temporairement suspendue."
+                        } else {
+                            model.status = "Face verrouillée. Déplace-toi doucement et latéralement pour trianguler les capsules."
+                        }
                     }
                 case .limited(let reason):
                     model.status = "Tracking AR limité : \(reason.description)"
@@ -167,7 +184,7 @@ struct ARScannerView: UIViewRepresentable {
                 }
             }
 
-            guard model.isScanning, faceTransform != nil else { return }
+            guard model.isScanning, faceTransform != nil, trackingUsable, !tooFast else { return }
 
             let now = frame.timestamp
             guard now - lastDetectionTime > 0.20, !detectionRunning else { return }
@@ -193,6 +210,43 @@ struct ARScannerView: UIViewRepresentable {
                     self.detectionRunning = false
                 }
             }
+        }
+
+        private func cameraMotionTooFast(_ frame: ARFrame) -> Bool {
+            defer {
+                lastCameraTransform = frame.camera.transform
+                lastCameraTimestamp = frame.timestamp
+            }
+
+            guard
+                let previous = lastCameraTransform,
+                let previousTime = lastCameraTimestamp
+            else { return false }
+
+            let dt = max(1e-3, frame.timestamp - previousTime)
+            let current = frame.camera.transform
+
+            let p0 = previous.translation
+            let p1 = current.translation
+            let translationSpeed = simd_distance(p0, p1) / Float(dt)
+
+            let f0 = simd_normalize(SIMD3<Float>(
+                previous.columns.2.x,
+                previous.columns.2.y,
+                previous.columns.2.z
+            ))
+            let f1 = simd_normalize(SIMD3<Float>(
+                current.columns.2.x,
+                current.columns.2.y,
+                current.columns.2.z
+            ))
+            let cosine = max(-1.0 as Float, min(1.0 as Float, simd_dot(f0, f1)))
+            let angularSpeed = acos(cosine) / Float(dt)
+
+            // Tuned from the first iPhone walk-around video:
+            // keep ARKit tracking alive, but do not add blurred capsule rays
+            // during fast pans.
+            return translationSpeed > 1.2 || angularSpeed > 1.6
         }
 
         func session(_ session: ARSession, didFailWithError error: Error) {
