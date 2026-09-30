@@ -1,6 +1,13 @@
 import Foundation
 import SwiftUI
 
+enum ReferenceQuality: String {
+    case acquiring = "ACQUISITION"
+    case good = "REPÈRE OK"
+    case watch = "À RECALER"
+    case poor = "RECALAGE CONSEILLÉ"
+}
+
 enum CapsuleCenterMode: String, CaseIterable, Identifiable {
     case centroid = "Centroïde"
     case contour = "Contour"
@@ -15,6 +22,10 @@ final class ScanModel: ObservableObject {
     @Published var visibleMarkerIDs: Set<Int> = []
     @Published var mappedMarkerIDs: Set<Int> = []
     @Published var faceLocked = false
+    @Published var referenceQuality: ReferenceQuality = .acquiring
+    @Published var distanceSinceRecalibrationM: Double = 0
+    @Published var lastRecalibrationErrorMm: Double? = nil
+    @Published var recalibrationCount = 0
 
     @Published var confirmedMicros = 0
     @Published var provisionalMicros = 0
@@ -37,6 +48,10 @@ final class ScanModel: ObservableObject {
     func reset() {
         resetToken = UUID()
         faceLocked = false
+        referenceQuality = .acquiring
+        distanceSinceRecalibrationM = 0
+        lastRecalibrationErrorMm = nil
+        recalibrationCount = 0
         visibleMarkerIDs = []
         mappedMarkerIDs = []
         confirmedMicros = 0
