@@ -219,7 +219,7 @@ struct ARScannerView: UIViewRepresentable {
                     // Low-pass only while the face is not locked. Once locked,
                     // the geometry is frozen to avoid visible jumps.
                     if faceTransform == nil {
-                        markerCenters[id] = simd_mix(old, p, SIMD3<Float>(repeating: 0.25))
+                        markerCenters[id] = old * 0.75 + p * 0.25
                     }
                 } else {
                     markerCenters[id] = p
@@ -638,7 +638,7 @@ struct ARScannerView: UIViewRepresentable {
         ) -> (point: SIMD3<Float>, residual: Float)? {
             guard rays.count >= 2 else { return nil }
 
-            var A = simd_float3x3(repeating: 0)
+            var A = simd_float3x3(columns: (SIMD3<Float>(repeating: 0), SIMD3<Float>(repeating: 0), SIMD3<Float>(repeating: 0)))
             var b = SIMD3<Float>(repeating: 0)
             let identity = matrix_identity_float3x3
 
@@ -743,7 +743,7 @@ private struct RayObservation {
     var direction: SIMD3<Float>
 }
 
-private enum TrackState {
+private enum TrackState: Equatable {
     case provisional
     case confirmed
     case rejected
