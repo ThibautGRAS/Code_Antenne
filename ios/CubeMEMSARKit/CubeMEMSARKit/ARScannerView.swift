@@ -32,6 +32,8 @@ struct ARScannerView: UIViewRepresentable {
         private let detectorQueue = DispatchQueue(label: "CubeMEMS.CapsuleDetector", qos: .userInitiated)
 
         private var markerCenters: [Int: SIMD3<Float>] = [:]
+        private var markerTransforms: [Int: simd_float4x4] = [:]
+        private var markerLocalTransforms: [Int: simd_float4x4] = [:]
         private var markerVisuals: [Int: AnchorEntity] = [:]
 
         private var faceTransform: simd_float4x4?
@@ -46,6 +48,8 @@ struct ARScannerView: UIViewRepresentable {
         private var detectionRunning = false
         private var lastCameraTransform: simd_float4x4?
         private var lastCameraTimestamp: TimeInterval?
+        private var lastReferenceCameraPosition: SIMD3<Float>?
+        private var distanceSinceRecalibration: Float = 0
 
         private var lastResetToken: UUID
         private var lastMarkerSizeCm: Double
@@ -99,10 +103,14 @@ struct ARScannerView: UIViewRepresentable {
 
         private func resetAll() {
             markerCenters.removeAll()
+            markerTransforms.removeAll()
+            markerLocalTransforms.removeAll()
             tracks.removeAll()
             frameCounter = 0
             lastCameraTransform = nil
             lastCameraTimestamp = nil
+            lastReferenceCameraPosition = nil
+            distanceSinceRecalibration = 0
             faceTransform = nil
             faceWidth = 2
             faceHeight = 2
@@ -124,6 +132,10 @@ struct ARScannerView: UIViewRepresentable {
                 model.visibleMarkerIDs = []
                 model.mappedMarkerIDs = []
                 model.faceLocked = false
+                model.referenceQuality = .acquiring
+                model.distanceSinceRecalibrationM = 0
+                model.lastRecalibrationErrorMm = nil
+                model.recalibrationCount = 0
                 model.confirmedMicros = 0
                 model.provisionalMicros = 0
                 model.rejectedMicros = 0
@@ -162,22 +174,33 @@ struct ARScannerView: UIViewRepresentable {
                 trackingUsable = false
             }
 
+            updateReferenceTravel(frame)
+            let referenceQuality = currentReferenceQuality(trackingUsable: trackingUsable)
+
             Task { @MainActor in
                 model.visibleMarkerIDs = visible
+                model.referenceQuality = faceTransform == nil ? .acquiring : referenceQuality
+                model.distanceSinceRecalibrationM = Double(distanceSinceRecalibration)
 
                 switch frame.camera.trackingState {
                 case .normal:
                     if model.isScanning {
                         if faceTransform == nil {
                             model.status = "Tracking AR OK. Parcours les quatre ArUco ; ils sont mémorisés."
+                        } else if !visible.isEmpty {
+                            model.status = "ArUco revu : recalage doux du repère cube en cours."
                         } else if tooFast {
                             model.status = "Mouvement rapide : rectangle conservé, détection micros temporairement suspendue."
+                        } else if referenceQuality == .poor {
+                            model.status = "Recalage conseillé : reviens quelques secondes sur un ArUco."
+                        } else if referenceQuality == .watch {
+                            model.status = "Repère encore exploitable ; repasse bientôt sur un ArUco pour limiter la dérive."
                         } else {
                             model.status = "Face verrouillée. Déplace-toi doucement et latéralement pour trianguler les capsules."
                         }
                     }
                 case .limited(let reason):
-                    model.status = "Tracking AR limité : \(reason.description)"
+                    model.status = "Tracking AR limité : \(reason.description). Un recalage ArUco sera conseillé."
                 case .notAvailable:
                     model.status = "Tracking AR indisponible."
                 @unknown default:
@@ -210,6 +233,32 @@ struct ARScannerView: UIViewRepresentable {
                     self.consume(detections: detections, frame: frame)
                     self.detectionRunning = false
                 }
+            }
+        }
+
+        private func updateReferenceTravel(_ frame: ARFrame) {
+            let current = frame.camera.transform.translation
+            defer { lastReferenceCameraPosition = current }
+
+            guard faceTransform != nil, let previous = lastReferenceCameraPosition else { return }
+
+            let step = simd_distance(previous, current)
+            // Ignore impossible frame-to-frame jumps caused by AR relocalization.
+            if step < 0.25 {
+                distanceSinceRecalibration += step
+            }
+        }
+
+        private func currentReferenceQuality(trackingUsable: Bool) -> ReferenceQuality {
+            guard faceTransform != nil else { return .acquiring }
+            guard trackingUsable else { return .poor }
+
+            if distanceSinceRecalibration < 2.5 {
+                return .good
+            } else if distanceSinceRecalibration < 4.0 {
+                return .watch
+            } else {
+                return .poor
             }
         }
 
@@ -261,6 +310,8 @@ struct ARScannerView: UIViewRepresentable {
         private func updateImageAnchors(_ anchors: [ARAnchor]) {
             guard model.isScanning else { return }
 
+            var observed: [Int: simd_float4x4] = [:]
+
             for anchor in anchors {
                 guard
                     let image = anchor as? ARImageAnchor,
@@ -268,26 +319,223 @@ struct ARScannerView: UIViewRepresentable {
                     let id = markerID(from: image.referenceImage.name)
                 else { continue }
 
+                observed[id] = image.transform
+                markerTransforms[id] = image.transform
+
                 let p = image.transform.translation
 
-                if let old = markerCenters[id] {
-                    // Low-pass only while the face is not locked. Once locked,
-                    // the geometry is frozen to avoid visible jumps.
-                    if faceTransform == nil {
+                if faceTransform == nil {
+                    if let old = markerCenters[id] {
                         markerCenters[id] = old * 0.75 + p * 0.25
+                    } else {
+                        markerCenters[id] = p
                     }
-                } else {
-                    markerCenters[id] = p
+                    updateMarkerVisual(id: id, position: markerCenters[id] ?? p)
                 }
-
-                updateMarkerVisual(id: id, position: markerCenters[id] ?? p)
             }
+
+            if faceTransform == nil {
+                Task { @MainActor in
+                    model.mappedMarkerIDs = Set(markerCenters.keys)
+                }
+                lockFaceIfReady()
+            } else if !observed.isEmpty {
+                softRecalibrate(using: observed)
+            }
+        }
+
+        private func softRecalibrate(using observed: [Int: simd_float4x4]) {
+            guard let oldFace = faceTransform else { return }
+
+            var candidates: [simd_float4x4] = []
+            var usedIDs: [Int] = []
+
+            for (id, markerWorld) in observed {
+                guard let markerLocal = markerLocalTransforms[id] else { continue }
+                candidates.append(markerWorld * simd_inverse(markerLocal))
+                usedIDs.append(id)
+            }
+
+            guard let candidateFace = averageRigidTransforms(candidates, reference: oldFace) else { return }
+
+            let oldQ = quaternion(from: oldFace)
+            let candidateQ = quaternion(from: candidateFace)
+            let qDot = min(1.0 as Float, max(0.0 as Float, abs(simd_dot(oldQ.vector, candidateQ.vector))))
+            let rotationJump = 2.0 * acos(qDot)
+            let translationJump = simd_distance(oldFace.translation, candidateFace.translation)
+
+            // A large loop-closure jump is more likely a bad image-anchor pose.
+            // Do not move the whole reconstruction on one suspicious observation.
+            if translationJump > 0.35 || rotationJump > Float(20.0 * .pi / 180.0) {
+                Task { @MainActor in
+                    model.referenceQuality = .poor
+                    model.status = String(
+                        format: "ArUco incohérent (écart %.0f mm / %.1f°) : correction ignorée.",
+                        translationJump * 1000,
+                        rotationJump * 180 / .pi
+                    )
+                }
+                return
+            }
+
+            let alpha: Float
+            switch candidates.count {
+            case 1: alpha = 0.12
+            case 2: alpha = 0.24
+            default: alpha = 0.38
+            }
+
+            let blendedTranslation =
+                oldFace.translation +
+                alpha * (candidateFace.translation - oldFace.translation)
+            let blendedQ = simd_slerp(oldQ, candidateQ, alpha)
+            let newFace = rigidTransform(rotation: blendedQ, translation: blendedTranslation)
+
+            let delta = newFace * simd_inverse(oldFace)
+            applyWorldCorrection(delta)
+            faceTransform = newFace
+
+            if let faceAnchor {
+                faceAnchor.setTransformMatrix(newFace, relativeTo: nil)
+            }
+
+            // Keep marker visuals and stored corner centers in the corrected frame.
+            for id in markerCenters.keys {
+                if let p = markerCenters[id] {
+                    let corrected = transformPoint(delta, p)
+                    markerCenters[id] = corrected
+                    updateMarkerVisual(id: id, position: corrected)
+                }
+            }
+            for (id, markerWorld) in observed {
+                markerCenters[id] = markerWorld.translation
+                updateMarkerVisual(id: id, position: markerWorld.translation)
+            }
+
+            let rmsMm = markerResidualMm(face: candidateFace, observed: observed)
+            distanceSinceRecalibration = 0
+            lastReferenceCameraPosition = nil
+
+            renderMicros()
 
             Task { @MainActor in
-                model.mappedMarkerIDs = Set(markerCenters.keys)
+                model.referenceQuality = .good
+                model.distanceSinceRecalibrationM = 0
+                model.lastRecalibrationErrorMm = Double(rmsMm)
+                model.recalibrationCount += 1
+                model.status = String(
+                    format: "Repère recalé avec %d ArUco — résidu %.1f mm.",
+                    usedIDs.count,
+                    rmsMm
+                )
+            }
+        }
+
+        private func markerResidualMm(
+            face: simd_float4x4,
+            observed: [Int: simd_float4x4]
+        ) -> Float {
+            var sum: Float = 0
+            var count: Float = 0
+
+            for (id, markerWorld) in observed {
+                guard let local = markerLocalTransforms[id] else { continue }
+                let predicted = (face * local).translation
+                sum += simd_length_squared(predicted - markerWorld.translation)
+                count += 1
             }
 
-            lockFaceIfReady()
+            guard count > 0 else { return 0 }
+            return sqrt(sum / count) * 1000
+        }
+
+        private func averageRigidTransforms(
+            _ transforms: [simd_float4x4],
+            reference: simd_float4x4
+        ) -> simd_float4x4? {
+            guard !transforms.isEmpty else { return nil }
+
+            var translation = SIMD3<Float>(repeating: 0)
+            for transform in transforms {
+                translation += transform.translation
+            }
+            translation /= Float(transforms.count)
+
+            let referenceQ = quaternion(from: reference)
+            var averageQ = referenceQ
+            var accumulatedWeight: Float = 0
+
+            for transform in transforms {
+                var q = quaternion(from: transform)
+                if simd_dot(referenceQ.vector, q.vector) < 0 {
+                    q = simd_quatf(vector: -q.vector)
+                }
+
+                let nextWeight = accumulatedWeight + 1
+                averageQ = simd_slerp(
+                    averageQ,
+                    q,
+                    1 / nextWeight
+                )
+                accumulatedWeight = nextWeight
+            }
+
+            return rigidTransform(rotation: averageQ, translation: translation)
+        }
+
+        private func quaternion(from transform: simd_float4x4) -> simd_quatf {
+            let rotation = simd_float3x3(columns: (
+                SIMD3<Float>(transform.columns.0.x, transform.columns.0.y, transform.columns.0.z),
+                SIMD3<Float>(transform.columns.1.x, transform.columns.1.y, transform.columns.1.z),
+                SIMD3<Float>(transform.columns.2.x, transform.columns.2.y, transform.columns.2.z)
+            ))
+            return simd_normalize(simd_quatf(rotation))
+        }
+
+        private func rigidTransform(
+            rotation: simd_quatf,
+            translation: SIMD3<Float>
+        ) -> simd_float4x4 {
+            let x = rotation.act(SIMD3<Float>(1, 0, 0))
+            let y = rotation.act(SIMD3<Float>(0, 1, 0))
+            let z = rotation.act(SIMD3<Float>(0, 0, 1))
+
+            var transform = matrix_identity_float4x4
+            transform.columns.0 = SIMD4<Float>(x.x, x.y, x.z, 0)
+            transform.columns.1 = SIMD4<Float>(y.x, y.y, y.z, 0)
+            transform.columns.2 = SIMD4<Float>(z.x, z.y, z.z, 0)
+            transform.columns.3 = SIMD4<Float>(translation.x, translation.y, translation.z, 1)
+            return transform
+        }
+
+        private func applyWorldCorrection(_ delta: simd_float4x4) {
+            let rotation = simd_float3x3(columns: (
+                SIMD3<Float>(delta.columns.0.x, delta.columns.0.y, delta.columns.0.z),
+                SIMD3<Float>(delta.columns.1.x, delta.columns.1.y, delta.columns.1.z),
+                SIMD3<Float>(delta.columns.2.x, delta.columns.2.y, delta.columns.2.z)
+            ))
+
+            for index in tracks.indices {
+                for rayIndex in tracks[index].rays.indices {
+                    tracks[index].rays[rayIndex].origin =
+                        transformPoint(delta, tracks[index].rays[rayIndex].origin)
+                    tracks[index].rays[rayIndex].direction = simd_normalize(
+                        rotation * tracks[index].rays[rayIndex].direction
+                    )
+                }
+
+                if let point = tracks[index].worldPoint {
+                    tracks[index].worldPoint = transformPoint(delta, point)
+                }
+            }
+        }
+
+        private func transformPoint(
+            _ transform: simd_float4x4,
+            _ point: SIMD3<Float>
+        ) -> SIMD3<Float> {
+            let result = transform * SIMD4<Float>(point.x, point.y, point.z, 1)
+            return SIMD3<Float>(result.x, result.y, result.z)
         }
 
         private func markerID(from name: String?) -> Int? {
@@ -363,10 +611,21 @@ struct ARScannerView: UIViewRepresentable {
             transform.columns.3 = SIMD4<Float>(center.x, center.y, center.z, 1)
 
             faceTransform = transform
+
+            markerLocalTransforms.removeAll()
+            for (id, markerWorld) in markerTransforms {
+                markerLocalTransforms[id] = simd_inverse(transform) * markerWorld
+            }
+
+            distanceSinceRecalibration = 0
+            lastReferenceCameraPosition = nil
             renderLockedFace()
 
             Task { @MainActor in
                 model.faceLocked = true
+                model.referenceQuality = .good
+                model.distanceSinceRecalibrationM = 0
+                model.lastRecalibrationErrorMm = 0
                 model.status = String(
                     format: "Face verrouillée : %.2f × %.2f m. Les ArUco peuvent sortir du champ.",
                     faceWidth, faceHeight
