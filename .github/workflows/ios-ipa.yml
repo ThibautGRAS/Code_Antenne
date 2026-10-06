@@ -1,0 +1,55 @@
+# Builds an UNSIGNED .ipa of the ARKit app on a GitHub-hosted Mac.
+# Download the "CubeMEMSARKit-ipa" artifact, then sign + install it from Windows with Sideloadly.
+name: iOS unsigned IPA
+
+on:
+  push:
+    branches: [calibration-app]
+    paths:
+      - "ios/**"
+      - ".github/workflows/ios-ipa.yml"
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-15
+    defaults:
+      run:
+        working-directory: ios/CubeMEMSARKit
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_16.4.app || true; xcodebuild -version
+
+      - name: Generate Xcode project from project.yml
+        run: |
+          brew install xcodegen
+          xcodegen generate
+
+      - name: Build (no code signing)
+        run: |
+          xcodebuild \
+            -project CubeMEMSARKit.xcodeproj \
+            -scheme CubeMEMSARKit \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            build
+
+      - name: Package .ipa
+        run: |
+          mkdir -p Payload
+          cp -R build/Build/Products/Release-iphoneos/CubeMEMSARKit.app Payload/
+          zip -qr CubeMEMSARKit-unsigned.ipa Payload
+          ls -lh CubeMEMSARKit-unsigned.ipa
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: CubeMEMSARKit-ipa
+          path: ios/CubeMEMSARKit/CubeMEMSARKit-unsigned.ipa
+          retention-days: 30
