@@ -67,12 +67,27 @@ final class ScenarioTests: XCTestCase {
         assertTargets(run(scenario), maxRmsMm: 25, knownIssue: "drift without ArUco recalibration: false greens and low recall")
     }
 
-    /// Same drift, with ArUco loop closure each time a corner marker is in view.
+    /// Same drift, with ArUco loop closure each time a corner marker is in view and capsule
+    /// rays suspended after 1.5 m walked without recalibration (app default).
     func testPoseDriftWithArucoRecalibration() {
         var scenario = ScanScenario(name: "pose-drift-1cm-per-m+aruco")
         scenario.driftPerMeter = 0.01
         scenario.arucoRecalibration = true
-        assertTargets(run(scenario), maxRmsMm: 15)
+        scenario.maxTravelSinceRecalibration = 1.5
+        scenario.duration = 120
+        assertTargets(run(scenario), minRecall: 0.8, maxRmsMm: 15)
+    }
+
+    /// Report only: accuracy vs. allowed travel since the last ArUco, at 1 cm/m drift.
+    func testTravelLimitSweep() {
+        for limit: Float? in [nil, 3, 2, 1.5, 1, 0.7] {
+            var scenario = ScanScenario(name: "sweep-travel-\(limit.map { String(format: "%.1fm", $0) } ?? "none")")
+            scenario.driftPerMeter = 0.01
+            scenario.arucoRecalibration = true
+            scenario.maxTravelSinceRecalibration = limit
+            scenario.duration = 120
+            _ = run(scenario)
+        }
     }
 
     /// No drift: noisy marker poses must not degrade the reconstruction.

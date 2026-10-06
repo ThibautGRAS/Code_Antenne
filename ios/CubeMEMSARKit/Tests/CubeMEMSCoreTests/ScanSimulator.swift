@@ -47,6 +47,9 @@ struct ScanScenario {
     var markerPositionNoise: Float = 0.003
     var markerAngleNoise: Float = 0.3 * Float.pi / 180
     var markerMaxDistance: Float = 2.5
+    /// Like the app: no new capsule rays once the operator walked farther than this (m)
+    /// since the last ArUco recalibration. nil = never suspend.
+    var maxTravelSinceRecalibration: Float? = nil
 
     // App settings
     var parameters = ReconstructionParameters()
@@ -163,6 +166,7 @@ enum ScanSimulator {
         var frame = 0
         var totalObservations = 0
         var recalibrations = 0
+        var travelSinceRecalibration: Float = 0
 
         var t: Float = 0
         while t < s.duration {
@@ -171,7 +175,9 @@ enum ScanSimulator {
             let pose = cameraPath(s, time: t)
             let position = faceTransform.transformPoint(pose.position)
             if let previousPosition {
-                pathLength += simd_distance(previousPosition, position)
+                let step = simd_distance(previousPosition, position)
+                pathLength += step
+                travelSinceRecalibration += step
             }
             previousPosition = position
 
@@ -206,12 +212,14 @@ enum ScanSimulator {
                         face.transform = newFace
                         reconstructor.faceDidMove(to: face)
                         recalibrations += 1
+                        travelSinceRecalibration = 0
                     }
                 }
             }
 
             var observations: [DetectionObservation] = []
-            for detection in antenna.detections(face: trueFace, camera: camera, model: s.detector, rng: &rng) {
+            let suspended = s.maxTravelSinceRecalibration.map { travelSinceRecalibration > $0 } ?? false
+            for detection in suspended ? [] : antenna.detections(face: trueFace, camera: camera, model: s.detector, rng: &rng) {
                 // ARKit reports a drifted camera position; the pixel direction is unchanged.
                 let origin = detection.origin + drift
 
