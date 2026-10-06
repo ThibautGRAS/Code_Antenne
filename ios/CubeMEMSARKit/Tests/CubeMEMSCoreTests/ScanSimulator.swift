@@ -2,59 +2,10 @@ import Foundation
 import simd
 @testable import CubeMEMSCore
 
-// Synthetic walk-around scan of one cube face. It replaces ARKit + CapsuleDetector by
-// ground-truth geometry (camera poses, capsule and distractor positions) and feeds the
-// reconstruction core exactly like ARScannerView.consume(detections:frame:) does.
-
-// MARK: - Deterministic random numbers
-
-struct SplitMix64: RandomNumberGenerator {
-    private var state: UInt64
-
-    init(seed: UInt64) {
-        state = seed
-    }
-
-    mutating func next() -> UInt64 {
-        state &+= 0x9E37_79B9_7F4A_7C15
-        var z = state
-        z = (z ^ (z >> 30)) &* 0xBF58_476D_1CE4_E5B9
-        z = (z ^ (z >> 27)) &* 0x94D0_49BB_1331_11EB
-        return z ^ (z >> 31)
-    }
-
-    mutating func uniform(_ range: ClosedRange<Float>) -> Float {
-        Float.random(in: range, using: &self)
-    }
-
-    mutating func chance(_ probability: Float) -> Bool {
-        Float.random(in: 0..<1, using: &self) < probability
-    }
-
-    mutating func gaussian(sigma: Float) -> Float {
-        let u1 = max(Float.random(in: 0..<1, using: &self), 1e-7)
-        let u2 = Float.random(in: 0..<1, using: &self)
-        return sigma * sqrt(-2 * log(u1)) * cos(2 * Float.pi * u2)
-    }
-}
-
-// MARK: - Scene
-
-enum SimTargetKind: Equatable {
-    /// Capsule of the scanned face (ground truth).
-    case capsule
-    /// Capsule of the opposite face, seen through the net.
-    case backCapsule
-    /// White object of the anechoic room.
-    case clutter
-}
-
-struct SimTarget {
-    var kind: SimTargetKind
-    /// Position in the face frame (Z = face normal, toward the camera).
-    var local: SIMD3<Float>
-    var diameter: Float
-}
+// Synthetic walk-around scan of one cube face. The operator path replaces ARKit, and
+// VirtualAntenna replaces the real antenna + CapsuleDetector (same code as the app's
+// "antenne virtuelle" mode). Detections go through the same chain as
+// ARScannerView.consume: plane intersection, size filter, then TrackReconstructor.
 
 struct ScanScenario {
     var name: String
@@ -68,30 +19,16 @@ struct ScanScenario {
     // Face
     var faceSize: Float = 2.0
     var planeOffset: Float = 0.03
-    var capsuleColumns = 6
-    var capsuleRows = 7
-    var capsuleJitter: Float = 0.03
     var capsuleDiameter: Float = 0.030
-    /// Extra capsules placed `closePairDistance` away from existing ones.
+    /// Extra capsules placed 6 cm away from existing ones.
     var closePairs = 0
-    var closePairDistance: Float = 0.06
 
     // Distractors
     var backFace = false
-    var backFaceDepth: Float = 2.0
     var clutterCount = 0
-    var clutterDepth: ClosedRange<Float> = 2.3...4.5
-    var clutterSpread: Float = 2.5
-    var clutterDiameter: ClosedRange<Float> = 0.01...0.12
-    /// Additional hand-placed targets.
-    var extraTargets: [SimTarget] = []
-    var includeGridCapsules = true
 
-    // Detector model
-    var detectionProbability: Float = 0.85
-    var distractorDetectionProbability: Float = 0.6
-    var pixelNoise: Float = 1.5
-    var sizeNoise: Float = 0.15
+    // Detector and camera (iPhone wide camera, 1920 × 1440 class)
+    var detector = DetectorModel()
     var focalPixels: Float = 1450
     var halfFovX: Float = 0.58
     var halfFovY: Float = 0.46
@@ -113,29 +50,17 @@ struct ScanScenario {
 
 struct ScanReport: CustomStringConvertible {
     var scenario: String
-    var capsules = 0
-    var confirmed = 0
-    var matchedCapsules = 0
-    /// Extra confirmed tracks on an already matched capsule.
-    var duplicates = 0
-    /// Confirmed tracks 3–10 cm from the nearest capsule (badly triangulated capsule).
-    var inaccurate = 0
-    /// Confirmed tracks more than 10 cm from any capsule (distractor or merged track).
-    var falseConfirmed = 0
-    var rmsErrorMm: Float = 0
-    var maxErrorMm: Float = 0
+    var score: ScanScore
     var observations = 0
 
-    var recall: Float {
-        capsules == 0 ? 1 : Float(matchedCapsules) / Float(capsules)
-    }
+    var falseConfirmed: Int { score.falseConfirmed }
+    var inaccurate: Int { score.inaccurate }
+    var duplicates: Int { score.duplicates }
+    var recall: Float { score.recall }
+    var rmsErrorMm: Float { score.rmsErrorMm }
 
     var description: String {
-        String(
-            format: "capsules=%d confirmed=%d recall=%.0f%% duplicates=%d inaccurate=%d false=%d rms=%.1fmm max=%.1fmm obs=%d",
-            capsules, confirmed, recall * 100, duplicates, inaccurate, falseConfirmed,
-            rmsErrorMm, maxErrorMm, observations
-        )
+        "\(score) obs=\(observations)"
     }
 
     /// GitHub Actions annotation, visible on the workflow run page.
@@ -145,58 +70,11 @@ struct ScanReport: CustomStringConvertible {
 }
 
 enum ScanSimulator {
-    static let matchRadius: Float = 0.03
-    static let nearRadius: Float = 0.10
-
     /// Face frame placed off-axis in the ARKit world on purpose.
     static func faceTransform() -> simd_float4x4 {
         var transform = simd_float4x4(simd_quatf(angle: 25 * Float.pi / 180, axis: SIMD3<Float>(0, 1, 0)))
         transform.columns.3 = SIMD4<Float>(0.4, 1.1, -0.7, 1)
         return transform
-    }
-
-    static func makeTargets(_ s: ScanScenario, rng: inout SplitMix64) -> [SimTarget] {
-        var targets: [SimTarget] = []
-        let usable = s.faceSize * 0.85
-
-        func grid(z: Float, kind: SimTargetKind, shift: SIMD2<Float>) {
-            for column in 0..<s.capsuleColumns {
-                for row in 0..<s.capsuleRows {
-                    let u = s.capsuleColumns > 1 ? Float(column) / Float(s.capsuleColumns - 1) - 0.5 : 0
-                    let v = s.capsuleRows > 1 ? Float(row) / Float(s.capsuleRows - 1) - 0.5 : 0
-                    let x = u * usable + shift.x + rng.uniform(-s.capsuleJitter...s.capsuleJitter)
-                    let y = v * usable + shift.y + rng.uniform(-s.capsuleJitter...s.capsuleJitter)
-                    targets.append(SimTarget(kind: kind, local: SIMD3<Float>(x, y, z), diameter: s.capsuleDiameter))
-                }
-            }
-        }
-
-        if s.includeGridCapsules {
-            grid(z: s.planeOffset, kind: .capsule, shift: .zero)
-
-            let originals = targets
-            for index in 0..<min(s.closePairs, originals.count) {
-                let base = originals[(index * 7) % originals.count]
-                let angle = rng.uniform(0...(2 * Float.pi))
-                let offset = SIMD3<Float>(cos(angle), sin(angle), 0) * s.closePairDistance
-                targets.append(SimTarget(kind: .capsule, local: base.local + offset, diameter: s.capsuleDiameter))
-            }
-        }
-
-        if s.backFace {
-            grid(z: s.planeOffset - s.backFaceDepth, kind: .backCapsule, shift: SIMD2<Float>(0.11, -0.07))
-        }
-
-        for _ in 0..<s.clutterCount {
-            let local = SIMD3<Float>(
-                rng.uniform(-s.clutterSpread...s.clutterSpread),
-                rng.uniform(-s.clutterSpread...s.clutterSpread),
-                s.planeOffset - rng.uniform(s.clutterDepth)
-            )
-            targets.append(SimTarget(kind: .clutter, local: local, diameter: rng.uniform(s.clutterDiameter)))
-        }
-
-        return targets + s.extraTargets
     }
 
     /// Camera position and aim point in the face frame at time t.
@@ -213,6 +91,30 @@ enum ScanSimulator {
         return (position, aim)
     }
 
+    /// ARKit-style camera at `position` looking at `aim` (world), gravity-up.
+    static func makeCamera(_ s: ScanScenario, position: SIMD3<Float>, aim: SIMD3<Float>) -> PinholeCamera {
+        let forward = simd_normalize(aim - position)
+        let right = simd_normalize(simd_cross(forward, SIMD3<Float>(0, 1, 0)))
+        let up = simd_cross(right, forward)
+
+        var transform = matrix_identity_float4x4
+        transform.columns.0 = SIMD4<Float>(right, 0)
+        transform.columns.1 = SIMD4<Float>(up, 0)
+        transform.columns.2 = SIMD4<Float>(-forward, 0)
+        transform.columns.3 = SIMD4<Float>(position, 1)
+
+        let f = s.focalPixels
+        let cx = f * tan(s.halfFovX)
+        let cy = f * tan(s.halfFovY)
+        let intrinsics = simd_float3x3(columns: (
+            SIMD3<Float>(f, 0, 0),
+            SIMD3<Float>(0, f, 0),
+            SIMD3<Float>(cx, cy, 1)
+        ))
+
+        return PinholeCamera(transform: transform, intrinsics: intrinsics, imageSize: SIMD2<Float>(2 * cx, 2 * cy))
+    }
+
     static func run(_ s: ScanScenario) -> (report: ScanReport, reconstructor: TrackReconstructor) {
         var rng = SplitMix64(seed: s.seed)
         let faceTransform = faceTransform()
@@ -222,8 +124,15 @@ enum ScanSimulator {
             height: s.faceSize,
             planeOffset: s.planeOffset
         )
-        let targets = makeTargets(s, rng: &rng)
-        let targetsWorld = targets.map { faceTransform.transformPoint($0.local) }
+        let antenna = VirtualAntenna.make(
+            faceSize: s.faceSize,
+            planeOffset: s.planeOffset,
+            capsuleDiameter: s.capsuleDiameter,
+            closePairs: s.closePairs,
+            backFace: s.backFace,
+            clutterCount: s.clutterCount,
+            rng: &rng
+        )
 
         var reconstructor = TrackReconstructor()
         reconstructor.parameters = s.parameters
@@ -245,122 +154,50 @@ enum ScanSimulator {
             }
             previousPosition = position
 
-            let lookingAway = s.lookAway.contains { $0.contains(t) }
             var aim = faceTransform.transformPoint(pose.aim)
-            if lookingAway {
+            if s.lookAway.contains(where: { $0.contains(t) }) {
                 aim = position + (position - aim)
             }
 
-            let forward = simd_normalize(aim - position)
-            let right = simd_normalize(simd_cross(forward, SIMD3<Float>(0, 1, 0)))
-            let up = simd_cross(right, forward)
-            let reportedOrigin = position + driftDirection * (s.driftPerMeter * pathLength)
+            let camera = makeCamera(s, position: position, aim: aim)
+            let forward = -camera.transform.zAxis
+            let drift = driftDirection * (s.driftPerMeter * pathLength)
 
-            var detections: [(observation: DetectionObservation, diameterPixels: Float)] = []
-
-            for (index, target) in targets.enumerated() {
-                let v = targetsWorld[index] - position
-                let depth = simd_dot(v, forward)
-                guard depth > 0.15 else { continue }
-                guard
-                    abs(atan2(simd_dot(v, right), depth)) < s.halfFovX,
-                    abs(atan2(simd_dot(v, up), depth)) < s.halfFovY
-                else { continue }
-
-                let probability = target.kind == .capsule ? s.detectionProbability : s.distractorDetectionProbability
-                guard rng.chance(probability) else { continue }
-
-                let sigma = s.pixelNoise / s.focalPixels
-                let direction = simd_normalize(
-                    simd_normalize(v) +
-                    right * rng.gaussian(sigma: sigma) +
-                    up * rng.gaussian(sigma: sigma)
-                )
-                let diameterPixels = s.focalPixels * target.diameter / depth * max(0.2, 1 + rng.gaussian(sigma: s.sizeNoise))
+            var observations: [DetectionObservation] = []
+            for detection in antenna.detections(face: face, camera: camera, model: s.detector, rng: &rng) {
+                // ARKit reports a drifted camera position; the pixel direction is unchanged.
+                let origin = detection.origin + drift
 
                 // Same chain as ARScannerView.consume: plane intersection, then size filter.
-                guard let nominal = face.nominalIntersection(origin: reportedOrigin, direction: direction) else { continue }
-                let nominalDepth = simd_dot(nominal.world - reportedOrigin, forward)
+                guard let nominal = face.nominalIntersection(origin: origin, direction: detection.direction) else { continue }
                 guard CapsuleSizeFilter.passes(
-                    observedDiameterPixels: diameterPixels,
+                    observedDiameterPixels: detection.diameterPixels,
                     physicalDiameter: s.assumedCapsuleDiameter,
-                    depth: nominalDepth,
+                    depth: simd_dot(nominal.world - origin, forward),
                     focalPixels: s.focalPixels,
                     tolerance: s.sizeTolerance
                 ) else { continue }
 
-                let observation = DetectionObservation(
-                    kind: .white,
-                    ray: RayObservation(origin: reportedOrigin, direction: direction),
-                    localXY: SIMD2<Float>(nominal.local.x, nominal.local.y)
+                observations.append(
+                    DetectionObservation(
+                        kind: .white,
+                        ray: RayObservation(origin: origin, direction: detection.direction),
+                        localXY: SIMD2<Float>(nominal.local.x, nominal.local.y)
+                    )
                 )
-                detections.append((observation, diameterPixels))
             }
 
-            // CapsuleDetector returns the blobs sorted by decreasing size.
-            detections.sort { $0.diameterPixels > $1.diameterPixels }
-            totalObservations += detections.count
-            reconstructor.update(with: detections.map { $0.observation }, frame: frame, face: face)
+            totalObservations += observations.count
+            reconstructor.update(with: observations, frame: frame, face: face)
 
             t += s.tickInterval
         }
 
-        var report = evaluate(reconstructor, targets: targets, face: face, scenario: s.name)
-        report.observations = totalObservations
-        return (report, reconstructor)
-    }
-
-    static func evaluate(
-        _ reconstructor: TrackReconstructor,
-        targets: [SimTarget],
-        face: FaceGeometry,
-        scenario: String
-    ) -> ScanReport {
-        let capsules = targets.filter { $0.kind == .capsule }.map(\.local)
-        let worldToFace = simd_inverse(face.transform)
-
-        var report = ScanReport(scenario: scenario)
-        report.capsules = capsules.count
-
-        var matchesPerCapsule = [Int](repeating: 0, count: capsules.count)
-        var bestError = [Float](repeating: .greatestFiniteMagnitude, count: capsules.count)
-
-        for track in reconstructor.tracks where track.state == .confirmed && track.kind == .white {
-            guard let world = track.worldPoint else { continue }
-            report.confirmed += 1
-
-            let local = worldToFace.transformPoint(world)
-            var nearest = -1
-            var nearestDistance = Float.greatestFiniteMagnitude
-            for (index, capsule) in capsules.enumerated() {
-                let distance = simd_distance(local, capsule)
-                if distance < nearestDistance {
-                    nearestDistance = distance
-                    nearest = index
-                }
-            }
-
-            if nearest >= 0, nearestDistance <= matchRadius {
-                matchesPerCapsule[nearest] += 1
-                bestError[nearest] = min(bestError[nearest], nearestDistance)
-            } else if nearestDistance <= nearRadius {
-                report.inaccurate += 1
-            } else {
-                report.falseConfirmed += 1
-            }
-        }
-
-        var sumSquared: Float = 0
-        for index in capsules.indices where matchesPerCapsule[index] > 0 {
-            report.matchedCapsules += 1
-            report.duplicates += matchesPerCapsule[index] - 1
-            sumSquared += bestError[index] * bestError[index]
-            report.maxErrorMm = max(report.maxErrorMm, bestError[index] * 1000)
-        }
-        if report.matchedCapsules > 0 {
-            report.rmsErrorMm = sqrt(sumSquared / Float(report.matchedCapsules)) * 1000
-        }
-
-        return report
+        let score = ReconstructionScorer.score(
+            tracks: reconstructor.tracks,
+            capsules: antenna.capsulePositions,
+            face: face
+        )
+        return (ScanReport(scenario: s.name, score: score, observations: totalObservations), reconstructor)
     }
 }

@@ -138,6 +138,36 @@ final class GeometryTests: XCTestCase {
         XCTAssertGreaterThan(reconstructor.rejectedCount, 0)
     }
 
+    /// The virtual-antenna detector must cast rays that hit the true target (no pixel noise),
+    /// and ignore targets behind the camera or outside the image.
+    func testVirtualAntennaRaysPointAtTargets() throws {
+        let scenario = ScanScenario(name: "projection")
+        let antenna = VirtualAntenna(targets: [
+            VirtualTarget(kind: .capsule, local: SIMD3<Float>(0.2, -0.1, 0.03), diameter: 0.03),
+            VirtualTarget(kind: .clutter, local: SIMD3<Float>(0, 0, 3.0), diameter: 0.05),
+            VirtualTarget(kind: .capsule, local: SIMD3<Float>(6, 0, 0.03), diameter: 0.03)
+        ])
+        let position = world(SIMD3<Float>(0.3, 0.1, 1.2))
+        let camera = ScanSimulator.makeCamera(scenario, position: position, aim: world(SIMD3<Float>(0, 0, 0)))
+        var model = DetectorModel()
+        model.detectionProbability = 1
+        model.distractorDetectionProbability = 1
+        model.pixelNoise = 0
+        model.sizeNoise = 0
+        var rng = SplitMix64(seed: 1)
+
+        let detections = antenna.detections(face: face, camera: camera, model: model, rng: &rng)
+        XCTAssertEqual(detections.count, 1)
+        let detection = try XCTUnwrap(detections.first)
+        let target = world(SIMD3<Float>(0.2, -0.1, 0.03))
+        let toTarget = target - detection.origin
+        let perpendicular = toTarget - detection.direction * simd_dot(toTarget, detection.direction)
+        XCTAssertLessThan(simd_length(perpendicular), 1e-4)
+
+        let expectedPixels = scenario.focalPixels * 0.03 / simd_dot(toTarget, -camera.transform.zAxis)
+        XCTAssertEqual(detection.diameterPixels, expectedPixels, accuracy: 0.05)
+    }
+
     func testWorldCorrectionMovesTracksRigidly() throws {
         let capsule = SIMD3<Float>(-0.2, 0.3, 0.03)
         var reconstructor = TrackReconstructor()

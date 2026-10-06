@@ -72,9 +72,9 @@ final class ScenarioTests: XCTestCase {
         var scenario = ScanScenario(name: "noisy-detector-clutter")
         scenario.backFace = true
         scenario.clutterCount = 80
-        scenario.pixelNoise = 3
-        scenario.detectionProbability = 0.6
-        scenario.distractorDetectionProbability = 0.8
+        scenario.detector.pixelNoise = 3
+        scenario.detector.detectionProbability = 0.6
+        scenario.detector.distractorDetectionProbability = 0.8
         assertTargets(run(scenario), minRecall: 0.7, maxRmsMm: 15, knownIssue: "duplicates + false greens")
     }
 }

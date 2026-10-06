@@ -53,12 +53,23 @@ struct ARScannerView: UIViewRepresentable {
 
         private var lastResetToken: UUID
         private var lastMarkerSizeCm: Double
+        private var lastVirtualConfig: String
+
+        // "Antenne virtuelle" test mode.
+        private var virtualAntenna: VirtualAntenna?
+        private var virtualAnchor: AnchorEntity?
+        private var virtualRNG = SplitMix64(seed: 7)
 
         init(model: ScanModel) {
             self.model = model
             self.lastResetToken = model.resetToken
             self.lastMarkerSizeCm = model.markerSizeCm
+            self.lastVirtualConfig = Self.virtualConfig(model)
             super.init()
+        }
+
+        private static func virtualConfig(_ model: ScanModel) -> String {
+            "\(model.virtualAntenna)-\(model.virtualFaceSizeM)-\(model.virtualDistractors)"
         }
 
         func attach(_ view: ARView) {
@@ -98,6 +109,13 @@ struct ARScannerView: UIViewRepresentable {
             if abs(lastMarkerSizeCm - model.markerSizeCm) > 0.001 {
                 lastMarkerSizeCm = model.markerSizeCm
                 resetAll()
+                return
+            }
+
+            let virtualConfig = Self.virtualConfig(model)
+            if virtualConfig != lastVirtualConfig {
+                lastVirtualConfig = virtualConfig
+                resetAll()
             }
         }
 
@@ -125,6 +143,12 @@ struct ARScannerView: UIViewRepresentable {
             }
             faceAnchor = nil
 
+            if let virtualAnchor {
+                arView?.scene.removeAnchor(virtualAnchor)
+            }
+            virtualAnchor = nil
+            virtualAntenna = nil
+
             microAnchor?.children.removeAll()
             startSession(resetTracking: true)
 
@@ -141,7 +165,10 @@ struct ARScannerView: UIViewRepresentable {
                 model.rejectedMicros = 0
                 model.meanCenterDeltaMm = nil
                 model.sizeRejectedThisFrame = 0
-                model.status = "Repère AR réinitialisé. Montre les ArUco un par un."
+                model.virtualScore = nil
+                model.status = model.virtualAntenna
+                    ? "Repère AR réinitialisé. Lance le scan : l'antenne virtuelle sera posée devant toi."
+                    : "Repère AR réinitialisé. Montre les ArUco un par un."
             }
         }
 
@@ -208,11 +235,21 @@ struct ARScannerView: UIViewRepresentable {
                 }
             }
 
+            if model.virtualAntenna, model.isScanning, faceTransform == nil, trackingUsable {
+                placeVirtualAntenna(frame)
+            }
+
             guard model.isScanning, faceTransform != nil, trackingUsable, !tooFast else { return }
 
             let now = frame.timestamp
             guard now - lastDetectionTime > 0.20, !detectionRunning else { return }
             lastDetectionTime = now
+
+            if model.virtualAntenna, let virtualAntenna {
+                consumeVirtual(antenna: virtualAntenna, frame: frame)
+                return
+            }
+
             detectionRunning = true
 
             let pixelBuffer = frame.capturedImage
@@ -308,7 +345,7 @@ struct ARScannerView: UIViewRepresentable {
         // MARK: - Marker mapping
 
         private func updateImageAnchors(_ anchors: [ARAnchor]) {
-            guard model.isScanning else { return }
+            guard model.isScanning, !model.virtualAntenna else { return }
 
             var observed: [Int: simd_float4x4] = [:]
 
@@ -664,6 +701,154 @@ struct ARScannerView: UIViewRepresentable {
             anchor.addChild(plane)
 
             arView.scene.addAnchor(anchor)
+        }
+
+        // MARK: - Virtual antenna (test without the real antenna)
+
+        /// Places a virtual face 1.6 m in front of the phone, vertical, facing the operator.
+        private func placeVirtualAntenna(_ frame: ARFrame) {
+            let camera = frame.camera.transform
+            var forward = -camera.zAxis
+            forward.y = 0
+            // Phone pointing at the floor or the ceiling: wait for a usable heading.
+            guard simd_length(forward) > 0.2 else { return }
+            forward = simd_normalize(forward)
+
+            let size = Float(model.virtualFaceSizeM)
+            let center = camera.translation + forward * 1.6
+            let normal = -forward
+            let up = SIMD3<Float>(0, 1, 0)
+            let right = simd_normalize(simd_cross(up, normal))
+
+            var transform = matrix_identity_float4x4
+            transform.columns.0 = SIMD4<Float>(right.x, right.y, right.z, 0)
+            transform.columns.1 = SIMD4<Float>(up.x, up.y, up.z, 0)
+            transform.columns.2 = SIMD4<Float>(normal.x, normal.y, normal.z, 0)
+            transform.columns.3 = SIMD4<Float>(center.x, center.y, center.z, 1)
+
+            virtualRNG = SplitMix64(seed: 7)
+            let antenna = VirtualAntenna.make(
+                faceSize: size,
+                planeOffset: Float(model.planeOffsetCm / 100.0),
+                capsuleDiameter: Float(model.capsuleDiameterMm / 1000.0),
+                backFace: model.virtualDistractors,
+                backFaceDepth: size,
+                clutterCount: model.virtualDistractors ? 60 : 0,
+                rng: &virtualRNG
+            )
+
+            virtualAntenna = antenna
+            faceTransform = transform
+            faceWidth = size
+            faceHeight = size
+            markerLocalTransforms.removeAll()
+            distanceSinceRecalibration = 0
+            lastReferenceCameraPosition = nil
+
+            renderLockedFace()
+            renderVirtualAntenna(antenna, face: transform)
+
+            Task { @MainActor in
+                model.faceLocked = true
+                model.mappedMarkerIDs = [0, 1, 2, 3]
+                model.referenceQuality = .good
+                model.distanceSinceRecalibrationM = 0
+                model.status = String(
+                    format: "Antenne virtuelle posée à 1,6 m (face %.0f m). Déplace-toi latéralement pour trianguler.",
+                    size
+                )
+            }
+        }
+
+        private func renderVirtualAntenna(_ antenna: VirtualAntenna, face: simd_float4x4) {
+            guard let arView else { return }
+
+            if let old = virtualAnchor {
+                arView.scene.removeAnchor(old)
+            }
+
+            let anchor = AnchorEntity(world: face)
+
+            var capsuleMaterial = SimpleMaterial()
+            capsuleMaterial.color = .init(tint: .white, texture: nil)
+            var backMaterial = SimpleMaterial()
+            backMaterial.color = .init(tint: .lightGray, texture: nil)
+
+            for target in antenna.targets {
+                let radius = max(0.006, target.diameter / 2)
+                let material = target.kind == .backCapsule ? backMaterial : capsuleMaterial
+                let sphere = ModelEntity(mesh: .generateSphere(radius: radius), materials: [material])
+                sphere.position = target.local
+                anchor.addChild(sphere)
+            }
+
+            arView.scene.addAnchor(anchor)
+            virtualAnchor = anchor
+        }
+
+        /// Same chain as consume(detections:frame:) with synthetic detections from the real ARKit pose.
+        private func consumeVirtual(antenna: VirtualAntenna, frame: ARFrame) {
+            guard let face = currentFace() else { return }
+
+            let camera = PinholeCamera(
+                transform: frame.camera.transform,
+                intrinsics: frame.camera.intrinsics,
+                imageSize: SIMD2<Float>(
+                    Float(CVPixelBufferGetWidth(frame.capturedImage)),
+                    Float(CVPixelBufferGetHeight(frame.capturedImage))
+                )
+            )
+            let detections = antenna.detections(face: face, camera: camera, model: DetectorModel(), rng: &virtualRNG)
+
+            let cameraFromWorld = simd_inverse(frame.camera.transform)
+            let focalPixels = 0.5 * (camera.intrinsics.columns.0.x + camera.intrinsics.columns.1.y)
+            var observations: [DetectionObservation] = []
+            var sizeRejected = 0
+
+            for detection in detections {
+                guard let nominal = face.nominalIntersection(
+                    origin: detection.origin,
+                    direction: detection.direction
+                ) else { continue }
+
+                guard CapsuleSizeFilter.passes(
+                    observedDiameterPixels: detection.diameterPixels,
+                    physicalDiameter: Float(model.capsuleDiameterMm / 1000.0),
+                    depth: abs(cameraFromWorld.transformPoint(nominal.world).z),
+                    focalPixels: focalPixels,
+                    tolerance: Float(model.capsuleSizeTolerancePct / 100.0)
+                ) else {
+                    sizeRejected += 1
+                    continue
+                }
+
+                observations.append(
+                    DetectionObservation(
+                        kind: .white,
+                        ray: RayObservation(origin: detection.origin, direction: detection.direction),
+                        localXY: SIMD2<Float>(nominal.local.x, nominal.local.y)
+                    )
+                )
+            }
+
+            updateTracks(with: observations)
+
+            let score = ReconstructionScorer.score(
+                tracks: reconstructor.tracks,
+                capsules: antenna.capsulePositions,
+                face: face
+            )
+            let scoreText = String(
+                format: "Vérité terrain : %d/%d capsules · %d doublons · %d faux · %d imprécis · RMS %.1f mm",
+                score.matchedCapsules, score.capsules, score.duplicates,
+                score.falseConfirmed, score.inaccurate, score.rmsErrorMm
+            )
+
+            Task { @MainActor in
+                model.sizeRejectedThisFrame = sizeRejected
+                model.meanCenterDeltaMm = nil
+                model.virtualScore = scoreText
+            }
         }
 
         // MARK: - Capsule reconstruction

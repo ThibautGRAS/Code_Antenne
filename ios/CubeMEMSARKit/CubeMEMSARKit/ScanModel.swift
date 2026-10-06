@@ -43,6 +43,13 @@ final class ScanModel: ObservableObject {
     @Published var capsuleSizeTolerancePct: Double = 60.0
     @Published var centerMode: CapsuleCenterMode = .compare
 
+    // Test mode without the real antenna: virtual face placed in front of the phone,
+    // synthetic detections from the real ARKit pose, live score against ground truth.
+    @Published var virtualAntenna = false
+    @Published var virtualFaceSizeM: Double = 2.0
+    @Published var virtualDistractors = true
+    @Published var virtualScore: String? = nil
+
     @Published var resetToken = UUID()
 
     func reset() {
@@ -59,6 +66,7 @@ final class ScanModel: ObservableObject {
         rejectedMicros = 0
         meanCenterDeltaMm = nil
         sizeRejectedThisFrame = 0
+        virtualScore = nil
         status = "Scan réinitialisé."
     }
 }

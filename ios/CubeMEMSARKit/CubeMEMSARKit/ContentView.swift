@@ -57,6 +57,20 @@ struct ContentView: View {
                         }
                     }
 
+                    Section("Test sans antenne") {
+                        Toggle("Antenne virtuelle", isOn: $model.virtualAntenna)
+                        if model.virtualAntenna {
+                            Picker("Taille de la face", selection: $model.virtualFaceSizeM) {
+                                Text("2 m").tag(2.0)
+                                Text("1 m").tag(1.0)
+                            }
+                            Toggle("Face arrière + objets blancs", isOn: $model.virtualDistractors)
+                        }
+                        Text("Une face virtuelle est posée à 1,6 m devant le téléphone au démarrage du scan. Les capsules blanches sont virtuelles mais le suivi ARKit est réel : marche autour comme devant l'antenne. Le score compare les micros verts à la vraie position des capsules. Pas d'ArUco, donc pas de recalage.")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+
                     Section("Recalage du repère") {
                         Text("Après le verrouillage, ARKit continue seul. Quand un ArUco réapparaît, sa pose 6-DoF sert à recaler doucement le repère du cube sans effacer les micros déjà reconstruits. Un passage périodique sur un marqueur limite la dérive.")
                             .font(.footnote)
@@ -78,6 +92,14 @@ struct ContentView: View {
             HStack {
                 Text("Cube MEMS AR")
                     .font(.headline)
+                if model.virtualAntenna {
+                    Text("VIRTUEL")
+                        .font(.caption2.bold())
+                        .padding(.horizontal, 7)
+                        .padding(.vertical, 4)
+                        .background(Color.purple.opacity(0.6))
+                        .clipShape(Capsule())
+                }
                 Spacer()
                 Text(model.referenceQuality.rawValue)
                     .font(.caption2.bold())
@@ -141,6 +163,12 @@ struct ContentView: View {
                 Text("Écart centroïde / contour : \(delta, specifier: "%.1f") mm")
                     .font(.caption2)
                     .foregroundStyle(.yellow)
+            }
+
+            if model.virtualAntenna, let score = model.virtualScore {
+                Text(score)
+                    .font(.caption2.monospacedDigit())
+                    .foregroundStyle(.purple)
             }
 
             if model.sizeRejectedThisFrame > 0 {
