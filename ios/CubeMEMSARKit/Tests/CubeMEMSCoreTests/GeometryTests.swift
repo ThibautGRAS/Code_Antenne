@@ -167,6 +167,41 @@ final class GeometryTests: XCTestCase {
         XCTAssertEqual(detection.diameterPixels, expectedPixels, accuracy: 0.05)
     }
 
+    func testRecalibrationMovesFaceTowardObservedMarker() throws {
+        let markerLocal: [Int: simd_float4x4] = [0: translation(SIMD3<Float>(-0.96, 0.96, 0))]
+        let shift = SIMD3<Float>(0.01, 0, 0)
+        let observed = [0: translation(shift) * face.transform * markerLocal[0]!]
+
+        let outcome = try XCTUnwrap(FaceRecalibration.soft(face: face.transform, observed: observed, markerLocal: markerLocal))
+        guard case let .applied(newFace, delta, residualMm, markerCount) = outcome else {
+            return XCTFail("expected an applied correction")
+        }
+        XCTAssertEqual(markerCount, 1)
+        XCTAssertLessThan(residualMm, 0.01)
+        // One marker: 12 % of the way toward the candidate.
+        let moved = newFace.translation - face.transform.translation
+        XCTAssertLessThan(simd_distance(moved, shift * 0.12), 1e-5)
+        XCTAssertLessThan(simd_distance(delta.transformPoint(face.transform.translation), newFace.translation), 1e-5)
+    }
+
+    func testRecalibrationRejectsLargeJumpAndUnknownMarkers() {
+        let markerLocal: [Int: simd_float4x4] = [1: translation(SIMD3<Float>(0.96, 0.96, 0))]
+
+        let far = [1: translation(SIMD3<Float>(0.5, 0, 0)) * face.transform * markerLocal[1]!]
+        guard case .rejected? = FaceRecalibration.soft(face: face.transform, observed: far, markerLocal: markerLocal) else {
+            return XCTFail("a 50 cm jump must be rejected")
+        }
+
+        let unknown = [3: face.transform]
+        XCTAssertNil(FaceRecalibration.soft(face: face.transform, observed: unknown, markerLocal: markerLocal))
+    }
+
+    private func translation(_ t: SIMD3<Float>) -> simd_float4x4 {
+        var m = matrix_identity_float4x4
+        m.columns.3 = SIMD4<Float>(t.x, t.y, t.z, 1)
+        return m
+    }
+
     func testWorldCorrectionMovesTracksRigidly() throws {
         let capsule = SIMD3<Float>(-0.2, 0.3, 0.03)
         var reconstructor = TrackReconstructor()

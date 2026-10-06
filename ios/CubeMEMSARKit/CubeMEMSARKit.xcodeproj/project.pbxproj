@@ -15,6 +15,7 @@
 		A10000000000000000000006 /* CapsuleDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000006 /* CapsuleDetector.swift */; };
 		A10000000000000000000007 /* ReconstructionCore.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000009 /* ReconstructionCore.swift */; };
 		A10000000000000000000008 /* VirtualAntenna.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000000000000000000000A /* VirtualAntenna.swift */; };
+		A10000000000000000000009 /* FaceRecalibration.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000000000000000000000B /* FaceRecalibration.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -25,6 +26,7 @@
 		B10000000000000000000005 /* ArucoReferenceFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArucoReferenceFactory.swift; sourceTree = "<group>"; };
 		B10000000000000000000006 /* CapsuleDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CapsuleDetector.swift; sourceTree = "<group>"; };
 		B10000000000000000000007 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		B1000000000000000000000B /* FaceRecalibration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FaceRecalibration.swift; sourceTree = "<group>"; };
 		B1000000000000000000000A /* VirtualAntenna.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VirtualAntenna.swift; sourceTree = "<group>"; };
 		B10000000000000000000009 /* ReconstructionCore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReconstructionCore.swift; sourceTree = "<group>"; };
 		B10000000000000000000008 /* CubeMEMSARKit.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = CubeMEMSARKit.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -69,6 +71,7 @@
 			children = (
 				B10000000000000000000009 /* ReconstructionCore.swift */,
 				B1000000000000000000000A /* VirtualAntenna.swift */,
+				B1000000000000000000000B /* FaceRecalibration.swift */,
 			);
 			path = Core;
 			sourceTree = "<group>";
@@ -157,6 +160,7 @@
 				A10000000000000000000006 /* CapsuleDetector.swift in Sources */,
 				A10000000000000000000007 /* ReconstructionCore.swift in Sources */,
 				A10000000000000000000008 /* VirtualAntenna.swift in Sources */,
+				A10000000000000000000009 /* FaceRecalibration.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

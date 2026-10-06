@@ -100,6 +100,8 @@ struct ContentView: View {
             HStack {
                 Text("Cube MEMS AR")
                     .font(.headline)
+                    .lineLimit(1)
+                    .fixedSize()
                 if model.virtualAntenna {
                     Text("VIRTUEL")
                         .font(.caption2.bold())
@@ -187,6 +189,8 @@ struct ContentView: View {
                     model.isScanning.toggle()
                 } label: {
                     Label(model.isScanning ? "Arrêter" : "Scanner", systemImage: model.isScanning ? "stop.fill" : "viewfinder")
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)

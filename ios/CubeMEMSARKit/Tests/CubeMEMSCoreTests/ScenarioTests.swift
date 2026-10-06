@@ -67,6 +67,21 @@ final class ScenarioTests: XCTestCase {
         assertTargets(run(scenario), maxRmsMm: 25, knownIssue: "drift without ArUco recalibration: false greens and low recall")
     }
 
+    /// Same drift, with ArUco loop closure each time a corner marker is in view.
+    func testPoseDriftWithArucoRecalibration() {
+        var scenario = ScanScenario(name: "pose-drift-1cm-per-m+aruco")
+        scenario.driftPerMeter = 0.01
+        scenario.arucoRecalibration = true
+        assertTargets(run(scenario), maxRmsMm: 15)
+    }
+
+    /// No drift: noisy marker poses must not degrade the reconstruction.
+    func testArucoRecalibrationWithoutDrift() {
+        var scenario = ScanScenario(name: "aruco-noise-no-drift")
+        scenario.arucoRecalibration = true
+        assertTargets(run(scenario))
+    }
+
     /// Worst case: noisy, intermittent detector in the cluttered room.
     func testNoisyDetectorInClutter() {
         var scenario = ScanScenario(name: "noisy-detector-clutter")

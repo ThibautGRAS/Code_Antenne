@@ -42,6 +42,12 @@ struct ScanScenario {
     /// ARKit pose drift accumulated along the path (m per m walked).
     var driftPerMeter: Float = 0
 
+    // ArUco loop closure (FaceRecalibration) whenever a corner marker is in view.
+    var arucoRecalibration = false
+    var markerPositionNoise: Float = 0.003
+    var markerAngleNoise: Float = 0.3 * Float.pi / 180
+    var markerMaxDistance: Float = 2.5
+
     // App settings
     var parameters = ReconstructionParameters()
     var assumedCapsuleDiameter: Float = 0.030
@@ -52,6 +58,7 @@ struct ScanReport: CustomStringConvertible {
     var scenario: String
     var score: ScanScore
     var observations = 0
+    var recalibrations = 0
 
     var falseConfirmed: Int { score.falseConfirmed }
     var inaccurate: Int { score.inaccurate }
@@ -60,7 +67,7 @@ struct ScanReport: CustomStringConvertible {
     var rmsErrorMm: Float { score.rmsErrorMm }
 
     var description: String {
-        "\(score) obs=\(observations)"
+        "\(score) obs=\(observations) recal=\(recalibrations)"
     }
 
     /// GitHub Actions annotation, visible on the workflow run page.
@@ -118,12 +125,16 @@ enum ScanSimulator {
     static func run(_ s: ScanScenario) -> (report: ScanReport, reconstructor: TrackReconstructor) {
         var rng = SplitMix64(seed: s.seed)
         let faceTransform = faceTransform()
-        let face = FaceGeometry(
+        // Ground truth, used to generate detections and marker observations.
+        let trueFace = FaceGeometry(
             transform: faceTransform,
             width: s.faceSize,
             height: s.faceSize,
             planeOffset: s.planeOffset
         )
+        // What the app believes (locked perfectly at t = 0, then moved by ArUco recalibration).
+        var face = trueFace
+
         let antenna = VirtualAntenna.make(
             faceSize: s.faceSize,
             planeOffset: s.planeOffset,
@@ -134,6 +145,15 @@ enum ScanSimulator {
             rng: &rng
         )
 
+        // ArUco ID0..3 near the face corners, same orientation as the face.
+        let corner = s.faceSize / 2 - 0.04
+        var markerLocal: [Int: simd_float4x4] = [:]
+        for (id, xy) in [(0, SIMD2<Float>(-1, 1)), (1, SIMD2<Float>(1, 1)), (2, SIMD2<Float>(1, -1)), (3, SIMD2<Float>(-1, -1))] {
+            var local = matrix_identity_float4x4
+            local.columns.3 = SIMD4<Float>(xy.x * corner, xy.y * corner, 0, 1)
+            markerLocal[id] = local
+        }
+
         var reconstructor = TrackReconstructor()
         reconstructor.parameters = s.parameters
 
@@ -142,6 +162,7 @@ enum ScanSimulator {
         var previousPosition: SIMD3<Float>?
         var frame = 0
         var totalObservations = 0
+        var recalibrations = 0
 
         var t: Float = 0
         while t < s.duration {
@@ -163,8 +184,34 @@ enum ScanSimulator {
             let forward = -camera.transform.zAxis
             let drift = driftDirection * (s.driftPerMeter * pathLength)
 
+            if s.arucoRecalibration {
+                let visible = visibleMarkers(markerLocal, face: trueFace, camera: camera, maxDistance: s.markerMaxDistance)
+                // ARKit updates image anchors every frame: one noisy observation per frame.
+                for _ in 0..<(visible.isEmpty ? 0 : s.framesPerTick) {
+                    var observed: [Int: simd_float4x4] = [:]
+                    for id in visible {
+                        observed[id] = noisyMarkerPose(
+                            trueFace.transform * markerLocal[id]!,
+                            drift: drift,
+                            positionNoise: s.markerPositionNoise,
+                            angleNoise: s.markerAngleNoise,
+                            rng: &rng
+                        )
+                    }
+                    if case let .applied(newFace, delta, _, _)? = FaceRecalibration.soft(
+                        face: face.transform,
+                        observed: observed,
+                        markerLocal: markerLocal
+                    ) {
+                        reconstructor.applyWorldCorrection(delta)
+                        face.transform = newFace
+                        recalibrations += 1
+                    }
+                }
+            }
+
             var observations: [DetectionObservation] = []
-            for detection in antenna.detections(face: face, camera: camera, model: s.detector, rng: &rng) {
+            for detection in antenna.detections(face: trueFace, camera: camera, model: s.detector, rng: &rng) {
                 // ARKit reports a drifted camera position; the pixel direction is unchanged.
                 let origin = detection.origin + drift
 
@@ -193,11 +240,63 @@ enum ScanSimulator {
             t += s.tickInterval
         }
 
+        // Positions are judged in the face frame the app ends up with.
         let score = ReconstructionScorer.score(
             tracks: reconstructor.tracks,
             capsules: antenna.capsulePositions,
             face: face
         )
-        return (ScanReport(scenario: s.name, score: score, observations: totalObservations), reconstructor)
+        return (
+            ScanReport(scenario: s.name, score: score, observations: totalObservations, recalibrations: recalibrations),
+            reconstructor
+        )
+    }
+
+    /// IDs of the markers whose center projects inside the image, in range.
+    static func visibleMarkers(
+        _ markerLocal: [Int: simd_float4x4],
+        face: FaceGeometry,
+        camera: PinholeCamera,
+        maxDistance: Float
+    ) -> [Int] {
+        let worldToCamera = simd_inverse(camera.transform)
+        let fx = camera.intrinsics.columns.0.x
+        let fy = camera.intrinsics.columns.1.y
+        let cx = camera.intrinsics.columns.2.x
+        let cy = camera.intrinsics.columns.2.y
+
+        return markerLocal.keys.sorted().filter { id in
+            let p = worldToCamera.transformPoint((face.transform * markerLocal[id]!).translation)
+            let depth = -p.z
+            guard depth > 0.2, depth < maxDistance else { return false }
+            let u = cx + fx * p.x / depth
+            let v = cy - fy * p.y / depth
+            return u >= 0 && u <= camera.imageSize.x && v >= 0 && v <= camera.imageSize.y
+        }
+    }
+
+    /// ARImageAnchor-like pose: true pose shifted by the ARKit drift, plus small noise.
+    static func noisyMarkerPose(
+        _ truePose: simd_float4x4,
+        drift: SIMD3<Float>,
+        positionNoise: Float,
+        angleNoise: Float,
+        rng: inout SplitMix64
+    ) -> simd_float4x4 {
+        let axis = simd_normalize(SIMD3<Float>(
+            rng.gaussian(sigma: 1) + 1e-3,
+            rng.gaussian(sigma: 1),
+            rng.gaussian(sigma: 1)
+        ))
+        let rotationNoise = simd_quatf(angle: rng.gaussian(sigma: angleNoise), axis: axis)
+        let translationNoise = SIMD3<Float>(
+            rng.gaussian(sigma: positionNoise),
+            rng.gaussian(sigma: positionNoise),
+            rng.gaussian(sigma: positionNoise)
+        )
+        return FaceRecalibration.rigidTransform(
+            rotation: rotationNoise * FaceRecalibration.quaternion(from: truePose),
+            translation: truePose.translation + drift + translationNoise
+        )
     }
 }
