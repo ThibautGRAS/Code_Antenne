@@ -26,3 +26,9 @@ Thumbs.db
 # Packaging (artefacts d'install editable)
 *.egg-info/
 /build/
+# Local IPA downloads (Sideloadly)
+*.ipa
+
+# SwiftPM
+.build/
+.swiftpm/

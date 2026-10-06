@@ -42,7 +42,7 @@ struct ARScannerView: UIViewRepresentable {
         private var faceAnchor: AnchorEntity?
         private var microAnchor: AnchorEntity?
 
-        private var tracks: [MicroTrack] = []
+        private var reconstructor = TrackReconstructor()
         private var frameCounter = 0
         private var lastDetectionTime: TimeInterval = 0
         private var detectionRunning = false
@@ -105,7 +105,7 @@ struct ARScannerView: UIViewRepresentable {
             markerCenters.removeAll()
             markerTransforms.removeAll()
             markerLocalTransforms.removeAll()
-            tracks.removeAll()
+            reconstructor.reset()
             frameCounter = 0
             lastCameraTransform = nil
             lastCameraTimestamp = nil
@@ -392,7 +392,7 @@ struct ARScannerView: UIViewRepresentable {
             let newFace = rigidTransform(rotation: blendedQ, translation: blendedTranslation)
 
             let delta = newFace * simd_inverse(oldFace)
-            applyWorldCorrection(delta)
+            reconstructor.applyWorldCorrection(delta)
             faceTransform = newFace
 
             if let faceAnchor {
@@ -506,28 +506,6 @@ struct ARScannerView: UIViewRepresentable {
             transform.columns.2 = SIMD4<Float>(z.x, z.y, z.z, 0)
             transform.columns.3 = SIMD4<Float>(translation.x, translation.y, translation.z, 1)
             return transform
-        }
-
-        private func applyWorldCorrection(_ delta: simd_float4x4) {
-            let rotation = simd_float3x3(columns: (
-                SIMD3<Float>(delta.columns.0.x, delta.columns.0.y, delta.columns.0.z),
-                SIMD3<Float>(delta.columns.1.x, delta.columns.1.y, delta.columns.1.z),
-                SIMD3<Float>(delta.columns.2.x, delta.columns.2.y, delta.columns.2.z)
-            ))
-
-            for index in tracks.indices {
-                for rayIndex in tracks[index].rays.indices {
-                    tracks[index].rays[rayIndex].origin =
-                        transformPoint(delta, tracks[index].rays[rayIndex].origin)
-                    tracks[index].rays[rayIndex].direction = simd_normalize(
-                        rotation * tracks[index].rays[rayIndex].direction
-                    )
-                }
-
-                if let point = tracks[index].worldPoint {
-                    tracks[index].worldPoint = transformPoint(delta, point)
-                }
-            }
         }
 
         private func transformPoint(
@@ -690,10 +668,28 @@ struct ARScannerView: UIViewRepresentable {
 
         // MARK: - Capsule reconstruction
 
+        private func currentFace() -> FaceGeometry? {
+            guard let faceTransform else { return nil }
+            return FaceGeometry(
+                transform: faceTransform,
+                width: faceWidth,
+                height: faceHeight,
+                planeOffset: Float(model.planeOffsetCm / 100.0)
+            )
+        }
+
+        private func reconstructionParameters() -> ReconstructionParameters {
+            var parameters = ReconstructionParameters()
+            parameters.associationRadius = Float(model.associationCm / 100.0)
+            parameters.minBaseline = Float(model.minBaselineCm / 100.0)
+            parameters.planeTolerance = Float(model.planeDeltaCm / 100.0)
+            return parameters
+        }
+
         private func consume(detections: [CapsuleDetection], frame: ARFrame) {
             guard
                 let arView,
-                let faceTransform
+                let face = currentFace()
             else { return }
 
             let orientation = arView.window?.windowScene?.interfaceOrientation ?? .portrait
@@ -720,7 +716,7 @@ struct ARScannerView: UIViewRepresentable {
                 )
 
                 guard let ray = arView.ray(through: selectedScreen) else { continue }
-                guard let nominal = nominalIntersection(
+                guard let nominal = face.nominalIntersection(
                     origin: ray.origin,
                     direction: ray.direction
                 ) else { continue }
@@ -755,8 +751,8 @@ struct ARScannerView: UIViewRepresentable {
                     if
                         let cRay = arView.ray(through: cScreen),
                         let eRay = arView.ray(through: eScreen),
-                        let cPoint = nominalIntersection(origin: cRay.origin, direction: cRay.direction),
-                        let ePoint = nominalIntersection(origin: eRay.origin, direction: eRay.direction)
+                        let cPoint = face.nominalIntersection(origin: cRay.origin, direction: cRay.direction),
+                        let ePoint = face.nominalIntersection(origin: eRay.origin, direction: eRay.direction)
                     {
                         let delta = simd_distance(cPoint.world, ePoint.world)
                         centerDeltasMm.append(Double(delta * 1000))
@@ -765,7 +761,7 @@ struct ARScannerView: UIViewRepresentable {
 
                 observations.append(
                     DetectionObservation(
-                        kind: detection.kind,
+                        kind: detection.kind == .orange ? .orange : .white,
                         ray: RayObservation(
                             origin: ray.origin,
                             direction: simd_normalize(ray.direction)
@@ -794,18 +790,7 @@ struct ARScannerView: UIViewRepresentable {
                 return true
             }
 
-            let physicalDiameter = Float(model.capsuleDiameterMm / 1000.0)
-            let tolerance = Float(model.capsuleSizeTolerancePct / 100.0)
-
-            let cameraFromWorld = simd_inverse(frame.camera.transform)
-            let cameraPoint4 = cameraFromWorld * SIMD4<Float>(
-                worldPoint.x,
-                worldPoint.y,
-                worldPoint.z,
-                1
-            )
-            let depth = abs(cameraPoint4.z)
-            guard depth > 0.05 else { return false }
+            let cameraPoint = simd_inverse(frame.camera.transform).transformPoint(worldPoint)
 
             let intrinsics = frame.camera.intrinsics
             let focalPixels = 0.5 * (
@@ -813,17 +798,13 @@ struct ARScannerView: UIViewRepresentable {
                 intrinsics.columns.1.y
             )
 
-            let expectedPixels = focalPixels * physicalDiameter / depth
-            let observedPixels = Float(detection.diameterPixels)
-
-            // Broad tolerance on purpose for the first tests:
-            // perspective, partial masks and the net can alter the apparent blob size.
-            let lowerScale = max(0.10, 1.0 - tolerance)
-            let upperScale = 1.0 + tolerance
-            let lower = expectedPixels * lowerScale
-            let upper = expectedPixels * upperScale
-
-            return observedPixels >= lower && observedPixels <= upper
+            return CapsuleSizeFilter.passes(
+                observedDiameterPixels: Float(detection.diameterPixels),
+                physicalDiameter: Float(model.capsuleDiameterMm / 1000.0),
+                depth: abs(cameraPoint.z),
+                focalPixels: focalPixels,
+                tolerance: Float(model.capsuleSizeTolerancePct / 100.0)
+            )
         }
 
         private func screenPoint(
@@ -844,220 +825,21 @@ struct ARScannerView: UIViewRepresentable {
             )
         }
 
-        private func nominalIntersection(
-            origin: SIMD3<Float>,
-            direction: SIMD3<Float>
-        ) -> (world: SIMD3<Float>, local: SIMD3<Float>)? {
-            guard let faceTransform else { return nil }
-
-            let offset = Float(model.planeOffsetCm / 100.0)
-            let localPlanePoint = SIMD4<Float>(0, 0, offset, 1)
-            let worldPlanePoint4 = faceTransform * localPlanePoint
-            let worldPlanePoint = SIMD3<Float>(
-                worldPlanePoint4.x,
-                worldPlanePoint4.y,
-                worldPlanePoint4.z
-            )
-
-            let normal = simd_normalize(faceTransform.zAxis)
-            let denom = simd_dot(direction, normal)
-            guard abs(denom) > 1e-5 else { return nil }
-
-            let distance = simd_dot(worldPlanePoint - origin, normal) / denom
-            guard distance > 0 else { return nil }
-
-            let worldPoint = origin + direction * distance
-            let local4 = simd_inverse(faceTransform) * SIMD4<Float>(
-                worldPoint.x,
-                worldPoint.y,
-                worldPoint.z,
-                1
-            )
-            let local = SIMD3<Float>(local4.x, local4.y, local4.z)
-
-            let margin: Float = 0.10
-            guard
-                abs(local.x) <= faceWidth / 2 + margin,
-                abs(local.y) <= faceHeight / 2 + margin
-            else { return nil }
-
-            return (worldPoint, local)
-        }
-
         private func updateTracks(with observations: [DetectionObservation]) {
-            for index in tracks.indices {
-                tracks[index].seenThisFrame = false
-            }
+            guard let face = currentFace() else { return }
 
-            let association = Float(model.associationCm / 100.0)
-
-            for observation in observations {
-                var bestIndex: Int?
-                var bestDistance = Float.greatestFiniteMagnitude
-
-                for index in tracks.indices {
-                    if tracks[index].seenThisFrame { continue }
-                    if frameCounter - tracks[index].lastFrame > 40 { continue }
-
-                    let distance = simd_distance(
-                        tracks[index].localXY,
-                        observation.localXY
-                    )
-
-                    let sameKind =
-                        tracks[index].kind == observation.kind ||
-                        observation.kind == .orange
-
-                    if sameKind && distance < bestDistance {
-                        bestDistance = distance
-                        bestIndex = index
-                    }
-                }
-
-                if let index = bestIndex, bestDistance < association {
-                    tracks[index].rays.append(observation.ray)
-                    if tracks[index].rays.count > 30 {
-                        tracks[index].rays.removeFirst()
-                    }
-                    tracks[index].localXY = observation.localXY
-                    tracks[index].lastFrame = frameCounter
-                    tracks[index].seenThisFrame = true
-
-                    if observation.kind == .orange {
-                        tracks[index].kind = .orange
-                    }
-
-                    evaluateTrack(at: index)
-                } else {
-                    tracks.append(
-                        MicroTrack(
-                            kind: observation.kind,
-                            rays: [observation.ray],
-                            localXY: observation.localXY,
-                            lastFrame: frameCounter,
-                            seenThisFrame: true
-                        )
-                    )
-                }
-            }
-
-            tracks.removeAll {
-                $0.state != .confirmed &&
-                frameCounter - $0.lastFrame > 50
-            }
-
-            for index in tracks.indices {
-                evaluateTrack(at: index)
-            }
+            reconstructor.parameters = reconstructionParameters()
+            reconstructor.update(with: observations, frame: frameCounter, face: face)
 
             renderMicros()
             publishTrackStats()
-        }
-
-        private func evaluateTrack(at index: Int) {
-            guard tracks.indices.contains(index), let faceTransform else { return }
-
-            let minBaseline = Float(model.minBaselineCm / 100.0)
-            let delta = Float(model.planeDeltaCm / 100.0)
-
-            tracks[index].baseline = maximumBaseline(tracks[index].rays)
-
-            if let result = triangulate(tracks[index].rays) {
-                tracks[index].worldPoint = result.point
-                tracks[index].residual = result.residual
-
-                let offset = Float(model.planeOffsetCm / 100.0)
-                let planeOrigin4 = faceTransform * SIMD4<Float>(0, 0, offset, 1)
-                let planeOrigin = SIMD3<Float>(
-                    planeOrigin4.x,
-                    planeOrigin4.y,
-                    planeOrigin4.z
-                )
-                let normal = simd_normalize(faceTransform.zAxis)
-
-                tracks[index].depthError = abs(
-                    simd_dot(result.point - planeOrigin, normal)
-                )
-            }
-
-            let enoughGeometry =
-                tracks[index].rays.count >= 4 &&
-                tracks[index].baseline >= minBaseline
-
-            let residualLimit = max(0.10, delta * 1.5)
-
-            if enoughGeometry &&
-                tracks[index].depthError <= delta &&
-                tracks[index].residual <= residualLimit
-            {
-                tracks[index].state = .confirmed
-            } else if enoughGeometry &&
-                        tracks[index].depthError > delta * 1.5
-            {
-                tracks[index].state = .rejected
-            } else {
-                tracks[index].state = .provisional
-            }
-        }
-
-        private func triangulate(
-            _ rays: [RayObservation]
-        ) -> (point: SIMD3<Float>, residual: Float)? {
-            guard rays.count >= 2 else { return nil }
-
-            var A = simd_float3x3(columns: (SIMD3<Float>(repeating: 0), SIMD3<Float>(repeating: 0), SIMD3<Float>(repeating: 0)))
-            var b = SIMD3<Float>(repeating: 0)
-            let identity = matrix_identity_float3x3
-
-            for ray in rays {
-                let d = simd_normalize(ray.direction)
-                let outer = simd_float3x3(
-                    columns: (d * d.x, d * d.y, d * d.z)
-                )
-                let M = identity - outer
-                A += M
-                b += M * ray.origin
-            }
-
-            let determinant = simd_determinant(A)
-            guard abs(determinant) > 1e-7 else { return nil }
-
-            let point = simd_inverse(A) * b
-
-            var sumSquared: Float = 0
-            for ray in rays {
-                let d = simd_normalize(ray.direction)
-                let v = point - ray.origin
-                let perpendicular = v - d * simd_dot(v, d)
-                sumSquared += simd_length_squared(perpendicular)
-            }
-
-            return (
-                point,
-                sqrt(sumSquared / Float(rays.count))
-            )
-        }
-
-        private func maximumBaseline(_ rays: [RayObservation]) -> Float {
-            var result: Float = 0
-
-            for i in 0..<rays.count {
-                for j in (i + 1)..<rays.count {
-                    result = max(
-                        result,
-                        simd_distance(rays[i].origin, rays[j].origin)
-                    )
-                }
-            }
-
-            return result
         }
 
         private func renderMicros() {
             guard let root = microAnchor else { return }
             root.children.removeAll()
 
-            for track in tracks {
+            for track in reconstructor.tracks {
                 guard let point = track.worldPoint else { continue }
 
                 let radius: Float = track.state == .confirmed ? 0.018 : 0.012
@@ -1084,9 +866,9 @@ struct ARScannerView: UIViewRepresentable {
         }
 
         private func publishTrackStats() {
-            let confirmed = tracks.filter { $0.state == .confirmed }.count
-            let provisional = tracks.filter { $0.state == .provisional }.count
-            let rejected = tracks.filter { $0.state == .rejected }.count
+            let confirmed = reconstructor.confirmedCount
+            let provisional = reconstructor.provisionalCount
+            let rejected = reconstructor.rejectedCount
 
             Task { @MainActor in
                 model.confirmedMicros = confirmed
@@ -1095,39 +877,6 @@ struct ARScannerView: UIViewRepresentable {
             }
         }
     }
-}
-
-// MARK: - Reconstruction data
-
-private struct DetectionObservation {
-    var kind: CapsuleDetection.Kind
-    var ray: RayObservation
-    var localXY: SIMD2<Float>
-}
-
-private struct RayObservation {
-    var origin: SIMD3<Float>
-    var direction: SIMD3<Float>
-}
-
-private enum TrackState: Equatable {
-    case provisional
-    case confirmed
-    case rejected
-}
-
-private struct MicroTrack {
-    var kind: CapsuleDetection.Kind
-    var rays: [RayObservation]
-    var localXY: SIMD2<Float>
-    var lastFrame: Int
-    var seenThisFrame: Bool
-
-    var worldPoint: SIMD3<Float>? = nil
-    var depthError: Float = .greatestFiniteMagnitude
-    var residual: Float = .greatestFiniteMagnitude
-    var baseline: Float = 0
-    var state: TrackState = .provisional
 }
 
 private extension ARCamera.TrackingState.Reason {
@@ -1139,15 +888,5 @@ private extension ARCamera.TrackingState.Reason {
         case .relocalizing: return "relocalisation"
         @unknown default: return "raison inconnue"
         }
-    }
-}
-
-private extension simd_float4x4 {
-    var translation: SIMD3<Float> {
-        SIMD3<Float>(columns.3.x, columns.3.y, columns.3.z)
-    }
-
-    var zAxis: SIMD3<Float> {
-        SIMD3<Float>(columns.2.x, columns.2.y, columns.2.z)
     }
 }

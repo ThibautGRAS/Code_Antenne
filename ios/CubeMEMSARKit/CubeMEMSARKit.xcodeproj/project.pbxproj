@@ -13,6 +13,7 @@
 		A10000000000000000000004 /* ARScannerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000004 /* ARScannerView.swift */; };
 		A10000000000000000000005 /* ArucoReferenceFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000005 /* ArucoReferenceFactory.swift */; };
 		A10000000000000000000006 /* CapsuleDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000006 /* CapsuleDetector.swift */; };
+		A10000000000000000000007 /* ReconstructionCore.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000009 /* ReconstructionCore.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -23,6 +24,7 @@
 		B10000000000000000000005 /* ArucoReferenceFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArucoReferenceFactory.swift; sourceTree = "<group>"; };
 		B10000000000000000000006 /* CapsuleDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CapsuleDetector.swift; sourceTree = "<group>"; };
 		B10000000000000000000007 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		B10000000000000000000009 /* ReconstructionCore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReconstructionCore.swift; sourceTree = "<group>"; };
 		B10000000000000000000008 /* CubeMEMSARKit.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = CubeMEMSARKit.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -55,8 +57,17 @@
 				B10000000000000000000005 /* ArucoReferenceFactory.swift */,
 				B10000000000000000000006 /* CapsuleDetector.swift */,
 				B10000000000000000000007 /* Info.plist */,
+				D10000000000000000000004 /* Core */,
 			);
 			path = CubeMEMSARKit;
+			sourceTree = "<group>";
+		};
+		D10000000000000000000004 /* Core */ = {
+			isa = PBXGroup;
+			children = (
+				B10000000000000000000009 /* ReconstructionCore.swift */,
+			);
+			path = Core;
 			sourceTree = "<group>";
 		};
 		D10000000000000000000003 /* Products */ = {
@@ -141,6 +152,7 @@
 				A10000000000000000000004 /* ARScannerView.swift in Sources */,
 				A10000000000000000000005 /* ArucoReferenceFactory.swift in Sources */,
 				A10000000000000000000006 /* CapsuleDetector.swift in Sources */,
+				A10000000000000000000007 /* ReconstructionCore.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

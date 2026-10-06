@@ -14,6 +14,30 @@ permissions:
   contents: write
 
 jobs:
+  # Simulated scans of the reconstruction core (ios/CubeMEMSARKit/Package.swift).
+  # Scenario summaries and failures appear as annotations on the run page.
+  core-tests:
+    runs-on: macos-15
+    defaults:
+      run:
+        working-directory: ios/CubeMEMSARKit
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_16.4.app || true; swift --version
+
+      - name: swift test
+        run: |
+          set -o pipefail
+          swift test 2>&1 | tee test.log
+
+      - name: Report test failures
+        if: failure()
+        run: |
+          grep -E ': error: ' test.log | head -10 | \
+            sed -E 's/^.*\[CubeMEMSCoreTests\.([A-Za-z]+) ([A-Za-z]+)\] : (.*)$/::error title=\1.\2::\3/' || true
+
   build:
     runs-on: macos-15
     defaults:
