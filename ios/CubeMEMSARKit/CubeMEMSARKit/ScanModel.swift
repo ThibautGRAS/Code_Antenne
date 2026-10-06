@@ -35,12 +35,14 @@ final class ScanModel: ObservableObject {
 
     @Published var markerSizeCm: Double = 8.0
     @Published var planeOffsetCm: Double = 3.0
-    @Published var planeDeltaCm: Double = 8.0
+    @Published var planeDeltaCm: Double = 3.0
     @Published var whiteThreshold: Double = 0.82
-    @Published var minBaselineCm: Double = 20.0
-    @Published var associationCm: Double = 10.0
+    @Published var minBaselineCm: Double = 30.0
+    @Published var associationCm: Double = 4.5
     @Published var capsuleDiameterMm: Double = 30.0
-    @Published var capsuleSizeTolerancePct: Double = 60.0
+    @Published var capsuleSizeTolerancePct: Double = 30.0
+    @Published var minRays: Int = 7
+    @Published var maxUncertaintyMm: Double = 8.0
     @Published var centerMode: CapsuleCenterMode = .compare
 
     // Test mode without the real antenna: virtual face placed in front of the phone,

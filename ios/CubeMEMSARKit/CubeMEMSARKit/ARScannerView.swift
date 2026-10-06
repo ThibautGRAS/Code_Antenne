@@ -213,7 +213,13 @@ struct ARScannerView: UIViewRepresentable {
                 case .normal:
                     if model.isScanning {
                         if faceTransform == nil {
-                            model.status = "Tracking AR OK. Parcours les quatre ArUco ; ils sont mémorisés."
+                            model.status = model.virtualAntenna
+                                ? "Tracking AR OK. Vise devant toi : l'antenne virtuelle va être posée."
+                                : "Tracking AR OK. Parcours les quatre ArUco ; ils sont mémorisés."
+                        } else if model.virtualAntenna {
+                            model.status = tooFast
+                                ? "Mouvement rapide : détection suspendue."
+                                : "Antenne virtuelle : déplace-toi doucement et latéralement pour trianguler."
                         } else if !visible.isEmpty {
                             model.status = "ArUco revu : recalage doux du repère cube en cours."
                         } else if tooFast {
@@ -868,6 +874,8 @@ struct ARScannerView: UIViewRepresentable {
             parameters.associationRadius = Float(model.associationCm / 100.0)
             parameters.minBaseline = Float(model.minBaselineCm / 100.0)
             parameters.planeTolerance = Float(model.planeDeltaCm / 100.0)
+            parameters.minRays = model.minRays
+            parameters.maxUncertainty = Float(model.maxUncertaintyMm / 1000.0)
             return parameters
         }
 

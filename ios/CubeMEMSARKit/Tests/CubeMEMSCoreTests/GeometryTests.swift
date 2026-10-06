@@ -57,7 +57,6 @@ final class GeometryTests: XCTestCase {
     }
 
     func testTriangulationRejectsDegenerateRays() {
-        XCTExpectFailure("determinant threshold 1e-7 lets near-parallel rays through; needs a parallax-angle check")
         let direction = simd_normalize(SIMD3<Float>(0.1, 0, -1))
         let parallel = [
             RayObservation(origin: SIMD3<Float>(0, 1, 1), direction: direction),

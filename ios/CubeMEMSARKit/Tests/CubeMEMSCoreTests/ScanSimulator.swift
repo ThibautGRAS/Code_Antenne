@@ -45,7 +45,7 @@ struct ScanScenario {
     // App settings
     var parameters = ReconstructionParameters()
     var assumedCapsuleDiameter: Float = 0.030
-    var sizeTolerance: Float = 0.60
+    var sizeTolerance: Float = 0.30
 }
 
 struct ScanReport: CustomStringConvertible {

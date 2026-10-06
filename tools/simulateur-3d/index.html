@@ -116,7 +116,7 @@
     <h2>Réglages de l'algorithme</h2>
     <div class="row">
       <button id="algoDefault">Réglages app actuels</button>
-      <button id="algoStrict">Seuils durcis</button>
+      <button id="algoStrict">Seuils V3 (1er essai)</button>
     </div>
     <div id="algoControls"></div>
 
@@ -201,39 +201,85 @@ function sizeFilterPasses(observedPx, physicalDiameter, depth, focalPx, toleranc
   return observedPx >= expected * Math.max(0.10, 1 - tolerance) && observedPx <= expected * (1 + tolerance);
 }
 
-function triangulate(rays) {
+// Weighted least squares: A = Σ wᵢ(I − dᵢdᵢᵀ), b = Σ wᵢ(I − dᵢdᵢᵀ)oᵢ, x = A⁻¹b.
+// Returns the point and the inverse of A (= covariance when wᵢ = 1/σᵢ²).
+function solveRays(rays, weights) {
   if (rays.length < 2) return null;
   const A = [[0, 0, 0], [0, 0, 0], [0, 0, 0]];
   const b = [0, 0, 0];
-  for (const ray of rays) {
+  let totalWeight = 0;
+  rays.forEach((ray, k) => {
+    const w = weights ? weights[k] : 1;
+    totalWeight += w;
     const d = norm(ray.direction);
     for (let i = 0; i < 3; i++) {
       for (let j = 0; j < 3; j++) {
-        const m = (i === j ? 1 : 0) - d[i] * d[j];
+        const m = w * ((i === j ? 1 : 0) - d[i] * d[j]);
         A[i][j] += m;
         b[i] += m * ray.origin[j];
       }
     }
-  }
+  });
   const det =
     A[0][0] * (A[1][1] * A[2][2] - A[1][2] * A[2][1]) -
     A[0][1] * (A[1][0] * A[2][2] - A[1][2] * A[2][0]) +
     A[0][2] * (A[1][0] * A[2][1] - A[1][1] * A[2][0]);
-  if (Math.abs(det) <= 1e-7) return null;
+  // Scale-free degeneracy test: (nearly) parallel rays make A singular.
+  if (Math.abs(det) <= 1e-5 * totalWeight ** 3) return null;
   const inv = [
     [(A[1][1] * A[2][2] - A[1][2] * A[2][1]) / det, (A[0][2] * A[2][1] - A[0][1] * A[2][2]) / det, (A[0][1] * A[1][2] - A[0][2] * A[1][1]) / det],
     [(A[1][2] * A[2][0] - A[1][0] * A[2][2]) / det, (A[0][0] * A[2][2] - A[0][2] * A[2][0]) / det, (A[0][2] * A[1][0] - A[0][0] * A[1][2]) / det],
     [(A[1][0] * A[2][1] - A[1][1] * A[2][0]) / det, (A[0][1] * A[2][0] - A[0][0] * A[2][1]) / det, (A[0][0] * A[1][1] - A[0][1] * A[1][0]) / det],
   ];
   const point = [0, 1, 2].map(i => inv[i][0] * b[0] + inv[i][1] * b[1] + inv[i][2] * b[2]);
+  return { point, inverse: inv };
+}
+
+function perpendicularDistance(ray, point) {
+  const d = norm(ray.direction);
+  const v = sub(point, ray.origin);
+  return len(sub(v, mul(d, dot(v, d))));
+}
+
+function rmsResidual(rays, point) {
   let sumSquared = 0;
-  for (const ray of rays) {
-    const d = norm(ray.direction);
-    const v = sub(point, ray.origin);
-    const perpendicular = sub(v, mul(d, dot(v, d)));
-    sumSquared += dot(perpendicular, perpendicular);
+  for (const ray of rays) sumSquared += perpendicularDistance(ray, point) ** 2;
+  return Math.sqrt(sumSquared / rays.length);
+}
+
+function triangulate(rays) {
+  const s = solveRays(rays, null);
+  return s ? { point: s.point, residual: rmsResidual(rays, s.point) } : null;
+}
+
+// Unweighted start, then two rounds of: reject rays far from the point (> max(gate, 3 × median)),
+// re-solve weighted by 1/σᵢ² with σᵢ = angularNoise × range. Uncertainty = sqrt(trace(Cov)).
+function robustTriangulate(rays, angularNoise, outlierGate) {
+  const first = solveRays(rays, null);
+  if (!first) return null;
+  let active = rays;
+  let point = first.point;
+  let inverse = null;
+  for (let round = 0; round < 2; round++) {
+    const distances = active.map(r => perpendicularDistance(r, point));
+    const sorted = [...distances].sort((a, b) => a - b);
+    const median = sorted[Math.floor(sorted.length / 2)];
+    const gate = Math.max(outlierGate, 3 * median);
+    const kept = active.filter((_, k) => distances[k] <= gate);
+    if (kept.length >= 2) active = kept;
+    const weights = active.map(r => 1 / (angularNoise * Math.max(0.1, dist(r.origin, point))) ** 2);
+    const s = solveRays(active, weights);
+    if (!s) return null;
+    point = s.point;
+    inverse = s.inverse;
   }
-  return { point, residual: Math.sqrt(sumSquared / rays.length) };
+  const trace = inverse[0][0] + inverse[1][1] + inverse[2][2];
+  return {
+    point,
+    residual: rmsResidual(active, point),
+    uncertainty: Math.sqrt(Math.max(0, trace)),
+    inliers: active.length,
+  };
 }
 
 function maximumBaseline(rays) {
@@ -245,8 +291,9 @@ function maximumBaseline(rays) {
 }
 
 const DEFAULT_PARAMETERS = {
-  associationRadius: 0.10, minRays: 4, minBaseline: 0.20, planeTolerance: 0.08,
-  maxRaysPerTrack: 30, associationMaxFrameGap: 40, pruneFrameGap: 50,
+  associationRadius: 0.045, minRays: 7, minBaseline: 0.30, planeTolerance: 0.03,
+  maxResidual: 0.02, maxUncertainty: 0.008, angularNoise: 0.0015, outlierGate: 0.01,
+  mergeRadius: 0.02, maxRaysPerTrack: 60, associationMaxFrameGap: 40, pruneFrameGap: 50,
 };
 
 class TrackReconstructor {
@@ -259,12 +306,22 @@ class TrackReconstructor {
     const p = this.p;
     for (const t of this.tracks) t.seenThisFrame = false;
 
+    // Confirmed tracks are matched on their triangulated position (stable, no time limit),
+    // the others on the last observed plane intersection.
+    const keys = this.tracks.map(t => {
+      if (t.state === 'confirmed' && t.worldPoint) {
+        const l = toLocal(face, t.worldPoint);
+        return [l[0], l[1]];
+      }
+      return t.localXY;
+    });
+
     for (const obs of observations) {
       let bestIndex = -1, bestDistance = Infinity;
       this.tracks.forEach((t, index) => {
         if (t.seenThisFrame) return;
-        if (frame - t.lastFrame > p.associationMaxFrameGap) return;
-        const d = Math.hypot(t.localXY[0] - obs.localXY[0], t.localXY[1] - obs.localXY[1]);
+        if (t.state !== 'confirmed' && frame - t.lastFrame > p.associationMaxFrameGap) return;
+        const d = Math.hypot(keys[index][0] - obs.localXY[0], keys[index][1] - obs.localXY[1]);
         const sameKind = t.kind === obs.kind || obs.kind === 'orange';
         if (sameKind && d < bestDistance) { bestDistance = d; bestIndex = index; }
       });
@@ -280,30 +337,58 @@ class TrackReconstructor {
       } else {
         this.tracks.push({
           kind: obs.kind, rays: [obs.ray], localXY: obs.localXY, lastFrame: frame, seenThisFrame: true,
-          worldPoint: null, depthError: Infinity, residual: Infinity, baseline: 0, state: 'provisional',
+          worldPoint: null, depthError: Infinity, residual: Infinity, uncertainty: Infinity, baseline: 0,
+          state: 'provisional',
         });
+        keys.push(obs.localXY);
       }
     }
 
     this.tracks = this.tracks.filter(t => !(t.state !== 'confirmed' && frame - t.lastFrame > p.pruneFrameGap));
     for (const t of this.tracks) this.evaluate(t, face);
+    this.mergeDuplicates(face);
+  }
+
+  // Two confirmed tracks closer than mergeRadius are the same capsule: pool their rays.
+  mergeDuplicates(face) {
+    const p = this.p;
+    for (let i = 0; i < this.tracks.length; i++) {
+      const a = this.tracks[i];
+      if (a.state !== 'confirmed' || !a.worldPoint) continue;
+      for (let j = i + 1; j < this.tracks.length; ) {
+        const b = this.tracks[j];
+        if (b.state === 'confirmed' && b.kind === a.kind && b.worldPoint && dist(a.worldPoint, b.worldPoint) < p.mergeRadius) {
+          a.rays = a.rays.concat(b.rays).slice(-p.maxRaysPerTrack);
+          a.lastFrame = Math.max(a.lastFrame, b.lastFrame);
+          this.tracks.splice(j, 1);
+          this.evaluate(a, face);
+          if (a.state !== 'confirmed' || !a.worldPoint) break;
+        } else {
+          j++;
+        }
+      }
+    }
   }
 
   evaluate(t, face) {
     const p = this.p;
     t.baseline = maximumBaseline(t.rays);
-    const result = triangulate(t.rays);
+    const result = robustTriangulate(t.rays, p.angularNoise, p.outlierGate);
     if (result) {
       t.worldPoint = result.point;
       t.residual = result.residual;
+      t.uncertainty = result.uncertainty;
       t.depthError = planeDistance(face, result.point);
     }
-    const delta = p.planeTolerance;
     const enoughGeometry = t.rays.length >= p.minRays && t.baseline >= p.minBaseline;
-    const residualLimit = Math.max(0.10, delta * 1.5);
-    if (enoughGeometry && t.depthError <= delta && t.residual <= residualLimit) t.state = 'confirmed';
-    else if (enoughGeometry && t.depthError > delta * 1.5) t.state = 'rejected';
-    else t.state = 'provisional';
+    const wellConstrained = t.uncertainty <= p.maxUncertainty;
+    if (enoughGeometry && wellConstrained && t.depthError <= p.planeTolerance && t.residual <= p.maxResidual) {
+      t.state = 'confirmed';
+    } else if (enoughGeometry && t.depthError > p.planeTolerance * 1.5 + 2 * t.uncertainty) {
+      t.state = 'rejected';
+    } else {
+      t.state = 'provisional';
+    }
   }
 }
 
@@ -497,8 +582,9 @@ class ScanSimulation {
 // ============================================================================
 // UI state
 // ============================================================================
-const APP_ALGO = { associationCm: 10, minRays: 4, minBaselineCm: 20, planeToleranceCm: 8, sizeTolerancePct: 60, associationGapFrames: 40 };
-const STRICT_ALGO = { associationCm: 4.5, minRays: 7, minBaselineCm: 30, planeToleranceCm: 3, sizeTolerancePct: 30, associationGapFrames: 40 };
+const APP_ALGO = { associationCm: 4.5, minRays: 7, minBaselineCm: 30, planeToleranceCm: 3, sizeTolerancePct: 30, maxUncertaintyMm: 8, associationGapFrames: 40 };
+// V3 thresholds (first field test). The V4 association/merge/robust triangulation stay active.
+const V3_ALGO = { associationCm: 10, minRays: 4, minBaselineCm: 20, planeToleranceCm: 8, sizeTolerancePct: 60, maxUncertaintyMm: 1000, associationGapFrames: 40 };
 const algo = { ...APP_ALGO };
 
 const PRESETS = {
@@ -518,7 +604,8 @@ const ALGO_CONTROLS = [
   { key: 'minBaselineCm', label: 'Baseline minimale', min: 5, max: 80, step: 5, fmt: v => `${v} cm` },
   { key: 'planeToleranceCm', label: 'Tolérance au plan ±', min: 1, max: 15, step: 0.5, fmt: v => `${v} cm` },
   { key: 'sizeTolerancePct', label: 'Tolérance taille ±', min: 10, max: 100, step: 5, fmt: v => `${v} %` },
-  { key: 'associationGapFrames', label: "Mémoire d'association", min: 10, max: 3600, step: 10, fmt: v => `${(v / 60).toFixed(1)} s` },
+  { key: 'maxUncertaintyMm', label: 'Incertitude max pour un vert', min: 2, max: 1000, step: 1, fmt: v => `${v} mm` },
+  { key: 'associationGapFrames', label: "Mémoire d'association (micros non verts)", min: 10, max: 3600, step: 10, fmt: v => `${(v / 60).toFixed(1)} s` },
 ];
 const SCENE_CONTROLS = [
   { key: 'clutterCount', label: 'Objets blancs derrière', min: 0, max: 200, step: 10, fmt: v => `${v}` },
@@ -546,6 +633,7 @@ function buildScenario() {
     minRays: algo.minRays,
     minBaseline: algo.minBaselineCm / 100,
     planeTolerance: algo.planeToleranceCm / 100,
+    maxUncertainty: algo.maxUncertaintyMm / 1000,
     associationMaxFrameGap: algo.associationGapFrames,
   };
   return s;
@@ -841,7 +929,7 @@ $('restart').addEventListener('click', restart);
 $('finish').addEventListener('click', () => { while (!sim.done) sim.step(); refreshDynamic(); });
 $('speed').addEventListener('input', e => { speed = SPEEDS[Number(e.target.value)]; $('speedOut').textContent = `×${speed}`; });
 $('algoDefault').addEventListener('click', () => { Object.assign(algo, APP_ALGO); syncAllSliders(); restart(); });
-$('algoStrict').addEventListener('click', () => { Object.assign(algo, STRICT_ALGO); syncAllSliders(); restart(); });
+$('algoStrict').addEventListener('click', () => { Object.assign(algo, V3_ALGO); syncAllSliders(); restart(); });
 $('backFace').addEventListener('change', e => { sceneState.backFace = e.target.checked; restart(); });
 for (const id of ['showRays', 'showErrors']) $(id).addEventListener('change', refreshDynamic);
 $('showTruth').addEventListener('change', e => { truthMesh.visible = e.target.checked; });

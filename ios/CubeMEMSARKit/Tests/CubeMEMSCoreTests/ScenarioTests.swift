@@ -35,7 +35,7 @@ final class ScenarioTests: XCTestCase {
 
     /// Ideal room: only the capsules of the scanned face.
     func testCleanFace() {
-        assertTargets(run(ScanScenario(name: "clean-face")), knownIssue: "duplicate greens when a capsule leaves the view > associationMaxFrameGap")
+        assertTargets(run(ScanScenario(name: "clean-face")))
     }
 
     /// Anechoic room: opposite face visible through the net + white objects behind.
@@ -43,28 +43,28 @@ final class ScenarioTests: XCTestCase {
         var scenario = ScanScenario(name: "anechoic-clutter")
         scenario.backFace = true
         scenario.clutterCount = 80
-        assertTargets(run(scenario), minRecall: 0.85, knownIssue: "duplicates + false greens from back face and clutter")
+        assertTargets(run(scenario), minRecall: 0.85)
     }
 
     /// The operator turns away three times, then comes back on the same capsules.
     func testLeaveAndReturn() {
         var scenario = ScanScenario(name: "leave-and-return")
         scenario.lookAway = [15...18, 32...35, 48...51]
-        assertTargets(run(scenario), knownIssue: "duplicate greens when a capsule leaves the view > associationMaxFrameGap")
+        assertTargets(run(scenario))
     }
 
     /// Some capsules only 6 cm apart.
     func testCloseNeighbours() {
         var scenario = ScanScenario(name: "close-neighbours")
         scenario.closePairs = 10
-        assertTargets(run(scenario), minRecall: 0.85, knownIssue: "duplicate greens when a capsule leaves the view > associationMaxFrameGap")
+        assertTargets(run(scenario), minRecall: 0.85)
     }
 
     /// ARKit drift of 1 cm per meter walked, no ArUco recalibration.
     func testPoseDrift() {
         var scenario = ScanScenario(name: "pose-drift-1cm-per-m")
         scenario.driftPerMeter = 0.01
-        assertTargets(run(scenario), maxRmsMm: 25, knownIssue: "drift: false greens and low recall")
+        assertTargets(run(scenario), maxRmsMm: 25, knownIssue: "drift without ArUco recalibration: false greens and low recall")
     }
 
     /// Worst case: noisy, intermittent detector in the cluttered room.
@@ -75,6 +75,6 @@ final class ScenarioTests: XCTestCase {
         scenario.detector.pixelNoise = 3
         scenario.detector.detectionProbability = 0.6
         scenario.detector.distractorDetectionProbability = 0.8
-        assertTargets(run(scenario), minRecall: 0.7, maxRmsMm: 15, knownIssue: "duplicates + false greens")
+        assertTargets(run(scenario), minRecall: 0.7, maxRmsMm: 15)
     }
 }

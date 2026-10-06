@@ -40,6 +40,9 @@ struct MicroTrack {
     var worldPoint: SIMD3<Float>? = nil
     var depthError: Float = .greatestFiniteMagnitude
     var residual: Float = .greatestFiniteMagnitude
+    /// 1-sigma 3D uncertainty of worldPoint (m).
+    var uncertainty: Float = .greatestFiniteMagnitude
+    var inliers = 0
     var baseline: Float = 0
     var state: TrackState = .provisional
 }
@@ -131,12 +134,25 @@ enum CapsuleSizeFilter {
 // MARK: - Triangulation
 
 enum Triangulation {
-    /// Unweighted least-squares point closest to all rays:
-    /// A = Σ(I − d dᵀ), b = Σ(I − d dᵀ) o, x = A⁻¹ b.
-    /// The residual is the RMS perpendicular distance from the point to the rays.
-    static func triangulate(
-        _ rays: [RayObservation]
-    ) -> (point: SIMD3<Float>, residual: Float)? {
+    struct Solution {
+        var point: SIMD3<Float>
+        /// A⁻¹: the point covariance when the weights are 1/σᵢ².
+        var inverse: simd_float3x3
+    }
+
+    struct RobustResult {
+        var point: SIMD3<Float>
+        /// RMS perpendicular distance from the point to the inlier rays.
+        var residual: Float
+        /// sqrt(trace(covariance)): 1-sigma 3D position uncertainty.
+        var uncertainty: Float
+        var inliers: Int
+    }
+
+    /// Weighted least squares point closest to all rays:
+    /// A = Σ wᵢ(I − dᵢdᵢᵀ), b = Σ wᵢ(I − dᵢdᵢᵀ) oᵢ, x = A⁻¹ b.
+    /// Returns nil for (nearly) parallel rays, with a scale-free determinant test.
+    static func solve(_ rays: [RayObservation], weights: [Float]? = nil) -> Solution? {
         guard rays.count >= 2 else { return nil }
 
         var A = simd_float3x3(columns: (
@@ -145,30 +161,88 @@ enum Triangulation {
             SIMD3<Float>(repeating: 0)
         ))
         var b = SIMD3<Float>(repeating: 0)
+        var totalWeight: Float = 0
         let identity = matrix_identity_float3x3
 
-        for ray in rays {
+        for (index, ray) in rays.enumerated() {
+            let w = weights?[index] ?? 1
+            totalWeight += w
             let d = simd_normalize(ray.direction)
             let outer = simd_float3x3(columns: (d * d.x, d * d.y, d * d.z))
-            let M = identity - outer
+            let M = (identity - outer) * w
             A += M
             b += M * ray.origin
         }
 
         let determinant = simd_determinant(A)
-        guard abs(determinant) > 1e-7 else { return nil }
+        guard abs(determinant) > 1e-5 * totalWeight * totalWeight * totalWeight else { return nil }
 
-        let point = simd_inverse(A) * b
+        let inverse = simd_inverse(A)
+        return Solution(point: inverse * b, inverse: inverse)
+    }
 
-        var sumSquared: Float = 0
-        for ray in rays {
-            let d = simd_normalize(ray.direction)
-            let v = point - ray.origin
-            let perpendicular = v - d * simd_dot(v, d)
-            sumSquared += simd_length_squared(perpendicular)
+    /// Unweighted least squares + RMS residual.
+    static func triangulate(
+        _ rays: [RayObservation]
+    ) -> (point: SIMD3<Float>, residual: Float)? {
+        guard let solution = solve(rays) else { return nil }
+        return (solution.point, rmsResidual(rays, solution.point))
+    }
+
+    /// Unweighted start, then two rounds of: drop rays farther than max(outlierGate, 3 × median)
+    /// from the point, re-solve weighted by 1/σᵢ² with σᵢ = angularNoise × range.
+    static func robustTriangulate(
+        _ rays: [RayObservation],
+        angularNoise: Float,
+        outlierGate: Float
+    ) -> RobustResult? {
+        guard let first = solve(rays) else { return nil }
+
+        var active = rays
+        var point = first.point
+        var inverse = first.inverse
+
+        for _ in 0..<2 {
+            let distances = active.map { perpendicularDistance($0, point) }
+            let median = distances.sorted()[distances.count / 2]
+            let gate = max(outlierGate, 3 * median)
+            let kept = zip(active, distances).filter { $0.1 <= gate }.map { $0.0 }
+            if kept.count >= 2 {
+                active = kept
+            }
+
+            let weights = active.map { ray -> Float in
+                let sigma = angularNoise * max(0.1, simd_distance(ray.origin, point))
+                return 1 / (sigma * sigma)
+            }
+            guard let solution = solve(active, weights: weights) else { return nil }
+            point = solution.point
+            inverse = solution.inverse
         }
 
-        return (point, sqrt(sumSquared / Float(rays.count)))
+        let trace = inverse.columns.0.x + inverse.columns.1.y + inverse.columns.2.z
+        return RobustResult(
+            point: point,
+            residual: rmsResidual(active, point),
+            uncertainty: sqrt(max(0, trace)),
+            inliers: active.count
+        )
+    }
+
+    static func perpendicularDistance(_ ray: RayObservation, _ point: SIMD3<Float>) -> Float {
+        let d = simd_normalize(ray.direction)
+        let v = point - ray.origin
+        return simd_length(v - d * simd_dot(v, d))
+    }
+
+    static func rmsResidual(_ rays: [RayObservation], _ point: SIMD3<Float>) -> Float {
+        guard !rays.isEmpty else { return .greatestFiniteMagnitude }
+        var sumSquared: Float = 0
+        for ray in rays {
+            let distance = perpendicularDistance(ray, point)
+            sumSquared += distance * distance
+        }
+        return sqrt(sumSquared / Float(rays.count))
     }
 
     /// Largest distance between two ray origins.
@@ -189,14 +263,24 @@ enum Triangulation {
 
 struct ReconstructionParameters {
     /// Max face-plane XY distance to attach an observation to an existing track (m).
-    var associationRadius: Float = 0.10
-    var minRays = 4
+    var associationRadius: Float = 0.045
+    var minRays = 7
     /// Min distance between two camera positions of a track (m).
-    var minBaseline: Float = 0.20
+    var minBaseline: Float = 0.30
     /// Max distance from the triangulated point to the microphone plane (m).
-    var planeTolerance: Float = 0.08
-    var maxRaysPerTrack = 30
-    /// A track not updated for more frames than this can no longer receive observations.
+    var planeTolerance: Float = 0.03
+    /// Max RMS distance from the point to its inlier rays (m).
+    var maxResidual: Float = 0.02
+    /// Max 1-sigma 3D uncertainty of the point (m): rejects weak parallax.
+    var maxUncertainty: Float = 0.008
+    /// Assumed direction noise of one detection (rad) for the covariance.
+    var angularNoise: Float = 0.0015
+    /// Rays closer than this to the point are never treated as outliers (m).
+    var outlierGate: Float = 0.01
+    /// Two confirmed tracks closer than this are merged (m).
+    var mergeRadius: Float = 0.02
+    var maxRaysPerTrack = 60
+    /// A non-confirmed track not updated for more frames than this can no longer receive observations.
     var associationMaxFrameGap = 40
     /// Non-confirmed tracks not updated for more frames than this are deleted.
     var pruneFrameGap = 50
@@ -224,15 +308,28 @@ struct TrackReconstructor {
             tracks[index].seenThisFrame = false
         }
 
+        // Confirmed tracks are matched on their triangulated position (stable, no time limit),
+        // so a capsule seen again after leaving the view does not create a duplicate.
+        // The others are matched on their last observed plane intersection.
+        let worldToFace = simd_inverse(face.transform)
+        var keys = tracks.map { track -> SIMD2<Float> in
+            if track.state == .confirmed, let point = track.worldPoint {
+                let local = worldToFace.transformPoint(point)
+                return SIMD2<Float>(local.x, local.y)
+            }
+            return track.localXY
+        }
+
         for observation in observations {
             var bestIndex: Int?
             var bestDistance = Float.greatestFiniteMagnitude
 
             for index in tracks.indices {
                 if tracks[index].seenThisFrame { continue }
-                if frame - tracks[index].lastFrame > parameters.associationMaxFrameGap { continue }
+                if tracks[index].state != .confirmed,
+                   frame - tracks[index].lastFrame > parameters.associationMaxFrameGap { continue }
 
-                let distance = simd_distance(tracks[index].localXY, observation.localXY)
+                let distance = simd_distance(keys[index], observation.localXY)
                 let sameKind =
                     tracks[index].kind == observation.kind ||
                     observation.kind == .orange
@@ -265,6 +362,7 @@ struct TrackReconstructor {
                         seenThisFrame: true
                     )
                 )
+                keys.append(observation.localXY)
             }
         }
 
@@ -276,6 +374,8 @@ struct TrackReconstructor {
         for index in tracks.indices {
             evaluateTrack(at: index, face: face)
         }
+
+        mergeDuplicates(face: face)
     }
 
     /// Applies a rigid world correction (ArUco loop closure) to every stored ray and point.
@@ -297,30 +397,64 @@ struct TrackReconstructor {
         }
     }
 
+    /// Two confirmed tracks closer than mergeRadius are the same capsule: pool their rays.
+    private mutating func mergeDuplicates(face: FaceGeometry) {
+        var i = 0
+        while i < tracks.count {
+            var j = i + 1
+            while j < tracks.count {
+                guard tracks[i].state == .confirmed, let a = tracks[i].worldPoint else { break }
+
+                if tracks[j].state == .confirmed,
+                   tracks[j].kind == tracks[i].kind,
+                   let b = tracks[j].worldPoint,
+                   simd_distance(a, b) < parameters.mergeRadius
+                {
+                    tracks[i].rays = Array((tracks[i].rays + tracks[j].rays).suffix(parameters.maxRaysPerTrack))
+                    tracks[i].lastFrame = max(tracks[i].lastFrame, tracks[j].lastFrame)
+                    tracks.remove(at: j)
+                    evaluateTrack(at: i, face: face)
+                } else {
+                    j += 1
+                }
+            }
+            i += 1
+        }
+    }
+
     private mutating func evaluateTrack(at index: Int, face: FaceGeometry) {
         tracks[index].baseline = Triangulation.maximumBaseline(tracks[index].rays)
 
-        if let result = Triangulation.triangulate(tracks[index].rays) {
+        if let result = Triangulation.robustTriangulate(
+            tracks[index].rays,
+            angularNoise: parameters.angularNoise,
+            outlierGate: parameters.outlierGate
+        ) {
             tracks[index].worldPoint = result.point
             tracks[index].residual = result.residual
+            tracks[index].uncertainty = result.uncertainty
+            tracks[index].inliers = result.inliers
             tracks[index].depthError = face.planeDistance(result.point)
         }
 
-        let delta = parameters.planeTolerance
+        let track = tracks[index]
         let enoughGeometry =
-            tracks[index].rays.count >= parameters.minRays &&
-            tracks[index].baseline >= parameters.minBaseline
-
-        let residualLimit = max(0.10, delta * 1.5)
+            track.rays.count >= parameters.minRays &&
+            track.baseline >= parameters.minBaseline
+        let wellConstrained = track.uncertainty <= parameters.maxUncertainty
 
         if enoughGeometry &&
-            tracks[index].depthError <= delta &&
-            tracks[index].residual <= residualLimit
+            wellConstrained &&
+            track.depthError <= parameters.planeTolerance &&
+            track.residual <= parameters.maxResidual
         {
             tracks[index].state = .confirmed
-        } else if enoughGeometry && tracks[index].depthError > delta * 1.5 {
+        } else if enoughGeometry &&
+                    track.depthError > parameters.planeTolerance * 1.5 + 2 * track.uncertainty
+        {
             tracks[index].state = .rejected
         } else {
+            // Includes a former green that became inconsistent with new observations.
             tracks[index].state = .provisional
         }
     }

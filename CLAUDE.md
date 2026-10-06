@@ -55,7 +55,17 @@ Hors app :
 11. États : orange = provisoire, vert = confirmé, rouge = rejeté.
 12. Filtre mouvement : pas de nouveau rayon si translation > 1,2 m/s ou rotation > 1,6 rad/s (le repère et les micros restent affichés).
 
-## Résultats de la simulation (réglages actuels, 6/10/2026)
+## V4 (6/10/2026) — association, validation, incertitude
+
+- Les tracks **confirmés** sont associés sur la position XY de leur point triangulé, sans limite de temps (plus de doublon quand une capsule ressort du champ) ; les autres sur la dernière intersection plan, avec `associationMaxFrameGap`.
+- Deux verts à moins de `mergeRadius` (2 cm) sont fusionnés.
+- `Triangulation.robustTriangulate` : solution non pondérée, puis 2 tours de rejet des rayons > max(1 cm, 3 × médiane) et moindres carrés pondérés 1/σᵢ² (σᵢ = 1,5 mrad × distance) ; **incertitude = √trace(Cov)**. Test de dégénérescence normalisé (`det > 1e-5·W³`).
+- Vert si : ≥ 7 rayons, baseline ≥ 30 cm, incertitude ≤ 8 mm, |plan| ≤ 3 cm, résidu ≤ 2 cm. Rouge si |plan| > 1,5 × tolérance + 2σ. Un vert redevient orange s'il devient incohérent (réévalué à chaque image).
+- Réglages par défaut (`ScanModel`) : association 4,5 cm, 7 rayons, baseline 30 cm, plan ±3 cm, taille ±30 %, incertitude 8 mm.
+- Simulateur JS : 42/42 capsules, 0 doublon, 0 faux vert, RMS < 2 mm dans tous les scénarios sauf dérive sans ArUco (connu, à traiter par le recalage).
+- Mode virtuel : les capsules virtuelles sont fixes dans le repère ARKit, donc la dérive ARKit n'y a **aucun** effet (pas d'ArUco ni d'indicateur de recalage dans ce mode). Le 1er essai virtuel V3 (RMS 10 mm, 9 doublons, 6 faux) était dû à la faible parallaxe, pas à la dérive.
+
+## Résultats de la simulation V3 (réglages du 1er essai, 6/10/2026)
 
 Sur 42 capsules : ~220 micros verts même en salle vide (**~180 doublons**, cause principale de « l'accumulation » : une capsule hors champ > `associationMaxFrameGap` = 40 images ≈ 0,7 s n'est plus associable → nouveau track → nouveau vert). En chambre anéchoïque : ~135–150 faux verts en plus ; les seuils durcis (assoc 4,5 cm, 7 rayons, baseline 30 cm, plan ±3 cm, taille ±30 %) les ramènent à 0 mais pas les doublons. Dérive 1 cm/m sans recalage : recall 62 %, ~120 faux verts. Triangulation : le seuil de déterminant 1e-7 laisse passer des rayons parallèles.
 

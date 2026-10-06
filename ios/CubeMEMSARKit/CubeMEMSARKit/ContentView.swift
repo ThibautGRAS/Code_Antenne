@@ -3,6 +3,8 @@ import SwiftUI
 struct ContentView: View {
     @EnvironmentObject private var model: ScanModel
     @State private var showSettings = false
+    @State private var topExpanded = true
+    @State private var bottomExpanded = true
 
     var body: some View {
         ZStack {
@@ -44,7 +46,7 @@ struct ContentView: View {
                                 .frame(width: 150)
                         }
                         LabeledContent("Association") {
-                            Stepper("\(model.associationCm, specifier: "%.0f") cm", value: $model.associationCm, in: 3...30, step: 1)
+                            Stepper("\(model.associationCm, specifier: "%.1f") cm", value: $model.associationCm, in: 2...30, step: 0.5)
                         }
                         LabeledContent("Diamètre capsule") {
                             Stepper("\(model.capsuleDiameterMm, specifier: "%.0f") mm", value: $model.capsuleDiameterMm, in: 10...60, step: 1)
@@ -54,6 +56,12 @@ struct ContentView: View {
                         }
                         LabeledContent("Baseline mini") {
                             Stepper("\(model.minBaselineCm, specifier: "%.0f") cm", value: $model.minBaselineCm, in: 5...100, step: 5)
+                        }
+                        LabeledContent("Rayons mini") {
+                            Stepper("\(model.minRays)", value: $model.minRays, in: 2...20)
+                        }
+                        LabeledContent("Incertitude max") {
+                            Stepper("\(model.maxUncertaintyMm, specifier: "%.0f") mm", value: $model.maxUncertaintyMm, in: 2...50, step: 1)
                         }
                     }
 
@@ -101,14 +109,31 @@ struct ContentView: View {
                         .clipShape(Capsule())
                 }
                 Spacer()
-                Text(model.referenceQuality.rawValue)
-                    .font(.caption2.bold())
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 5)
-                    .background(referenceColor.opacity(0.22))
-                    .clipShape(Capsule())
+                if !model.virtualAntenna {
+                    Text(model.referenceQuality.rawValue)
+                        .font(.caption2.bold())
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 5)
+                        .background(referenceColor.opacity(0.22))
+                        .clipShape(Capsule())
+                }
+                if !topExpanded {
+                    Text("\(model.confirmedMicros) micros")
+                        .font(.caption.monospacedDigit())
+                }
+                collapseButton(expanded: $topExpanded, up: true)
             }
 
+            if topExpanded {
+                topDetails
+            }
+        }
+        .padding(10)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 14))
+    }
+
+    private var topDetails: some View {
+        VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 8) {
                 metric("\(model.visibleMarkerIDs.count)", "visibles")
                 metric("\(model.mappedMarkerIDs.count)/4", "mappés")
@@ -129,7 +154,7 @@ struct ContentView: View {
                 Spacer()
             }
 
-            if model.faceLocked {
+            if model.faceLocked && !model.virtualAntenna {
                 HStack(spacing: 6) {
                     Circle()
                         .fill(referenceColor)
@@ -149,32 +174,12 @@ struct ContentView: View {
                 }
             }
         }
-        .padding(10)
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 14))
     }
 
     private var bottomPanel: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(model.status)
-                .font(.caption)
-                .lineLimit(3)
-
-            if let delta = model.meanCenterDeltaMm, model.centerMode == .compare {
-                Text("Écart centroïde / contour : \(delta, specifier: "%.1f") mm")
-                    .font(.caption2)
-                    .foregroundStyle(.yellow)
-            }
-
-            if model.virtualAntenna, let score = model.virtualScore {
-                Text(score)
-                    .font(.caption2.monospacedDigit())
-                    .foregroundStyle(.purple)
-            }
-
-            if model.sizeRejectedThisFrame > 0 {
-                Text("Filtre taille physique : \(model.sizeRejectedThisFrame) candidat(s) écarté(s) sur la dernière image.")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
+            if bottomExpanded {
+                bottomDetails
             }
 
             HStack(spacing: 8) {
@@ -199,6 +204,36 @@ struct ContentView: View {
                     Image(systemName: "arrow.counterclockwise")
                 }
                 .buttonStyle(.bordered)
+
+                collapseButton(expanded: $bottomExpanded, up: false)
+            }
+        }
+        .padding(10)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 14))
+    }
+
+    private var bottomDetails: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(model.status)
+                .font(.caption)
+                .lineLimit(3)
+
+            if let delta = model.meanCenterDeltaMm, model.centerMode == .compare {
+                Text("Écart centroïde / contour : \(delta, specifier: "%.1f") mm")
+                    .font(.caption2)
+                    .foregroundStyle(.yellow)
+            }
+
+            if model.virtualAntenna, let score = model.virtualScore {
+                Text(score)
+                    .font(.caption2.monospacedDigit())
+                    .foregroundStyle(.purple)
+            }
+
+            if model.sizeRejectedThisFrame > 0 {
+                Text("Filtre taille physique : \(model.sizeRejectedThisFrame) candidat(s) écarté(s) sur la dernière image.")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
             }
 
             HStack(spacing: 10) {
@@ -208,8 +243,20 @@ struct ContentView: View {
                 legend(.cyan, "orange")
             }
         }
-        .padding(10)
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 14))
+    }
+
+    /// Chevron that folds a panel to free the camera view.
+    private func collapseButton(expanded: Binding<Bool>, up: Bool) -> some View {
+        Button {
+            withAnimation(.easeInOut(duration: 0.2)) {
+                expanded.wrappedValue.toggle()
+            }
+        } label: {
+            Image(systemName: expanded.wrappedValue == up ? "chevron.up" : "chevron.down")
+                .font(.caption.bold())
+                .frame(width: 28, height: 28)
+        }
+        .buttonStyle(.bordered)
     }
 
     private var referenceColor: Color {
