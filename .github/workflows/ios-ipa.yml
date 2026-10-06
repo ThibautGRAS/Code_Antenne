@@ -10,6 +10,9 @@ on:
       - ".github/workflows/ios-ipa.yml"
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: macos-15
@@ -53,3 +56,15 @@ jobs:
           name: CubeMEMSARKit-ipa
           path: ios/CubeMEMSARKit/CubeMEMSARKit-unsigned.ipa
           retention-days: 30
+
+      # Public, auth-free download: .../releases/download/ipa-latest/CubeMEMSARKit-unsigned.ipa
+      - name: Publish to "ipa-latest" release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete ipa-latest --yes --cleanup-tag || true
+          gh release create ipa-latest CubeMEMSARKit-unsigned.ipa \
+            --target "${{ github.sha }}" \
+            --prerelease \
+            --title "IPA (latest build)" \
+            --notes "Unsigned build of ${{ github.sha }}. Sign and install with Sideloadly."
