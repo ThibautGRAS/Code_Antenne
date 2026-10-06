@@ -308,15 +308,15 @@ class TrackReconstructor {
 
     // Confirmed tracks are matched on their triangulated position (stable, no time limit),
     // the others on the last observed plane intersection.
-    const keys = this.tracks.map(t => {
-      if (t.state === 'confirmed' && t.worldPoint) {
-        const l = toLocal(face, t.worldPoint);
-        return [l[0], l[1]];
-      }
-      return t.localXY;
-    });
+    const keys = this.tracks.map(t =>
+      t.state === 'confirmed' && t.localPoint ? [t.localPoint[0], t.localPoint[1]] : t.localXY);
 
     for (const obs of observations) {
+      // Rays are stored in the face frame known at observation time.
+      const ray = {
+        origin: toLocal(face, obs.ray.origin),
+        direction: [dot(obs.ray.direction, face.x), dot(obs.ray.direction, face.y), dot(obs.ray.direction, face.z)],
+      };
       let bestIndex = -1, bestDistance = Infinity;
       this.tracks.forEach((t, index) => {
         if (t.seenThisFrame) return;
@@ -328,7 +328,7 @@ class TrackReconstructor {
 
       if (bestIndex >= 0 && bestDistance < p.associationRadius) {
         const t = this.tracks[bestIndex];
-        t.rays.push(obs.ray);
+        t.rays.push(ray);
         if (t.rays.length > p.maxRaysPerTrack) t.rays.shift();
         t.localXY = obs.localXY;
         t.lastFrame = frame;
@@ -336,8 +336,8 @@ class TrackReconstructor {
         if (obs.kind === 'orange') t.kind = 'orange';
       } else {
         this.tracks.push({
-          kind: obs.kind, rays: [obs.ray], localXY: obs.localXY, lastFrame: frame, seenThisFrame: true,
-          worldPoint: null, depthError: Infinity, residual: Infinity, uncertainty: Infinity, baseline: 0,
+          kind: obs.kind, rays: [ray], localXY: obs.localXY, lastFrame: frame, seenThisFrame: true,
+          localPoint: null, worldPoint: null, depthError: Infinity, residual: Infinity, uncertainty: Infinity, baseline: 0,
           state: 'provisional',
         });
         keys.push(obs.localXY);
@@ -354,15 +354,15 @@ class TrackReconstructor {
     const p = this.p;
     for (let i = 0; i < this.tracks.length; i++) {
       const a = this.tracks[i];
-      if (a.state !== 'confirmed' || !a.worldPoint) continue;
+      if (a.state !== 'confirmed' || !a.localPoint) continue;
       for (let j = i + 1; j < this.tracks.length; ) {
         const b = this.tracks[j];
-        if (b.state === 'confirmed' && b.kind === a.kind && b.worldPoint && dist(a.worldPoint, b.worldPoint) < p.mergeRadius) {
+        if (b.state === 'confirmed' && b.kind === a.kind && b.localPoint && dist(a.localPoint, b.localPoint) < p.mergeRadius) {
           a.rays = a.rays.concat(b.rays).slice(-p.maxRaysPerTrack);
           a.lastFrame = Math.max(a.lastFrame, b.lastFrame);
           this.tracks.splice(j, 1);
           this.evaluate(a, face);
-          if (a.state !== 'confirmed' || !a.worldPoint) break;
+          if (a.state !== 'confirmed' || !a.localPoint) break;
         } else {
           j++;
         }
@@ -375,10 +375,11 @@ class TrackReconstructor {
     t.baseline = maximumBaseline(t.rays);
     const result = robustTriangulate(t.rays, p.angularNoise, p.outlierGate);
     if (result) {
-      t.worldPoint = result.point;
+      t.localPoint = result.point;
+      t.worldPoint = toWorld(face, result.point);
       t.residual = result.residual;
       t.uncertainty = result.uncertainty;
-      t.depthError = planeDistance(face, result.point);
+      t.depthError = Math.abs(result.point[2] - face.planeOffset);
     }
     const enoughGeometry = t.rays.length >= p.minRays && t.baseline >= p.minBaseline;
     const wellConstrained = t.uncertainty <= p.maxUncertainty;

@@ -202,7 +202,7 @@ final class GeometryTests: XCTestCase {
         return m
     }
 
-    func testWorldCorrectionMovesTracksRigidly() throws {
+    func testFaceMoveCarriesTracksRigidly() throws {
         let capsule = SIMD3<Float>(-0.2, 0.3, 0.03)
         var reconstructor = TrackReconstructor()
         feedLateralWalk(of: capsule, steps: 10, into: &reconstructor)
@@ -210,12 +210,15 @@ final class GeometryTests: XCTestCase {
 
         var delta = simd_float4x4(simd_quatf(angle: 4 * Float.pi / 180, axis: simd_normalize(SIMD3<Float>(1, 1, 0))))
         delta.columns.3 = SIMD4<Float>(0.02, -0.01, 0.03, 1)
-        reconstructor.applyWorldCorrection(delta)
+        var movedFace = face
+        movedFace.transform = delta * face.transform
+        reconstructor.faceDidMove(to: movedFace)
 
         let after = try XCTUnwrap(reconstructor.tracks.first?.worldPoint)
         XCTAssertLessThan(simd_distance(after, delta.transformPoint(before)), 1e-4)
 
+        // Stored rays are face-local: they still triangulate to the capsule's local position.
         let retriangulated = try XCTUnwrap(Triangulation.triangulate(reconstructor.tracks[0].rays))
-        XCTAssertLessThan(simd_distance(retriangulated.point, after), 1e-3)
+        XCTAssertLessThan(simd_distance(retriangulated.point, capsule), 1e-3)
     }
 }

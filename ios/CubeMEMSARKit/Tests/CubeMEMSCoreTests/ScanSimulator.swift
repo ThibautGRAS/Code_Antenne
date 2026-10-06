@@ -198,13 +198,13 @@ enum ScanSimulator {
                             rng: &rng
                         )
                     }
-                    if case let .applied(newFace, delta, _, _)? = FaceRecalibration.soft(
+                    if case let .applied(newFace, _, _, _)? = FaceRecalibration.soft(
                         face: face.transform,
                         observed: observed,
                         markerLocal: markerLocal
                     ) {
-                        reconstructor.applyWorldCorrection(delta)
                         face.transform = newFace
+                        reconstructor.faceDidMove(to: face)
                         recalibrations += 1
                     }
                 }

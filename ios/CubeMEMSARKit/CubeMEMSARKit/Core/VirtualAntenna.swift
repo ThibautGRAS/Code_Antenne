@@ -228,14 +228,13 @@ enum ReconstructionScorer {
     static let matchRadius: Float = 0.03
     static let nearRadius: Float = 0.10
 
-    /// Matches every confirmed white track to the nearest ground-truth capsule (face frame).
+    /// Matches every confirmed white track to the nearest ground-truth capsule, in the face frame
+    /// (`face` is kept for call-site symmetry; tracks already store face-local points).
     static func score(
         tracks: [MicroTrack],
         capsules: [SIMD3<Float>],
         face: FaceGeometry
     ) -> ScanScore {
-        let worldToFace = simd_inverse(face.transform)
-
         var score = ScanScore()
         score.capsules = capsules.count
 
@@ -243,10 +242,9 @@ enum ReconstructionScorer {
         var bestError = [Float](repeating: .greatestFiniteMagnitude, count: capsules.count)
 
         for track in tracks where track.state == .confirmed && track.kind == .white {
-            guard let world = track.worldPoint else { continue }
+            guard let local = track.localPoint else { continue }
             score.confirmed += 1
 
-            let local = worldToFace.transformPoint(world)
             var nearest = -1
             var nearestDistance = Float.greatestFiniteMagnitude
             for (index, capsule) in capsules.enumerated() {

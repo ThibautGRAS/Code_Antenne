@@ -32,11 +32,16 @@ enum TrackState: Equatable {
 
 struct MicroTrack {
     var kind: ObservationKind
+    /// Rays in the FACE frame, converted with the face pose known when they were observed,
+    /// so an ArUco recalibration moves the face without distorting older observations.
     var rays: [RayObservation]
     var localXY: SIMD2<Float>
     var lastFrame: Int
     var seenThisFrame: Bool
 
+    /// Triangulated position in the face frame (the metrological result).
+    var localPoint: SIMD3<Float>? = nil
+    /// localPoint mapped to the ARKit world with the current face pose (display).
     var worldPoint: SIMD3<Float>? = nil
     var depthError: Float = .greatestFiniteMagnitude
     var residual: Float = .greatestFiniteMagnitude
@@ -311,14 +316,15 @@ struct TrackReconstructor {
         // Confirmed tracks are matched on their triangulated position (stable, no time limit),
         // so a capsule seen again after leaving the view does not create a duplicate.
         // The others are matched on their last observed plane intersection.
-        let worldToFace = simd_inverse(face.transform)
         var keys = tracks.map { track -> SIMD2<Float> in
-            if track.state == .confirmed, let point = track.worldPoint {
-                let local = worldToFace.transformPoint(point)
+            if track.state == .confirmed, let local = track.localPoint {
                 return SIMD2<Float>(local.x, local.y)
             }
             return track.localXY
         }
+
+        let worldToFace = simd_inverse(face.transform)
+        let worldToFaceRotation = face.transform.rotation.transpose
 
         for observation in observations {
             var bestIndex: Int?
@@ -340,8 +346,13 @@ struct TrackReconstructor {
                 }
             }
 
+            let localRay = RayObservation(
+                origin: worldToFace.transformPoint(observation.ray.origin),
+                direction: simd_normalize(worldToFaceRotation * observation.ray.direction)
+            )
+
             if let index = bestIndex, bestDistance < parameters.associationRadius {
-                tracks[index].rays.append(observation.ray)
+                tracks[index].rays.append(localRay)
                 if tracks[index].rays.count > parameters.maxRaysPerTrack {
                     tracks[index].rays.removeFirst()
                 }
@@ -356,7 +367,7 @@ struct TrackReconstructor {
                 tracks.append(
                     MicroTrack(
                         kind: observation.kind,
-                        rays: [observation.ray],
+                        rays: [localRay],
                         localXY: observation.localXY,
                         lastFrame: frame,
                         seenThisFrame: true
@@ -378,21 +389,12 @@ struct TrackReconstructor {
         mergeDuplicates(face: face)
     }
 
-    /// Applies a rigid world correction (ArUco loop closure) to every stored ray and point.
-    mutating func applyWorldCorrection(_ delta: simd_float4x4) {
-        let rotation = delta.rotation
-
+    /// The face pose changed (ArUco loop closure): stored rays and points are in the face frame
+    /// and stay as they are; only their world positions for display follow the face.
+    mutating func faceDidMove(to face: FaceGeometry) {
         for index in tracks.indices {
-            for rayIndex in tracks[index].rays.indices {
-                tracks[index].rays[rayIndex].origin =
-                    delta.transformPoint(tracks[index].rays[rayIndex].origin)
-                tracks[index].rays[rayIndex].direction = simd_normalize(
-                    rotation * tracks[index].rays[rayIndex].direction
-                )
-            }
-
-            if let point = tracks[index].worldPoint {
-                tracks[index].worldPoint = delta.transformPoint(point)
+            if let local = tracks[index].localPoint {
+                tracks[index].worldPoint = face.transform.transformPoint(local)
             }
         }
     }
@@ -403,11 +405,11 @@ struct TrackReconstructor {
         while i < tracks.count {
             var j = i + 1
             while j < tracks.count {
-                guard tracks[i].state == .confirmed, let a = tracks[i].worldPoint else { break }
+                guard tracks[i].state == .confirmed, let a = tracks[i].localPoint else { break }
 
                 if tracks[j].state == .confirmed,
                    tracks[j].kind == tracks[i].kind,
-                   let b = tracks[j].worldPoint,
+                   let b = tracks[j].localPoint,
                    simd_distance(a, b) < parameters.mergeRadius
                 {
                     tracks[i].rays = Array((tracks[i].rays + tracks[j].rays).suffix(parameters.maxRaysPerTrack))
@@ -430,11 +432,12 @@ struct TrackReconstructor {
             angularNoise: parameters.angularNoise,
             outlierGate: parameters.outlierGate
         ) {
-            tracks[index].worldPoint = result.point
+            tracks[index].localPoint = result.point
+            tracks[index].worldPoint = face.transform.transformPoint(result.point)
             tracks[index].residual = result.residual
             tracks[index].uncertainty = result.uncertainty
             tracks[index].inliers = result.inliers
-            tracks[index].depthError = face.planeDistance(result.point)
+            tracks[index].depthError = abs(result.point.z - face.planeOffset)
         }
 
         let track = tracks[index]

@@ -409,8 +409,10 @@ struct ARScannerView: UIViewRepresentable {
                 }
 
             case let .applied(newFace, delta, rmsMm, markerCount):
-                reconstructor.applyWorldCorrection(delta)
                 faceTransform = newFace
+                if let face = currentFace() {
+                    reconstructor.faceDidMove(to: face)
+                }
 
                 if let faceAnchor {
                     faceAnchor.setTransformMatrix(newFace, relativeTo: nil)
