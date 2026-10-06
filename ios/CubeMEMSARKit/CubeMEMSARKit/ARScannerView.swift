@@ -225,7 +225,7 @@ struct ARScannerView: UIViewRepresentable {
                         } else if tooFast {
                             model.status = "Mouvement rapide : rectangle conservé, détection micros temporairement suspendue."
                         } else if referenceQuality == .poor {
-                            model.status = "Recalage conseillé : reviens quelques secondes sur un ArUco."
+                            model.status = "Détection en pause : repasse quelques secondes sur un ArUco pour recaler le repère."
                         } else if referenceQuality == .watch {
                             model.status = "Repère encore exploitable ; repasse bientôt sur un ArUco pour limiter la dérive."
                         } else {
@@ -246,6 +246,13 @@ struct ARScannerView: UIViewRepresentable {
             }
 
             guard model.isScanning, faceTransform != nil, trackingUsable, !tooFast else { return }
+
+            // Simulation (tests): beyond ~1.5 m walked since the last ArUco, ARKit drift makes new
+            // rays inconsistent with older ones. Wait for a recalibration instead of adding them.
+            if !model.virtualAntenna,
+               distanceSinceRecalibration > Float(model.maxTravelSinceRecalM) {
+                return
+            }
 
             let now = frame.timestamp
             guard now - lastDetectionTime > 0.20, !detectionRunning else { return }
@@ -296,9 +303,10 @@ struct ARScannerView: UIViewRepresentable {
             guard faceTransform != nil else { return .acquiring }
             guard trackingUsable else { return .poor }
 
-            if distanceSinceRecalibration < 2.5 {
+            let limit = Float(model.maxTravelSinceRecalM)
+            if distanceSinceRecalibration < 0.66 * limit {
                 return .good
-            } else if distanceSinceRecalibration < 4.0 {
+            } else if distanceSinceRecalibration <= limit {
                 return .watch
             } else {
                 return .poor

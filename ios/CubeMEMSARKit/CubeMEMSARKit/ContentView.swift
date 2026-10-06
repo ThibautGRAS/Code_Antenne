@@ -80,6 +80,9 @@ struct ContentView: View {
                     }
 
                     Section("Recalage du repère") {
+                        LabeledContent("Distance max sans ArUco") {
+                            Stepper("\(model.maxTravelSinceRecalM, specifier: "%.1f") m", value: $model.maxTravelSinceRecalM, in: 0.5...10, step: 0.5)
+                        }
                         Text("Après le verrouillage, ARKit continue seul. Quand un ArUco réapparaît, sa pose 6-DoF sert à recaler doucement le repère du cube sans effacer les micros déjà reconstruits. Un passage périodique sur un marqueur limite la dérive.")
                             .font(.footnote)
                             .foregroundStyle(.secondary)

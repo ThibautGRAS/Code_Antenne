@@ -43,6 +43,8 @@ final class ScanModel: ObservableObject {
     @Published var capsuleSizeTolerancePct: Double = 30.0
     @Published var minRays: Int = 7
     @Published var maxUncertaintyMm: Double = 8.0
+    /// Capsule rays are suspended beyond this distance walked since the last ArUco recalibration.
+    @Published var maxTravelSinceRecalM: Double = 1.5
     @Published var centerMode: CapsuleCenterMode = .compare
 
     // Test mode without the real antenna: virtual face placed in front of the phone,

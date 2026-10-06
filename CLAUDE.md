@@ -65,6 +65,13 @@ Hors app :
 - Simulateur JS : 42/42 capsules, 0 doublon, 0 faux vert, RMS < 2 mm dans tous les scénarios sauf dérive sans ArUco (connu, à traiter par le recalage).
 - Mode virtuel : les capsules virtuelles sont fixes dans le repère ARKit, donc la dérive ARKit n'y a **aucun** effet (pas d'ArUco ni d'indicateur de recalage dans ce mode). Le 1er essai virtuel V3 (RMS 10 mm, 9 doublons, 6 faux) était dû à la faible parallaxe, pas à la dérive.
 
+## Recalage ArUco et dérive (V4)
+
+- `Core/FaceRecalibration.swift` : logique de `softRecalibrate` (inchangée), partagée app + simulateur.
+- Les rayons sont stockés **dans le repère de la face** au moment de l'observation (`MicroTrack.rays`, `localPoint`) ; un recalage ne fait que déplacer la face (`faceDidMove`). Pour une dérive en translation pure c'est équivalent à l'ancienne correction rétroactive, mais correct aussi en rotation.
+- Dérive simulée 1 cm/m avec ArUco aux coins (120 s) : sans limite RMS 13 mm / 11 imprécis ; limite 3 m → 10,6 mm ; **limite 1,5 m → 6,6 mm, 98 %, 0 faux** (défaut `maxTravelSinceRecalM` = 1,5 m : au-delà, plus de nouveaux rayons jusqu'au prochain ArUco). Sans ArUco du tout : 36 % / 43 faux (seul `knownIssue` restant).
+- La dérive réelle d'ARKit est probablement plus faible que 1 cm/m : la limite pourra être relevée après mesure sur l'antenne.
+
 ## Résultats de la simulation V3 (réglages du 1er essai, 6/10/2026)
 
 Sur 42 capsules : ~220 micros verts même en salle vide (**~180 doublons**, cause principale de « l'accumulation » : une capsule hors champ > `associationMaxFrameGap` = 40 images ≈ 0,7 s n'est plus associable → nouveau track → nouveau vert). En chambre anéchoïque : ~135–150 faux verts en plus ; les seuils durcis (assoc 4,5 cm, 7 rayons, baseline 30 cm, plan ±3 cm, taille ±30 %) les ramènent à 0 mais pas les doublons. Dérive 1 cm/m sans recalage : recall 62 %, ~120 faux verts. Triangulation : le seuil de déterminant 1e-7 laisse passer des rayons parallèles.
