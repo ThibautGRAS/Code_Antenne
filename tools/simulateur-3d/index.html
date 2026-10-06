@@ -1,0 +1,913 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Simulateur Cube MEMS</title>
+<!--
+  Simulateur 3D du scan d'une face du Cube MEMS, sans iPhone ni antenne.
+  Ouvrir ce fichier dans Chrome/Edge (double-clic). Nécessite internet pour charger Three.js.
+
+  La reconstruction (association, triangulation, validation, filtre de taille, intersection plan)
+  est une copie JavaScript de ios/CubeMEMSARKit/CubeMEMSARKit/Core/ReconstructionCore.swift,
+  et la scène reprend Tests/CubeMEMSCoreTests/ScanSimulator.swift.
+  Toute modification de l'algorithme Swift doit être reportée ici.
+-->
+<style>
+  :root {
+    --bg: #0b0e12; --panel: #131920; --panel2: #19212a; --line: #26313c;
+    --text: #e6edf3; --muted: #8b98a5;
+    --green: #3fb950; --orange: #f0883e; --red: #f85149; --violet: #bc8cff;
+    --yellow: #e3b341; --cyan: #39c5cf; --accent: #58a6ff;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
+    font: 13px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; overflow: hidden; }
+  #app { display: grid; grid-template-columns: 330px 1fr; height: 100%; }
+  #panel { background: var(--panel); border-right: 1px solid var(--line); overflow-y: auto; padding: 14px 16px 24px; }
+  #view { position: relative; min-width: 0; }
+  #view canvas { display: block; width: 100%; height: 100%; }
+  h1 { font-size: 16px; margin: 0 0 2px; }
+  .sub { color: var(--muted); font-size: 12px; margin-bottom: 12px; }
+  h2 { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted);
+    margin: 18px 0 8px; font-weight: 600; }
+  select, button { font: inherit; color: var(--text); background: var(--panel2);
+    border: 1px solid var(--line); border-radius: 6px; padding: 6px 9px; }
+  button { cursor: pointer; }
+  button:hover { border-color: var(--accent); }
+  button.primary { background: #1f6feb; border-color: #1f6feb; }
+  select { width: 100%; }
+  .row { display: flex; gap: 6px; flex-wrap: wrap; }
+  .row > * { flex: 1 1 auto; }
+  .ctl { margin: 8px 0; }
+  .ctl label { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; }
+  .ctl label span:last-child { color: var(--accent); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .ctl input[type=range] { width: 100%; accent-color: var(--accent); }
+  .check { display: flex; align-items: center; gap: 8px; margin: 6px 0; font-size: 12px; }
+  .check input { accent-color: var(--accent); }
+  .metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+  .metric { background: var(--panel2); border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; }
+  .metric b { display: block; font-size: 17px; font-variant-numeric: tabular-nums; }
+  .metric span { color: var(--muted); font-size: 11px; }
+  .metric.bad b { color: var(--red); }
+  .metric.good b { color: var(--green); }
+  .note { color: var(--muted); font-size: 11.5px; margin-top: 8px; }
+  .legend { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 10px; font-size: 12px; }
+  .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; vertical-align: -1px; }
+  #hud { position: absolute; left: 12px; top: 10px; background: rgba(11,14,18,.75);
+    border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; font-size: 12px; pointer-events: none; }
+  #insetLabel { position: absolute; font-size: 11px; color: var(--muted); pointer-events: none; }
+  @media (max-width: 760px) {
+    #app { grid-template-columns: 1fr; grid-template-rows: 55% 45%; }
+    #panel { order: 2; border-right: 0; border-top: 1px solid var(--line); }
+  }
+</style>
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+} }
+</script>
+</head>
+<body>
+<div id="app">
+  <aside id="panel">
+    <h1>Simulateur Cube MEMS</h1>
+    <div class="sub">Scan virtuel d'une face (2 × 2 m) avec la logique de reconstruction de l'app.</div>
+
+    <h2>Scénario</h2>
+    <select id="preset">
+      <option value="clean">Face seule, salle vide</option>
+      <option value="anechoic">Chambre anéchoïque (face arrière + objets blancs)</option>
+      <option value="leave">L'opérateur se détourne 3 fois</option>
+      <option value="close">Capsules proches (6 cm)</option>
+      <option value="drift">Dérive ARKit 1 cm/m</option>
+      <option value="noisy">Détecteur bruité + chambre</option>
+    </select>
+
+    <h2>Lecture</h2>
+    <div class="row">
+      <button id="play" class="primary">⏸ Pause</button>
+      <button id="restart">↺ Recommencer</button>
+      <button id="finish">⏭ Scan complet</button>
+    </div>
+    <div class="ctl">
+      <label><span>Vitesse</span><span id="speedOut">×4</span></label>
+      <input id="speed" type="range" min="0" max="5" step="1" value="2">
+    </div>
+    <div class="ctl">
+      <label><span>Temps du scan</span><span id="timeOut">0 / 60 s</span></label>
+      <input id="time" type="range" min="0" max="60" step="0.2" value="0" disabled>
+    </div>
+
+    <h2>Résultat</h2>
+    <div class="metrics">
+      <div class="metric"><b id="mCaps">0</b><span>capsules réelles</span></div>
+      <div class="metric"><b id="mGreen">0</b><span>micros verts</span></div>
+      <div class="metric"><b id="mRecall">0 %</b><span>capsules trouvées</span></div>
+      <div class="metric" id="cDup"><b id="mDup">0</b><span>doublons</span></div>
+      <div class="metric" id="cFalse"><b id="mFalse">0</b><span>faux verts</span></div>
+      <div class="metric" id="cInacc"><b id="mInacc">0</b><span>verts imprécis</span></div>
+      <div class="metric"><b id="mRms">—</b><span>erreur RMS</span></div>
+      <div class="metric"><b id="mOrange">0</b><span>orange</span></div>
+      <div class="metric"><b id="mRed">0</b><span>rouges</span></div>
+    </div>
+
+    <h2>Réglages de l'algorithme</h2>
+    <div class="row">
+      <button id="algoDefault">Réglages app actuels</button>
+      <button id="algoStrict">Seuils durcis</button>
+    </div>
+    <div id="algoControls"></div>
+
+    <h2>Scène</h2>
+    <label class="check"><input type="checkbox" id="backFace"> Face arrière visible à travers le filet</label>
+    <div id="sceneControls"></div>
+
+    <h2>Affichage</h2>
+    <label class="check"><input type="checkbox" id="showTruth" checked> Capsules réelles (gris)</label>
+    <label class="check"><input type="checkbox" id="showClutter" checked> Objets blancs de la chambre</label>
+    <label class="check"><input type="checkbox" id="showRays" checked> Rayons de la détection courante</label>
+    <label class="check"><input type="checkbox" id="showErrors" checked> Colorer doublons / faux verts</label>
+    <label class="check"><input type="checkbox" id="showInset" checked> Vue iPhone (encart)</label>
+
+    <h2>Légende</h2>
+    <div class="legend">
+      <span><i class="dot" style="background:var(--green)"></i>micro vert</span>
+      <span><i class="dot" style="background:var(--orange)"></i>provisoire</span>
+      <span><i class="dot" style="background:var(--red)"></i>rejeté</span>
+      <span><i class="dot" style="background:var(--yellow)"></i>vert en doublon</span>
+      <span><i class="dot" style="background:var(--violet)"></i>faux vert</span>
+      <span><i class="dot" style="background:#ff7bd5"></i>vert imprécis (3–10 cm)</span>
+      <span><i class="dot" style="background:var(--cyan)"></i>rayon vers capsule</span>
+      <span><i class="dot" style="background:#ff6b6b"></i>rayon vers leurre</span>
+    </div>
+    <p class="note">
+      Doublon : plusieurs micros verts pour la même capsule. Faux vert : micro vert à plus de 10 cm de toute capsule.
+      Logique recopiée de <code>ReconstructionCore.swift</code> (en double précision : petits écarts possibles avec les tests Swift).
+    </p>
+  </aside>
+  <main id="view">
+    <div id="hud">Glisser : tourner · Molette : zoom · Clic droit : déplacer</div>
+    <div id="insetLabel">Vue iPhone</div>
+  </main>
+</div>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+// ============================================================================
+// Vector helpers (arrays [x, y, z])
+// ============================================================================
+const add = (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
+const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
+const mul = (a, s) => [a[0] * s, a[1] * s, a[2] * s];
+const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+const len = a => Math.sqrt(dot(a, a));
+const norm = a => mul(a, 1 / len(a));
+const dist = (a, b) => len(sub(a, b));
+
+// ============================================================================
+// Reconstruction core — mirror of ReconstructionCore.swift
+// ============================================================================
+
+// Face frame: x right, y up, z = normal (toward the camera), t = face center (ArUco plane).
+function makeFace(yawDeg, t, width, height, planeOffset) {
+  const r = yawDeg * Math.PI / 180, c = Math.cos(r), s = Math.sin(r);
+  return { x: [c, 0, -s], y: [0, 1, 0], z: [s, 0, c], t, width, height, planeOffset };
+}
+const toWorld = (f, l) => add(add(add(f.t, mul(f.x, l[0])), mul(f.y, l[1])), mul(f.z, l[2]));
+const toLocal = (f, p) => { const d = sub(p, f.t); return [dot(d, f.x), dot(d, f.y), dot(d, f.z)]; };
+const micPlaneOrigin = f => toWorld(f, [0, 0, f.planeOffset]);
+const planeDistance = (f, p) => Math.abs(dot(sub(p, micPlaneOrigin(f)), f.z));
+
+function nominalIntersection(f, origin, direction, margin = 0.10) {
+  const n = f.z;
+  const denom = dot(direction, n);
+  if (Math.abs(denom) <= 1e-5) return null;
+  const distance = dot(sub(micPlaneOrigin(f), origin), n) / denom;
+  if (distance <= 0) return null;
+  const world = add(origin, mul(direction, distance));
+  const local = toLocal(f, world);
+  if (Math.abs(local[0]) > f.width / 2 + margin || Math.abs(local[1]) > f.height / 2 + margin) return null;
+  return { world, local };
+}
+
+function sizeFilterPasses(observedPx, physicalDiameter, depth, focalPx, tolerance) {
+  if (depth <= 0.05) return false;
+  const expected = focalPx * physicalDiameter / depth;
+  return observedPx >= expected * Math.max(0.10, 1 - tolerance) && observedPx <= expected * (1 + tolerance);
+}
+
+function triangulate(rays) {
+  if (rays.length < 2) return null;
+  const A = [[0, 0, 0], [0, 0, 0], [0, 0, 0]];
+  const b = [0, 0, 0];
+  for (const ray of rays) {
+    const d = norm(ray.direction);
+    for (let i = 0; i < 3; i++) {
+      for (let j = 0; j < 3; j++) {
+        const m = (i === j ? 1 : 0) - d[i] * d[j];
+        A[i][j] += m;
+        b[i] += m * ray.origin[j];
+      }
+    }
+  }
+  const det =
+    A[0][0] * (A[1][1] * A[2][2] - A[1][2] * A[2][1]) -
+    A[0][1] * (A[1][0] * A[2][2] - A[1][2] * A[2][0]) +
+    A[0][2] * (A[1][0] * A[2][1] - A[1][1] * A[2][0]);
+  if (Math.abs(det) <= 1e-7) return null;
+  const inv = [
+    [(A[1][1] * A[2][2] - A[1][2] * A[2][1]) / det, (A[0][2] * A[2][1] - A[0][1] * A[2][2]) / det, (A[0][1] * A[1][2] - A[0][2] * A[1][1]) / det],
+    [(A[1][2] * A[2][0] - A[1][0] * A[2][2]) / det, (A[0][0] * A[2][2] - A[0][2] * A[2][0]) / det, (A[0][2] * A[1][0] - A[0][0] * A[1][2]) / det],
+    [(A[1][0] * A[2][1] - A[1][1] * A[2][0]) / det, (A[0][1] * A[2][0] - A[0][0] * A[2][1]) / det, (A[0][0] * A[1][1] - A[0][1] * A[1][0]) / det],
+  ];
+  const point = [0, 1, 2].map(i => inv[i][0] * b[0] + inv[i][1] * b[1] + inv[i][2] * b[2]);
+  let sumSquared = 0;
+  for (const ray of rays) {
+    const d = norm(ray.direction);
+    const v = sub(point, ray.origin);
+    const perpendicular = sub(v, mul(d, dot(v, d)));
+    sumSquared += dot(perpendicular, perpendicular);
+  }
+  return { point, residual: Math.sqrt(sumSquared / rays.length) };
+}
+
+function maximumBaseline(rays) {
+  let result = 0;
+  for (let i = 0; i < rays.length; i++)
+    for (let j = i + 1; j < rays.length; j++)
+      result = Math.max(result, dist(rays[i].origin, rays[j].origin));
+  return result;
+}
+
+const DEFAULT_PARAMETERS = {
+  associationRadius: 0.10, minRays: 4, minBaseline: 0.20, planeTolerance: 0.08,
+  maxRaysPerTrack: 30, associationMaxFrameGap: 40, pruneFrameGap: 50,
+};
+
+class TrackReconstructor {
+  constructor(parameters) {
+    this.p = { ...DEFAULT_PARAMETERS, ...parameters };
+    this.tracks = [];
+  }
+
+  update(observations, frame, face) {
+    const p = this.p;
+    for (const t of this.tracks) t.seenThisFrame = false;
+
+    for (const obs of observations) {
+      let bestIndex = -1, bestDistance = Infinity;
+      this.tracks.forEach((t, index) => {
+        if (t.seenThisFrame) return;
+        if (frame - t.lastFrame > p.associationMaxFrameGap) return;
+        const d = Math.hypot(t.localXY[0] - obs.localXY[0], t.localXY[1] - obs.localXY[1]);
+        const sameKind = t.kind === obs.kind || obs.kind === 'orange';
+        if (sameKind && d < bestDistance) { bestDistance = d; bestIndex = index; }
+      });
+
+      if (bestIndex >= 0 && bestDistance < p.associationRadius) {
+        const t = this.tracks[bestIndex];
+        t.rays.push(obs.ray);
+        if (t.rays.length > p.maxRaysPerTrack) t.rays.shift();
+        t.localXY = obs.localXY;
+        t.lastFrame = frame;
+        t.seenThisFrame = true;
+        if (obs.kind === 'orange') t.kind = 'orange';
+      } else {
+        this.tracks.push({
+          kind: obs.kind, rays: [obs.ray], localXY: obs.localXY, lastFrame: frame, seenThisFrame: true,
+          worldPoint: null, depthError: Infinity, residual: Infinity, baseline: 0, state: 'provisional',
+        });
+      }
+    }
+
+    this.tracks = this.tracks.filter(t => !(t.state !== 'confirmed' && frame - t.lastFrame > p.pruneFrameGap));
+    for (const t of this.tracks) this.evaluate(t, face);
+  }
+
+  evaluate(t, face) {
+    const p = this.p;
+    t.baseline = maximumBaseline(t.rays);
+    const result = triangulate(t.rays);
+    if (result) {
+      t.worldPoint = result.point;
+      t.residual = result.residual;
+      t.depthError = planeDistance(face, result.point);
+    }
+    const delta = p.planeTolerance;
+    const enoughGeometry = t.rays.length >= p.minRays && t.baseline >= p.minBaseline;
+    const residualLimit = Math.max(0.10, delta * 1.5);
+    if (enoughGeometry && t.depthError <= delta && t.residual <= residualLimit) t.state = 'confirmed';
+    else if (enoughGeometry && t.depthError > delta * 1.5) t.state = 'rejected';
+    else t.state = 'provisional';
+  }
+}
+
+// ============================================================================
+// Scan simulation — mirror of ScanSimulator.swift
+// ============================================================================
+function makeRng(seed) {
+  let a = seed >>> 0;
+  const next = () => {
+    a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+  return {
+    next,
+    uniform: (lo, hi) => lo + (hi - lo) * next(),
+    chance: p => next() < p,
+    gauss: sigma => sigma * Math.sqrt(-2 * Math.log(Math.max(next(), 1e-9))) * Math.cos(2 * Math.PI * next()),
+  };
+}
+
+function baseScenario() {
+  return {
+    seed: 42, duration: 60, tickInterval: 0.2, framesPerTick: 12,
+    faceSize: 2.0, planeOffset: 0.03, capsuleColumns: 6, capsuleRows: 7, capsuleJitter: 0.03,
+    capsuleDiameter: 0.030, closePairs: 0, closePairDistance: 0.06,
+    backFace: false, backFaceDepth: 2.0, clutterCount: 0, clutterDepth: [2.3, 4.5], clutterSpread: 2.5,
+    clutterDiameter: [0.01, 0.12],
+    detectionProbability: 0.85, distractorDetectionProbability: 0.6, pixelNoise: 1.5, sizeNoise: 0.15,
+    focalPixels: 1450, halfFovX: 0.58, halfFovY: 0.46,
+    standoff: 1.2, sweepHalfWidth: 1.3, walkSpeed: 0.35, lookAway: [], driftPerMeter: 0,
+    assumedCapsuleDiameter: 0.030, sizeTolerance: 0.60, parameters: { ...DEFAULT_PARAMETERS },
+  };
+}
+
+function makeTargets(s, rng) {
+  const targets = [];
+  const usable = s.faceSize * 0.85;
+  const grid = (z, kind, shift) => {
+    for (let c = 0; c < s.capsuleColumns; c++) {
+      for (let r = 0; r < s.capsuleRows; r++) {
+        const u = s.capsuleColumns > 1 ? c / (s.capsuleColumns - 1) - 0.5 : 0;
+        const v = s.capsuleRows > 1 ? r / (s.capsuleRows - 1) - 0.5 : 0;
+        const x = u * usable + shift[0] + rng.uniform(-s.capsuleJitter, s.capsuleJitter);
+        const y = v * usable + shift[1] + rng.uniform(-s.capsuleJitter, s.capsuleJitter);
+        targets.push({ kind, local: [x, y, z], diameter: s.capsuleDiameter });
+      }
+    }
+  };
+  grid(s.planeOffset, 'capsule', [0, 0]);
+  const originals = targets.slice();
+  for (let i = 0; i < Math.min(s.closePairs, originals.length); i++) {
+    const base = originals[(i * 7) % originals.length];
+    const angle = rng.uniform(0, 2 * Math.PI);
+    targets.push({
+      kind: 'capsule',
+      local: [base.local[0] + Math.cos(angle) * s.closePairDistance, base.local[1] + Math.sin(angle) * s.closePairDistance, base.local[2]],
+      diameter: s.capsuleDiameter,
+    });
+  }
+  if (s.backFace) grid(s.planeOffset - s.backFaceDepth, 'back', [0.11, -0.07]);
+  for (let i = 0; i < s.clutterCount; i++) {
+    const local = [
+      rng.uniform(-s.clutterSpread, s.clutterSpread),
+      rng.uniform(-s.clutterSpread, s.clutterSpread),
+      s.planeOffset - rng.uniform(s.clutterDepth[0], s.clutterDepth[1]),
+    ];
+    targets.push({ kind: 'clutter', local, diameter: rng.uniform(s.clutterDiameter[0], s.clutterDiameter[1]) });
+  }
+  return targets;
+}
+
+function cameraPath(s, t) {
+  const hw = s.sweepHalfWidth;
+  const period = 4 * hw / s.walkSpeed;
+  const phase = (t % period) / period;
+  const x = phase < 0.5 ? -hw + 4 * hw * phase : 3 * hw - 4 * hw * phase;
+  const y = 0.55 * Math.sin(2 * Math.PI * t / 23);
+  const z = s.planeOffset + s.standoff + 0.12 * Math.sin(2 * Math.PI * t / 9);
+  return {
+    position: [x, y, z],
+    aim: [0.75 * x + 0.25 * Math.sin(2 * Math.PI * t / 7), 0.7 * y, s.planeOffset],
+  };
+}
+
+class ScanSimulation {
+  constructor(s) {
+    this.s = s;
+    this.rng = makeRng(s.seed);
+    this.face = makeFace(25, [0.4, 1.1, -0.7], s.faceSize, s.faceSize, s.planeOffset);
+    this.targets = makeTargets(s, this.rng);
+    this.targetsWorld = this.targets.map(t => toWorld(this.face, t.local));
+    this.rec = new TrackReconstructor(s.parameters);
+    this.t = 0; this.frame = 0; this.pathLength = 0; this.prev = null;
+    this.trail = []; this.lastRays = []; this.camera = null; this.done = false; this.observations = 0;
+    this.driftDirection = norm([1, 0.5, -0.3]);
+  }
+
+  step() {
+    const s = this.s, f = this.face, rng = this.rng;
+    if (this.t >= s.duration) { this.done = true; return; }
+    this.frame += s.framesPerTick;
+
+    const pose = cameraPath(s, this.t);
+    const position = toWorld(f, pose.position);
+    if (this.prev) this.pathLength += dist(this.prev, position);
+    this.prev = position;
+
+    const lookingAway = s.lookAway.some(([a, b]) => this.t >= a && this.t <= b);
+    let aim = toWorld(f, pose.aim);
+    if (lookingAway) aim = add(position, sub(position, aim));
+
+    const forward = norm(sub(aim, position));
+    const right = norm(cross(forward, [0, 1, 0]));
+    const up = cross(right, forward);
+    const origin = add(position, mul(this.driftDirection, s.driftPerMeter * this.pathLength));
+
+    const detections = [];
+    const rays = [];
+    this.targets.forEach((target, i) => {
+      const v = sub(this.targetsWorld[i], position);
+      const depth = dot(v, forward);
+      if (depth <= 0.15) return;
+      if (Math.abs(Math.atan2(dot(v, right), depth)) >= s.halfFovX) return;
+      if (Math.abs(Math.atan2(dot(v, up), depth)) >= s.halfFovY) return;
+      const probability = target.kind === 'capsule' ? s.detectionProbability : s.distractorDetectionProbability;
+      if (!rng.chance(probability)) return;
+
+      const sigma = s.pixelNoise / s.focalPixels;
+      const direction = norm(add(add(norm(v), mul(right, rng.gauss(sigma))), mul(up, rng.gauss(sigma))));
+      const diameterPx = s.focalPixels * target.diameter / depth * Math.max(0.2, 1 + rng.gauss(s.sizeNoise));
+
+      const nominal = nominalIntersection(f, origin, direction);
+      if (!nominal) return;
+      const nominalDepth = dot(sub(nominal.world, origin), forward);
+      const accepted = sizeFilterPasses(diameterPx, s.assumedCapsuleDiameter, nominalDepth, s.focalPixels, s.sizeTolerance);
+      rays.push({ origin, end: add(origin, mul(direction, dist(origin, this.targetsWorld[i]))), kind: target.kind, accepted });
+      if (!accepted) return;
+
+      detections.push({
+        px: diameterPx,
+        obs: { kind: 'white', ray: { origin, direction }, localXY: [nominal.local[0], nominal.local[1]] },
+      });
+    });
+
+    detections.sort((a, b) => b.px - a.px);
+    this.observations += detections.length;
+    this.rec.update(detections.map(d => d.obs), this.frame, f);
+
+    this.camera = { position, forward, right, up, lookingAway };
+    this.trail.push(position);
+    this.lastRays = rays;
+    this.t += s.tickInterval;
+    if (this.t >= s.duration) this.done = true;
+  }
+
+  // Mirror of ScanSimulator.evaluate, plus a class per confirmed track for coloring.
+  evaluate() {
+    const capsules = this.targets.filter(t => t.kind === 'capsule').map(t => t.local);
+    const report = { capsules: capsules.length, confirmed: 0, matched: 0, duplicates: 0, inaccurate: 0, falseConfirmed: 0, rmsMm: 0 };
+    const classes = new Map();
+    const perCapsule = capsules.map(() => []);
+
+    for (const track of this.rec.tracks) {
+      if (track.state !== 'confirmed' || track.kind !== 'white' || !track.worldPoint) continue;
+      report.confirmed++;
+      const local = toLocal(this.face, track.worldPoint);
+      let nearest = -1, nearestDistance = Infinity;
+      capsules.forEach((c, i) => { const d = dist(local, c); if (d < nearestDistance) { nearestDistance = d; nearest = i; } });
+      if (nearest >= 0 && nearestDistance <= 0.03) perCapsule[nearest].push({ track, d: nearestDistance });
+      else if (nearestDistance <= 0.10) { report.inaccurate++; classes.set(track, 'inaccurate'); }
+      else { report.falseConfirmed++; classes.set(track, 'false'); }
+    }
+
+    let sumSquared = 0;
+    for (const list of perCapsule) {
+      if (!list.length) continue;
+      list.sort((a, b) => a.d - b.d);
+      report.matched++;
+      report.duplicates += list.length - 1;
+      sumSquared += list[0].d * list[0].d;
+      classes.set(list[0].track, 'match');
+      for (const item of list.slice(1)) classes.set(item.track, 'duplicate');
+    }
+    if (report.matched) report.rmsMm = Math.sqrt(sumSquared / report.matched) * 1000;
+    return { report, classes };
+  }
+}
+
+// ============================================================================
+// UI state
+// ============================================================================
+const APP_ALGO = { associationCm: 10, minRays: 4, minBaselineCm: 20, planeToleranceCm: 8, sizeTolerancePct: 60, associationGapFrames: 40 };
+const STRICT_ALGO = { associationCm: 4.5, minRays: 7, minBaselineCm: 30, planeToleranceCm: 3, sizeTolerancePct: 30, associationGapFrames: 40 };
+const algo = { ...APP_ALGO };
+
+const PRESETS = {
+  clean: {},
+  anechoic: { backFace: true, clutterCount: 80 },
+  leave: { lookAway: [[15, 18], [32, 35], [48, 51]] },
+  close: { closePairs: 10 },
+  drift: { driftPerMeterCm: 1 },
+  noisy: { backFace: true, clutterCount: 80, pixelNoise: 3, detectionProbability: 0.6, distractorDetectionProbability: 0.8 },
+};
+const SCENE_DEFAULTS = { backFace: false, clutterCount: 0, pixelNoise: 1.5, detectionProbability: 0.85, distractorDetectionProbability: 0.6, driftPerMeterCm: 0, closePairs: 0, lookAway: [] };
+const sceneState = { ...SCENE_DEFAULTS };
+
+const ALGO_CONTROLS = [
+  { key: 'associationCm', label: "Rayon d'association", min: 2, max: 15, step: 0.5, fmt: v => `${v} cm` },
+  { key: 'minRays', label: 'Rayons minimum pour un vert', min: 2, max: 15, step: 1, fmt: v => `${v}` },
+  { key: 'minBaselineCm', label: 'Baseline minimale', min: 5, max: 80, step: 5, fmt: v => `${v} cm` },
+  { key: 'planeToleranceCm', label: 'Tolérance au plan ±', min: 1, max: 15, step: 0.5, fmt: v => `${v} cm` },
+  { key: 'sizeTolerancePct', label: 'Tolérance taille ±', min: 10, max: 100, step: 5, fmt: v => `${v} %` },
+  { key: 'associationGapFrames', label: "Mémoire d'association", min: 10, max: 3600, step: 10, fmt: v => `${(v / 60).toFixed(1)} s` },
+];
+const SCENE_CONTROLS = [
+  { key: 'clutterCount', label: 'Objets blancs derrière', min: 0, max: 200, step: 10, fmt: v => `${v}` },
+  { key: 'pixelNoise', label: 'Bruit de détection', min: 0.5, max: 5, step: 0.5, fmt: v => `${v} px` },
+  { key: 'detectionProbability', label: 'Capsules détectées par image', min: 0.3, max: 1, step: 0.05, fmt: v => `${Math.round(v * 100)} %` },
+  { key: 'distractorDetectionProbability', label: 'Leurres détectés par image', min: 0, max: 1, step: 0.05, fmt: v => `${Math.round(v * 100)} %` },
+  { key: 'driftPerMeterCm', label: 'Dérive ARKit', min: 0, max: 3, step: 0.25, fmt: v => `${v} cm/m` },
+  { key: 'closePairs', label: 'Capsules proches ajoutées', min: 0, max: 20, step: 1, fmt: v => `${v}` },
+];
+
+function buildScenario() {
+  const s = baseScenario();
+  s.backFace = sceneState.backFace;
+  s.clutterCount = sceneState.clutterCount;
+  s.pixelNoise = sceneState.pixelNoise;
+  s.detectionProbability = sceneState.detectionProbability;
+  s.distractorDetectionProbability = sceneState.distractorDetectionProbability;
+  s.driftPerMeter = sceneState.driftPerMeterCm / 100;
+  s.closePairs = sceneState.closePairs;
+  s.lookAway = sceneState.lookAway;
+  s.sizeTolerance = algo.sizeTolerancePct / 100;
+  s.parameters = {
+    ...DEFAULT_PARAMETERS,
+    associationRadius: algo.associationCm / 100,
+    minRays: algo.minRays,
+    minBaseline: algo.minBaselineCm / 100,
+    planeTolerance: algo.planeToleranceCm / 100,
+    associationMaxFrameGap: algo.associationGapFrames,
+  };
+  return s;
+}
+
+const $ = id => document.getElementById(id);
+const sliderUpdaters = [];
+
+function buildSliders(container, controls, state) {
+  for (const c of controls) {
+    const wrap = document.createElement('div');
+    wrap.className = 'ctl';
+    wrap.innerHTML = `<label><span>${c.label}</span><span></span></label><input type="range" min="${c.min}" max="${c.max}" step="${c.step}">`;
+    const out = wrap.querySelector('label span:last-child');
+    const input = wrap.querySelector('input');
+    const sync = () => { input.value = state[c.key]; out.textContent = c.fmt(state[c.key]); };
+    input.addEventListener('input', () => { state[c.key] = Number(input.value); out.textContent = c.fmt(state[c.key]); restart(); });
+    sync();
+    sliderUpdaters.push(sync);
+    container.appendChild(wrap);
+  }
+}
+buildSliders($('algoControls'), ALGO_CONTROLS, algo);
+buildSliders($('sceneControls'), SCENE_CONTROLS, sceneState);
+const syncAllSliders = () => { sliderUpdaters.forEach(f => f()); $('backFace').checked = sceneState.backFace; };
+
+// ============================================================================
+// Three.js scene
+// ============================================================================
+const view = $('view');
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+view.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x0b0e12);
+scene.add(new THREE.AmbientLight(0xffffff, 0.75));
+const sun = new THREE.DirectionalLight(0xffffff, 0.9);
+sun.position.set(2, 4, 3);
+scene.add(sun);
+const grid = new THREE.GridHelper(10, 20, 0x2a3440, 0x1a222b);
+scene.add(grid);
+
+const camera = new THREE.PerspectiveCamera(50, 1, 0.01, 50);
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+
+const phoneCamera = new THREE.PerspectiveCamera(1, 1, 0.05, 30);
+
+const v3 = a => new THREE.Vector3(a[0], a[1], a[2]);
+const sphereGeometry = new THREE.SphereGeometry(1, 14, 10);
+
+let staticGroup = new THREE.Group();
+scene.add(staticGroup);
+
+function makeInstanced(capacity, material) {
+  const mesh = new THREE.InstancedMesh(sphereGeometry, material, capacity);
+  mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+  mesh.count = 0;
+  mesh.frustumCulled = false;
+  scene.add(mesh);
+  return mesh;
+}
+const trackMesh = makeInstanced(4000, new THREE.MeshStandardMaterial({ roughness: 0.5 }));
+const truthMesh = makeInstanced(400, new THREE.MeshStandardMaterial({ roughness: 0.8 }));
+const clutterMesh = makeInstanced(400, new THREE.MeshStandardMaterial({ color: 0xf2f2f2, roughness: 0.9 }));
+
+const MAX_RAYS = 800;
+const rayPositions = new Float32Array(MAX_RAYS * 6);
+const rayColors = new Float32Array(MAX_RAYS * 6);
+const rayGeometry = new THREE.BufferGeometry();
+rayGeometry.setAttribute('position', new THREE.BufferAttribute(rayPositions, 3).setUsage(THREE.DynamicDrawUsage));
+rayGeometry.setAttribute('color', new THREE.BufferAttribute(rayColors, 3).setUsage(THREE.DynamicDrawUsage));
+const rayLines = new THREE.LineSegments(rayGeometry, new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.55 }));
+rayLines.frustumCulled = false;
+scene.add(rayLines);
+
+const MAX_TRAIL = 2000;
+const trailPositions = new Float32Array(MAX_TRAIL * 3);
+const trailGeometry = new THREE.BufferGeometry();
+trailGeometry.setAttribute('position', new THREE.BufferAttribute(trailPositions, 3).setUsage(THREE.DynamicDrawUsage));
+const trail = new THREE.Line(trailGeometry, new THREE.LineBasicMaterial({ color: 0x58a6ff, transparent: true, opacity: 0.6 }));
+trail.frustumCulled = false;
+scene.add(trail);
+
+// Phone gizmo: body + view frustum.
+const phone = new THREE.Group();
+phone.add(new THREE.Mesh(new THREE.BoxGeometry(0.075, 0.15, 0.01), new THREE.MeshStandardMaterial({ color: 0x58a6ff })));
+scene.add(phone);
+let phoneFrustum = null;
+
+function buildPhoneFrustum(s) {
+  if (phoneFrustum) phone.remove(phoneFrustum);
+  const L = 0.35, hx = Math.tan(s.halfFovX) * L, hy = Math.tan(s.halfFovY) * L;
+  const c = [[-hx, -hy, -L], [hx, -hy, -L], [hx, hy, -L], [-hx, hy, -L]];
+  const pts = [];
+  for (const p of c) pts.push(0, 0, 0, ...p);
+  for (let i = 0; i < 4; i++) pts.push(...c[i], ...c[(i + 1) % 4]);
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3));
+  phoneFrustum = new THREE.LineSegments(g, new THREE.LineBasicMaterial({ color: 0x58a6ff }));
+  phone.add(phoneFrustum);
+}
+
+function faceMatrix(f) {
+  const m = new THREE.Matrix4().makeBasis(v3(f.x), v3(f.y), v3(f.z));
+  m.setPosition(v3(f.t));
+  return m;
+}
+
+function buildStatic(sim) {
+  scene.remove(staticGroup);
+  staticGroup = new THREE.Group();
+  scene.add(staticGroup);
+  const f = sim.face;
+
+  // Cube edges: front face on the ArUco plane, cube extends 2 m behind.
+  const corners = [];
+  for (const z of [0, -2]) for (const [x, y] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) corners.push(toWorld(f, [x, y, z]));
+  const edges = [];
+  const pushEdge = (a, b) => edges.push(...corners[a], ...corners[b]);
+  for (let i = 0; i < 4; i++) { pushEdge(i, (i + 1) % 4); pushEdge(4 + i, 4 + (i + 1) % 4); pushEdge(i, 4 + i); }
+  const edgeGeometry = new THREE.BufferGeometry();
+  edgeGeometry.setAttribute('position', new THREE.Float32BufferAttribute(edges, 3));
+  staticGroup.add(new THREE.LineSegments(edgeGeometry, new THREE.LineBasicMaterial({ color: 0x8b98a5 })));
+
+  // Net on the scanned face.
+  const net = [];
+  for (let k = -10; k <= 10; k++) {
+    const u = k / 10;
+    net.push(...toWorld(f, [u, -1, 0]), ...toWorld(f, [u, 1, 0]));
+    net.push(...toWorld(f, [-1, u, 0]), ...toWorld(f, [1, u, 0]));
+  }
+  const netGeometry = new THREE.BufferGeometry();
+  netGeometry.setAttribute('position', new THREE.Float32BufferAttribute(net, 3));
+  staticGroup.add(new THREE.LineSegments(netGeometry, new THREE.LineBasicMaterial({ color: 0x3fb950, transparent: true, opacity: 0.18 })));
+
+  // Microphone plane (planeOffset).
+  const plane = new THREE.Mesh(
+    new THREE.PlaneGeometry(f.width, f.height),
+    new THREE.MeshBasicMaterial({ color: 0x39c5cf, transparent: true, opacity: 0.06, side: THREE.DoubleSide, depthWrite: false })
+  );
+  plane.applyMatrix4(faceMatrix(f));
+  plane.position.copy(v3(micPlaneOrigin(f)));
+  staticGroup.add(plane);
+
+  // ArUco markers ID0..3 at the corners.
+  for (const [x, y] of [[-1, 1], [1, 1], [1, -1], [-1, -1]]) {
+    const marker = new THREE.Mesh(new THREE.PlaneGeometry(0.08, 0.08), new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide }));
+    const inner = new THREE.Mesh(new THREE.PlaneGeometry(0.06, 0.06), new THREE.MeshBasicMaterial({ color: 0x111111, side: THREE.DoubleSide }));
+    inner.position.z = 0.001;
+    marker.add(inner);
+    marker.applyMatrix4(faceMatrix(f));
+    marker.position.copy(v3(toWorld(f, [x * 0.96, y * 0.96, 0.002])));
+    staticGroup.add(marker);
+  }
+
+  // Ground truth.
+  const m = new THREE.Matrix4(), color = new THREE.Color();
+  let nTruth = 0, nClutter = 0;
+  sim.targets.forEach((t, i) => {
+    const p = sim.targetsWorld[i];
+    if (t.kind === 'clutter') {
+      const r = Math.max(0.01, t.diameter / 2);
+      m.makeScale(r, r, r).setPosition(p[0], p[1], p[2]);
+      clutterMesh.setMatrixAt(nClutter++, m);
+    } else {
+      const r = 0.012;
+      m.makeScale(r, r, r).setPosition(p[0], p[1], p[2]);
+      truthMesh.setMatrixAt(nTruth, m);
+      truthMesh.setColorAt(nTruth, color.set(t.kind === 'capsule' ? 0x9aa4ae : 0x46505a));
+      nTruth++;
+    }
+  });
+  truthMesh.count = nTruth;
+  clutterMesh.count = nClutter;
+  truthMesh.instanceMatrix.needsUpdate = true;
+  if (truthMesh.instanceColor) truthMesh.instanceColor.needsUpdate = true;
+  clutterMesh.instanceMatrix.needsUpdate = true;
+
+  buildPhoneFrustum(sim.s);
+  phoneCamera.fov = 2 * sim.s.halfFovY * 180 / Math.PI;
+  phoneCamera.aspect = Math.tan(sim.s.halfFovX) / Math.tan(sim.s.halfFovY);
+  phoneCamera.updateProjectionMatrix();
+}
+
+const COLORS = {
+  confirmed: 0x3fb950, provisional: 0xf0883e, rejected: 0xf85149,
+  duplicate: 0xe3b341, false: 0xbc8cff, inaccurate: 0xff7bd5,
+};
+
+function refreshDynamic() {
+  const { report, classes } = sim.evaluate();
+  const showErrors = $('showErrors').checked;
+
+  // Tracks
+  const m = new THREE.Matrix4(), color = new THREE.Color();
+  let n = 0;
+  for (const t of sim.rec.tracks) {
+    if (!t.worldPoint || n >= 4000) continue;
+    const r = t.state === 'confirmed' ? 0.018 : 0.011;
+    m.makeScale(r, r, r).setPosition(t.worldPoint[0], t.worldPoint[1], t.worldPoint[2]);
+    trackMesh.setMatrixAt(n, m);
+    let c = COLORS[t.state];
+    if (showErrors && t.state === 'confirmed') {
+      const cls = classes.get(t);
+      if (cls === 'duplicate' || cls === 'false' || cls === 'inaccurate') c = COLORS[cls];
+    }
+    trackMesh.setColorAt(n, color.set(c));
+    n++;
+  }
+  trackMesh.count = n;
+  trackMesh.instanceMatrix.needsUpdate = true;
+  if (trackMesh.instanceColor) trackMesh.instanceColor.needsUpdate = true;
+
+  // Rays of the last detection
+  let k = 0;
+  if ($('showRays').checked) {
+    for (const ray of sim.lastRays) {
+      if (!ray.accepted || k >= MAX_RAYS) continue;
+      rayPositions.set([...ray.origin, ...ray.end], k * 6);
+      const c = ray.kind === 'capsule' ? [0.22, 0.77, 0.81] : [1.0, 0.42, 0.42];
+      rayColors.set([...c, ...c], k * 6);
+      k++;
+    }
+  }
+  rayGeometry.setDrawRange(0, k * 2);
+  rayGeometry.attributes.position.needsUpdate = true;
+  rayGeometry.attributes.color.needsUpdate = true;
+
+  // Trail and phone
+  const count = Math.min(sim.trail.length, MAX_TRAIL);
+  for (let i = 0; i < count; i++) trailPositions.set(sim.trail[sim.trail.length - count + i], i * 3);
+  trailGeometry.setDrawRange(0, count);
+  trailGeometry.attributes.position.needsUpdate = true;
+
+  if (sim.camera) {
+    const c = sim.camera;
+    const basis = new THREE.Matrix4().makeBasis(v3(c.right), v3(c.up), v3(mul(c.forward, -1)));
+    phone.quaternion.setFromRotationMatrix(basis);
+    phone.position.copy(v3(c.position));
+    phoneCamera.position.copy(v3(c.position));
+    phoneCamera.up.copy(v3(c.up));
+    phoneCamera.lookAt(v3(add(c.position, c.forward)));
+  }
+
+  // Metrics
+  $('mCaps').textContent = report.capsules;
+  $('mGreen').textContent = report.confirmed;
+  $('mRecall').textContent = `${Math.round(report.capsules ? 100 * report.matched / report.capsules : 0)} %`;
+  $('mDup').textContent = report.duplicates;
+  $('mFalse').textContent = report.falseConfirmed;
+  $('mInacc').textContent = report.inaccurate;
+  $('mRms').textContent = report.matched ? `${report.rmsMm.toFixed(1)} mm` : '—';
+  $('mOrange').textContent = sim.rec.tracks.filter(t => t.state === 'provisional').length;
+  $('mRed').textContent = sim.rec.tracks.filter(t => t.state === 'rejected').length;
+  $('cDup').className = 'metric ' + (report.duplicates ? 'bad' : 'good');
+  $('cFalse').className = 'metric ' + (report.falseConfirmed ? 'bad' : 'good');
+  $('cInacc').className = 'metric ' + (report.inaccurate ? 'bad' : 'good');
+  $('timeOut').textContent = `${sim.t.toFixed(1)} / ${sim.s.duration} s${sim.camera && sim.camera.lookingAway ? ' · détourné' : ''}`;
+  $('time').value = sim.t;
+}
+
+// ============================================================================
+// Simulation control
+// ============================================================================
+let sim = null;
+let playing = true;
+let accumulator = 0;
+const SPEEDS = [0.5, 1, 4, 10, 30, 100];
+let speed = SPEEDS[2];
+
+function restart() {
+  sim = new ScanSimulation(buildScenario());
+  accumulator = 0;
+  buildStatic(sim);
+  sim.step();
+  refreshDynamic();
+}
+
+function applyPreset(name) {
+  Object.assign(sceneState, SCENE_DEFAULTS, PRESETS[name]);
+  syncAllSliders();
+  restart();
+}
+
+$('preset').addEventListener('change', e => applyPreset(e.target.value));
+$('play').addEventListener('click', () => {
+  playing = !playing;
+  $('play').textContent = playing ? '⏸ Pause' : '▶ Lecture';
+});
+$('restart').addEventListener('click', restart);
+$('finish').addEventListener('click', () => { while (!sim.done) sim.step(); refreshDynamic(); });
+$('speed').addEventListener('input', e => { speed = SPEEDS[Number(e.target.value)]; $('speedOut').textContent = `×${speed}`; });
+$('algoDefault').addEventListener('click', () => { Object.assign(algo, APP_ALGO); syncAllSliders(); restart(); });
+$('algoStrict').addEventListener('click', () => { Object.assign(algo, STRICT_ALGO); syncAllSliders(); restart(); });
+$('backFace').addEventListener('change', e => { sceneState.backFace = e.target.checked; restart(); });
+for (const id of ['showRays', 'showErrors']) $(id).addEventListener('change', refreshDynamic);
+$('showTruth').addEventListener('change', e => { truthMesh.visible = e.target.checked; });
+$('showClutter').addEventListener('change', e => { clutterMesh.visible = e.target.checked; });
+
+function resize() {
+  const w = view.clientWidth, h = view.clientHeight;
+  renderer.setSize(w, h, false);
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+}
+window.addEventListener('resize', resize);
+
+let last = performance.now();
+function animate(now) {
+  requestAnimationFrame(animate);
+  const dt = Math.min(0.1, (now - last) / 1000);
+  last = now;
+
+  if (playing && sim && !sim.done) {
+    accumulator += dt * speed;
+    let steps = 0;
+    while (accumulator >= sim.s.tickInterval && steps < 400 && !sim.done) {
+      sim.step();
+      accumulator -= sim.s.tickInterval;
+      steps++;
+    }
+    if (steps) refreshDynamic();
+  }
+
+  controls.update();
+  const w = view.clientWidth, h = view.clientHeight;
+
+  renderer.setScissorTest(false);
+  renderer.setViewport(0, 0, w, h);
+  phone.visible = true;
+  renderer.render(scene, camera);
+
+  const label = $('insetLabel');
+  if ($('showInset').checked && sim && sim.camera) {
+    const iw = Math.round(Math.min(380, w * 0.34));
+    const ih = Math.round(iw / phoneCamera.aspect);
+    const x = w - iw - 12, y = 12;
+    renderer.setScissorTest(true);
+    renderer.setScissor(x, y, iw, ih);
+    renderer.setViewport(x, y, iw, ih);
+    phone.visible = false;
+    renderer.render(scene, phoneCamera);
+    renderer.setScissorTest(false);
+    label.style.display = 'block';
+    label.style.right = '16px';
+    label.style.bottom = `${ih + 16}px`;
+  } else {
+    label.style.display = 'none';
+  }
+}
+
+// Initial view: in front of the face, slightly from above.
+const face0 = makeFace(25, [0.4, 1.1, -0.7], 2, 2, 0.03);
+const center = v3(toWorld(face0, [0, 0, -0.5]));
+camera.position.copy(v3(toWorld(face0, [-2.2, 1.6, 3.8])));
+controls.target.copy(center);
+
+resize();
+applyPreset('clean');
+requestAnimationFrame(animate);
+</script>
+</body>
+</html>
