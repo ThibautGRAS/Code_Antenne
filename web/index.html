@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="fr"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0b0e12">
+<title>Cube MEMS — scan V2</title>
+<link rel="stylesheet" href="style.css">
+</head><body>
+<header class="top"><div><h1>Cube MEMS — scan V2</h1><p>1 ArUco visible suffit pour estimer la pose · filtrage 3D autour du plan des micros</p></div><span class="badge">FACE TEST</span></header>
+<main>
+<section class="card cameraCard">
+<div class="bar mainbar"><button id="camBtn" class="primary">Démarrer caméra</button><button id="scanBtn" disabled>Scanner</button><button id="shotBtn" disabled>Capturer</button><button id="fileBtn">Photo</button><input id="file" type="file" accept="image/*" hidden></div>
+<div class="viewport"><video id="video" playsinline muted></video><canvas id="image" width="720" height="540" hidden></canvas><div class="legendOverlay"><span><i class="dot green"></i>dans le plan</span><span><i class="dot orange"></i>provisoire</span><span><i class="dot red"></i>hors plan</span><span><i class="dot cyan"></i>repère orange</span><span class="legendCross centroidMark">＋</span><span>centroïde</span><span class="legendCross ellipseMark">×</span><span>contour</span></div></div>
+<div class="metrics"><div><b id="arucoMetric">0</b><span>ArUco visibles</span></div><div><b id="poseMetric">—</b><span>pose caméra</span></div><div><b id="microMetric">0</b><span>micros validés</span></div><div><b id="deltaMetric">±8 cm</b><span>tolérance plan</span></div><div><b id="centerMetric">—</b><span>écart centres</span></div></div>
+<div id="arucoStatus" class="statusline">Présente au moins un ArUco à la caméra.</div>
+<div id="status" class="statusline emph">Le scan peut fonctionner avec un seul ArUco visible. Déplace-toi latéralement pour créer de la parallaxe.</div>
+<details class="settings"><summary>Réglages du test</summary><div class="settingsGrid">
+<label>Taille ArUco <span><input id="markerSize" type="number" value="8" min="3" max="30" step="0.5"> cm</span></label>
+<label>Taille face <span><input id="faceSize" type="number" value="2" min="0.5" max="5" step="0.01"> m</span></label>
+<label>Plan micro derrière ArUco <span><input id="planeOffset" type="number" value="3" min="-30" max="50" step="1"> cm</span></label>
+<label>Tolérance ± <span><input id="planeDelta" type="number" value="8" min="1" max="30" step="1"> cm</span></label>
+<label>FOV horizontal caméra <span><input id="hfov" type="number" value="65" min="45" max="90" step="1"> °</span></label>
+<label>Centre capsule <span><select id="centerMode"><option value="centroid">Centroïde blanc</option><option value="ellipse">Centre contour/ellipse</option><option value="compare" selected>Comparer les deux</option></select></span></label>
+<label>Seuil blanc <span><input id="thr" type="range" min="160" max="250" value="212"><output id="thrOut">212</output></span></label>
+<label>Association XY <span><input id="assoc" type="number" value="10" min="2" max="30" step="1"> cm</span></label>
+<label>Baseline mini <span><input id="baseline" type="number" value="20" min="5" max="100" step="5"> cm</span></label>
+</div><p class="help">Mode « Comparer » : + jaune = centroïde des pixels blancs, × violet = centre géométrique estimé du contour. Le suivi 3D utilise le centre contour/ellipse et affiche en direct leur écart. Hypothèse V2 : centres ID0/1/2/3 aux quatre coins de la face 2 m.</p></details>
+<div class="bar secondary"><button id="cornersBtn">4 coins manuels</button><button id="detectBtn">Détecter blanc sur photo</button><button id="addBtn">Ajouter vue photo</button></div>
+</section>
+<section class="card resultCard"><div class="bar"><button id="resetBtn">Recentrer 3D</button><button id="csvBtn">Exporter CSV</button><button id="clearBtn" class="danger">Réinitialiser scan</button></div><canvas id="three" width="720" height="660"></canvas><div id="count" class="countline">0 micros reconstruits</div><div id="table"></div></section>
+</main>
+<footer>V2 web de démonstration : pose caméra estimée depuis les ArUco et FOV approximatif. Pour la métrologie finale, ARKit fournira les intrinsèques et la trajectoire avec une meilleure précision.</footer>
+<script src="aruco-lite.js"></script><script src="app-v2.js"></script>
+</body></html>
