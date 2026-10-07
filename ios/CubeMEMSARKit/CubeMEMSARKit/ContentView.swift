@@ -518,18 +518,28 @@ struct ContentView: View {
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyyMMdd-HHmmss"
         let stamp = formatter.string(from: Date())
-        let prefix = (model.virtualAntenna ? "CubeMEMS_virtuel" : "CubeMEMS_face") + (transform != nil ? "_reel" : "")
+        let prefix = model.virtualAntenna ? "CubeMEMS_virtuel" : "CubeMEMS_face"
         let directory = FileManager.default.temporaryDirectory
 
-        let geometryURL = directory.appendingPathComponent("\(prefix)_\(stamp)_\(microphones.count)mu.csv")
+        // Raw geometry (face frame) is always exported; the corrected one (real frame) too when registered.
+        let rawURL = directory.appendingPathComponent("\(prefix)_\(stamp)_brut_\(microphones.count)mu.csv")
+        let realURL = directory.appendingPathComponent("\(prefix)_\(stamp)_reel_\(microphones.count)mu.csv")
         let detailsURL = directory.appendingPathComponent("\(prefix)_\(stamp)_details.csv")
 
         do {
-            try MicrophoneExport.geometryCSV(microphones, transform: transform)
-                .write(to: geometryURL, atomically: true, encoding: .utf8)
+            var files: [URL] = []
+            try MicrophoneExport.geometryCSV(microphones)
+                .write(to: rawURL, atomically: true, encoding: .utf8)
+            files.append(rawURL)
+            if let transform {
+                try MicrophoneExport.geometryCSV(microphones, transform: transform)
+                    .write(to: realURL, atomically: true, encoding: .utf8)
+                files.append(realURL)
+            }
             try MicrophoneExport.detailedCSV(microphones, transform: transform)
                 .write(to: detailsURL, atomically: true, encoding: .utf8)
-            exportFiles = [geometryURL, detailsURL]
+            files.append(detailsURL)
+            exportFiles = files
             showExport = true
         } catch {
             exportError = error.localizedDescription
