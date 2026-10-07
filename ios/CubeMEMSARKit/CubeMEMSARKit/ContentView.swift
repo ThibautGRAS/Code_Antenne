@@ -59,6 +59,10 @@ struct ContentView: View {
                                    $model.planeOffsetCm, -30...30, 1)
                         stepperRow("Tolérance plan", String(format: "±%.0f cm", model.planeDeltaCm),
                                    $model.planeDeltaCm, 1...30, 1)
+                        Toggle("Afficher les axes X/Y/Z", isOn: $model.showFaceAxes)
+                        Text("Repère des micros : origine au centre des 4 ArUco, X (rouge) de gauche à droite, Y (vert) vers le haut, Z (bleu) perpendiculaire à la face vers l'opérateur. Le décalage du plan micro est compté sur Z : positif si les capsules sont devant les marqueurs (côté opérateur), négatif si elles sont derrière.")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
                     }
 
                     Section("Détection capsule") {

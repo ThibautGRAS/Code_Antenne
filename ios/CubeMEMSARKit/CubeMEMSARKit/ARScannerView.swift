@@ -117,6 +117,8 @@ struct ARScannerView: UIViewRepresentable {
                 return
             }
 
+            faceAnchor?.findEntity(named: "faceAxes")?.isEnabled = model.showFaceAxes
+
             let virtualConfig = Self.virtualConfig(model)
             if virtualConfig != lastVirtualConfig {
                 lastVirtualConfig = virtualConfig
@@ -620,7 +622,53 @@ struct ARScannerView: UIViewRepresentable {
             plane.position = [0, 0, offset]
             anchor.addChild(plane)
 
+            anchor.addChild(makeFaceAxes())
+
             arView.scene.addAnchor(anchor)
+        }
+
+        /// X (red), Y (green), Z (blue) arrows of the export frame, at the face origin.
+        private func makeFaceAxes() -> Entity {
+            let axes = Entity()
+            axes.name = "faceAxes"
+            axes.isEnabled = model.showFaceAxes
+
+            let length: Float = 0.3
+            let thickness: Float = 0.008
+            let specs: [(axis: SIMD3<Float>, color: UIColor, name: String)] = [
+                (SIMD3<Float>(1, 0, 0), .systemRed, "X"),
+                (SIMD3<Float>(0, 1, 0), .systemGreen, "Y"),
+                (SIMD3<Float>(0, 0, 1), .systemBlue, "Z")
+            ]
+
+            for spec in specs {
+                let material = UnlitMaterial(color: spec.color)
+                let size = spec.axis * length + (SIMD3<Float>(repeating: 1) - spec.axis) * thickness
+
+                let shaft = ModelEntity(mesh: .generateBox(size: size), materials: [material])
+                shaft.position = spec.axis * (length / 2)
+                axes.addChild(shaft)
+
+                let tip = ModelEntity(mesh: .generateSphere(radius: 0.016), materials: [material])
+                tip.position = spec.axis * length
+                axes.addChild(tip)
+
+                let label = ModelEntity(
+                    mesh: .generateText(
+                        spec.name,
+                        extrusionDepth: 0.002,
+                        font: .boldSystemFont(ofSize: 0.06),
+                        containerFrame: .zero,
+                        alignment: .left,
+                        lineBreakMode: .byClipping
+                    ),
+                    materials: [material]
+                )
+                label.position = spec.axis * (length + 0.03)
+                axes.addChild(label)
+            }
+
+            return axes
         }
 
         // MARK: - Virtual antenna (test without the real antenna)

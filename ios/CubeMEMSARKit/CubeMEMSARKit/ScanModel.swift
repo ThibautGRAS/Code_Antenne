@@ -53,6 +53,8 @@ final class ScanModel: ObservableObject {
     /// Microphones mounted on one face of the real antenna.
     @Published var expectedMicrophonesPerFace = 96
     @Published var showMicrophoneNumbers = true
+    /// X/Y/Z arrows of the export frame on the locked face.
+    @Published var showFaceAxes = true
     /// Ground-truth capsule count of the virtual antenna (set when it is placed).
     @Published var virtualCapsuleCount = 0
 
