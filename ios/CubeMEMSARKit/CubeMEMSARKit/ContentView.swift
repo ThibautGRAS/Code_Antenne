@@ -1,5 +1,6 @@
 import SwiftUI
 import UIKit
+import simd
 
 struct ContentView: View {
     @EnvironmentObject private var model: ScanModel
