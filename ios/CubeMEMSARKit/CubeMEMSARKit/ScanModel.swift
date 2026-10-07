@@ -61,6 +61,15 @@ final class ScanModel: ObservableObject {
     @Published var columnGapCm: Double = 8.0
     /// Microphones mounted on one face of the real antenna.
     @Published var expectedMicrophonesPerFace = 96
+    /// Microphones in one column of the real grid (96 = 12 columns × 8).
+    @Published var microphonesPerColumn = 8
+
+    /// Corner channels: bottom right, top right, bottom left, top left.
+    var cornerChannels: [Int] {
+        let total = expectedMicrophonesPerFace
+        let perColumn = min(max(1, microphonesPerColumn), total)
+        return Array(Set([1, perColumn, total - perColumn + 1, total])).sorted()
+    }
     @Published var showMicrophoneNumbers = true
     /// X/Y/Z arrows of the export frame on the locked face.
     @Published var showFaceAxes = true

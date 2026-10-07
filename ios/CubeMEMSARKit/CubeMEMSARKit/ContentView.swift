@@ -106,6 +106,8 @@ struct ContentView: View {
                     Section("Export") {
                         stepperRow("Micros attendus par face", "\(model.expectedMicrophonesPerFace)",
                                    $model.expectedMicrophonesPerFace, 1...400, 1)
+                        stepperRow("Micros par colonne", "\(model.microphonesPerColumn)",
+                                   $model.microphonesPerColumn, 1...100, 1)
                         Toggle("Afficher les numéros en AR", isOn: $model.showMicrophoneNumbers)
                         stepperRow("Écart min entre colonnes", String(format: "%.0f cm", model.columnGapCm),
                                    $model.columnGapCm, 2...50, 1)
@@ -137,6 +139,17 @@ struct ContentView: View {
                             }
                         }
                         .onDelete { model.referencePoints.remove(atOffsets: $0) }
+                        Button {
+                            let existing = Set(model.referencePoints.map { $0.channel })
+                            for channel in model.cornerChannels where !existing.contains(channel) {
+                                model.referencePoints.append(ReferencePoint(channel: channel, x: 0, y: 0, z: 0))
+                            }
+                        } label: {
+                            Label(
+                                "Ajouter les 4 coins (" + model.cornerChannels.map(String.init).joined(separator: ", ") + ")",
+                                systemImage: "square.dashed"
+                            )
+                        }
                         Button {
                             let next = (model.referencePoints.map { $0.channel }.max() ?? 0) + 1
                             model.referencePoints.append(ReferencePoint(channel: next, x: 0, y: 0, z: 0))
