@@ -969,11 +969,16 @@ struct ARScannerView: UIViewRepresentable {
             let confirmed = reconstructor.confirmedCount
             let provisional = reconstructor.provisionalCount
             let rejected = reconstructor.rejectedCount
+            let numbered = MicrophoneNumbering.number(
+                reconstructor.tracks,
+                columnGap: Float(model.columnGapCm / 100.0)
+            )
 
             Task { @MainActor in
                 model.confirmedMicros = confirmed
                 model.provisionalMicros = provisional
                 model.rejectedMicros = rejected
+                model.numberedMicrophones = numbered
             }
         }
     }

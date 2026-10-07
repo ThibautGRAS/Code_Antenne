@@ -45,6 +45,11 @@ final class ScanModel: ObservableObject {
     @Published var maxUncertaintyMm: Double = 8.0
     /// Capsule rays are suspended beyond this distance walked since the last ArUco recalibration.
     @Published var maxTravelSinceRecalM: Double = 1.5
+
+    /// Confirmed microphones in export order (rightmost column first, bottom to top).
+    @Published var numberedMicrophones: [NumberedMicrophone] = []
+    /// A new column starts where the horizontal gap between microphones exceeds this.
+    @Published var columnGapCm: Double = 8.0
     @Published var centerMode: CapsuleCenterMode = .compare
 
     // Test mode without the real antenna: virtual face placed in front of the phone,
@@ -71,6 +76,7 @@ final class ScanModel: ObservableObject {
         meanCenterDeltaMm = nil
         sizeRejectedThisFrame = 0
         virtualScore = nil
+        numberedMicrophones = []
         status = "Scan réinitialisé."
     }
 }

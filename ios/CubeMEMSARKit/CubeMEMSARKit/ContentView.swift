@@ -1,10 +1,14 @@
 import SwiftUI
+import UIKit
 
 struct ContentView: View {
     @EnvironmentObject private var model: ScanModel
     @State private var showSettings = false
     @State private var topExpanded = true
     @State private var bottomExpanded = true
+    @State private var exportFiles: [URL] = []
+    @State private var showExport = false
+    @State private var exportError: String?
 
     var body: some View {
         ZStack {
@@ -19,20 +23,28 @@ struct ContentView: View {
             .padding(.horizontal, 12)
             .padding(.top, 8)
             .padding(.bottom, 10)
+            .sheet(isPresented: $showExport) {
+                ActivityView(items: exportFiles)
+            }
+            .alert("Export impossible", isPresented: Binding(
+                get: { exportError != nil },
+                set: { if !$0 { exportError = nil } }
+            )) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text(exportError ?? "")
+            }
         }
         .sheet(isPresented: $showSettings) {
             NavigationStack {
                 Form {
                     Section("Géométrie") {
-                        LabeledContent("Taille ArUco") {
-                            Stepper("\(model.markerSizeCm, specifier: "%.1f") cm", value: $model.markerSizeCm, in: 3...20, step: 0.5)
-                        }
-                        LabeledContent("Décalage plan micro") {
-                            Stepper("\(model.planeOffsetCm, specifier: "%.0f") cm", value: $model.planeOffsetCm, in: -30...30, step: 1)
-                        }
-                        LabeledContent("Tolérance plan") {
-                            Stepper("±\(model.planeDeltaCm, specifier: "%.0f") cm", value: $model.planeDeltaCm, in: 1...30, step: 1)
-                        }
+                        stepperRow("Taille ArUco", String(format: "%.1f cm", model.markerSizeCm),
+                                   $model.markerSizeCm, 3...20, 0.5)
+                        stepperRow("Décalage plan micro", String(format: "%.0f cm", model.planeOffsetCm),
+                                   $model.planeOffsetCm, -30...30, 1)
+                        stepperRow("Tolérance plan", String(format: "±%.0f cm", model.planeDeltaCm),
+                                   $model.planeDeltaCm, 1...30, 1)
                     }
 
                     Section("Détection capsule") {
@@ -41,28 +53,21 @@ struct ContentView: View {
                                 Text(mode.rawValue).tag(mode)
                             }
                         }
-                        LabeledContent("Seuil blanc") {
+                        VStack(alignment: .leading, spacing: 4) {
+                            settingLabel("Seuil blanc", String(format: "%.2f", model.whiteThreshold))
                             Slider(value: $model.whiteThreshold, in: 0.65...0.95)
-                                .frame(width: 150)
                         }
-                        LabeledContent("Association") {
-                            Stepper("\(model.associationCm, specifier: "%.1f") cm", value: $model.associationCm, in: 2...30, step: 0.5)
-                        }
-                        LabeledContent("Diamètre capsule") {
-                            Stepper("\(model.capsuleDiameterMm, specifier: "%.0f") mm", value: $model.capsuleDiameterMm, in: 10...60, step: 1)
-                        }
-                        LabeledContent("Tolérance taille") {
-                            Stepper("±\(model.capsuleSizeTolerancePct, specifier: "%.0f") %", value: $model.capsuleSizeTolerancePct, in: 20...100, step: 5)
-                        }
-                        LabeledContent("Baseline mini") {
-                            Stepper("\(model.minBaselineCm, specifier: "%.0f") cm", value: $model.minBaselineCm, in: 5...100, step: 5)
-                        }
-                        LabeledContent("Rayons mini") {
-                            Stepper("\(model.minRays)", value: $model.minRays, in: 2...20)
-                        }
-                        LabeledContent("Incertitude max") {
-                            Stepper("\(model.maxUncertaintyMm, specifier: "%.0f") mm", value: $model.maxUncertaintyMm, in: 2...50, step: 1)
-                        }
+                        stepperRow("Association", String(format: "%.1f cm", model.associationCm),
+                                   $model.associationCm, 2...30, 0.5)
+                        stepperRow("Diamètre capsule", String(format: "%.0f mm", model.capsuleDiameterMm),
+                                   $model.capsuleDiameterMm, 10...60, 1)
+                        stepperRow("Tolérance taille", String(format: "±%.0f %%", model.capsuleSizeTolerancePct),
+                                   $model.capsuleSizeTolerancePct, 20...100, 5)
+                        stepperRow("Baseline mini", String(format: "%.0f cm", model.minBaselineCm),
+                                   $model.minBaselineCm, 5...100, 5)
+                        stepperRow("Rayons mini", "\(model.minRays)", $model.minRays, 2...20, 1)
+                        stepperRow("Incertitude max", String(format: "%.0f mm", model.maxUncertaintyMm),
+                                   $model.maxUncertaintyMm, 2...50, 1)
                     }
 
                     Section("Test sans antenne") {
@@ -79,10 +84,17 @@ struct ContentView: View {
                             .foregroundStyle(.secondary)
                     }
 
+                    Section("Export") {
+                        stepperRow("Écart min entre colonnes", String(format: "%.0f cm", model.columnGapCm),
+                                   $model.columnGapCm, 2...50, 1)
+                        Text("Numérotation vue de face, grille devant soi : n° 1 = micro en bas à droite, on remonte la colonne de droite, puis la colonne suivante vers la gauche, de bas en haut, etc. Une nouvelle colonne commence quand l'écart horizontal dépasse ce seuil.")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+
                     Section("Recalage du repère") {
-                        LabeledContent("Distance max sans ArUco") {
-                            Stepper("\(model.maxTravelSinceRecalM, specifier: "%.1f") m", value: $model.maxTravelSinceRecalM, in: 0.5...10, step: 0.5)
-                        }
+                        stepperRow("Distance max sans ArUco", String(format: "%.1f m", model.maxTravelSinceRecalM),
+                                   $model.maxTravelSinceRecalM, 0.5...10, 0.5)
                         Text("Après le verrouillage, ARKit continue seul. Quand un ArUco réapparaît, sa pose 6-DoF sert à recaler doucement le repère du cube sans effacer les micros déjà reconstruits. Un passage périodique sur un marqueur limite la dérive.")
                             .font(.footnote)
                             .foregroundStyle(.secondary)
@@ -108,6 +120,8 @@ struct ContentView: View {
                 if model.virtualAntenna {
                     Text("VIRTUEL")
                         .font(.caption2.bold())
+                        .lineLimit(1)
+                        .fixedSize()
                         .padding(.horizontal, 7)
                         .padding(.vertical, 4)
                         .background(Color.purple.opacity(0.6))
@@ -117,6 +131,8 @@ struct ContentView: View {
                 if !model.virtualAntenna {
                     Text(model.referenceQuality.rawValue)
                         .font(.caption2.bold())
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
                         .padding(.horizontal, 8)
                         .padding(.vertical, 5)
                         .background(referenceColor.opacity(0.22))
@@ -125,6 +141,8 @@ struct ContentView: View {
                 if !topExpanded {
                     Text("\(model.confirmedMicros) micros")
                         .font(.caption.monospacedDigit())
+                        .lineLimit(1)
+                        .fixedSize()
                 }
                 collapseButton(expanded: $topExpanded, up: true)
             }
@@ -205,6 +223,14 @@ struct ContentView: View {
                 }
                 .buttonStyle(.bordered)
 
+                Button {
+                    exportMicrophones()
+                } label: {
+                    Image(systemName: "square.and.arrow.up")
+                }
+                .buttonStyle(.bordered)
+                .disabled(model.numberedMicrophones.isEmpty)
+
                 Button(role: .destructive) {
                     model.reset()
                 } label: {
@@ -243,11 +269,23 @@ struct ContentView: View {
                     .foregroundStyle(.secondary)
             }
 
-            HStack(spacing: 10) {
-                legend(.green, "dans plan")
-                legend(.orange, "provisoire")
-                legend(.red, "hors plan")
-                legend(.cyan, "orange")
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 10) {
+                    legend(.green, "dans plan")
+                    legend(.orange, "provisoire")
+                    legend(.red, "hors plan")
+                    legend(.cyan, "orange")
+                }
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: 10) {
+                        legend(.green, "dans plan")
+                        legend(.orange, "provisoire")
+                    }
+                    HStack(spacing: 10) {
+                        legend(.red, "hors plan")
+                        legend(.cyan, "orange")
+                    }
+                }
             }
         }
     }
@@ -278,7 +316,11 @@ struct ContentView: View {
     private func metric(_ value: String, _ label: String) -> some View {
         VStack(spacing: 1) {
             Text(value).font(.headline.monospacedDigit())
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
             Text(label).font(.caption2).foregroundStyle(.secondary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 6)
@@ -288,7 +330,68 @@ struct ContentView: View {
     private func legend(_ color: Color, _ text: String) -> some View {
         HStack(spacing: 4) {
             Circle().fill(color).frame(width: 7, height: 7)
-            Text(text).font(.caption2)
+            Text(text).font(.caption2).lineLimit(1).fixedSize()
         }
     }
+
+    // MARK: - Settings rows
+
+    private func settingLabel(_ title: String, _ value: String) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(title)
+            Text(value)
+                .font(.subheadline.monospacedDigit())
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    /// Label and value stacked on the left, +/- on the right: long labels wrap instead of truncating.
+    private func stepperRow<V: Strideable>(
+        _ title: String,
+        _ value: String,
+        _ binding: Binding<V>,
+        _ range: ClosedRange<V>,
+        _ step: V.Stride
+    ) -> some View {
+        Stepper(value: binding, in: range, step: step) {
+            settingLabel(title, value)
+        }
+    }
+
+    // MARK: - Export
+
+    /// Writes the geometry file (beamforming format) and a detailed file, then opens the share sheet.
+    private func exportMicrophones() {
+        let microphones = model.numberedMicrophones
+        guard !microphones.isEmpty else { return }
+
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyyMMdd-HHmmss"
+        let stamp = formatter.string(from: Date())
+        let prefix = model.virtualAntenna ? "CubeMEMS_virtuel" : "CubeMEMS_face"
+        let directory = FileManager.default.temporaryDirectory
+
+        let geometryURL = directory.appendingPathComponent("\(prefix)_\(stamp)_\(microphones.count)mu.csv")
+        let detailsURL = directory.appendingPathComponent("\(prefix)_\(stamp)_details.csv")
+
+        do {
+            try MicrophoneExport.geometryCSV(microphones).write(to: geometryURL, atomically: true, encoding: .utf8)
+            try MicrophoneExport.detailedCSV(microphones).write(to: detailsURL, atomically: true, encoding: .utf8)
+            exportFiles = [geometryURL, detailsURL]
+            showExport = true
+        } catch {
+            exportError = error.localizedDescription
+        }
+    }
+}
+
+/// UIKit share sheet: save to Files, AirDrop, mail…
+private struct ActivityView: UIViewControllerRepresentable {
+    let items: [Any]
+
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        UIActivityViewController(activityItems: items, applicationActivities: nil)
+    }
+
+    func updateUIViewController(_ controller: UIActivityViewController, context: Context) {}
 }
