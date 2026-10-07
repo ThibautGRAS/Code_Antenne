@@ -35,6 +35,9 @@ final class ExportTests: XCTestCase {
         XCTAssertEqual(numbered.map { $0.number }, Array(1...12))
         XCTAssertEqual(numbered.map { $0.column }, [1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3])
         XCTAssertEqual(numbered.map { $0.row }, [1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4])
+        for microphone in numbered {
+            XCTAssertEqual(tracks[microphone.trackIndex].localPoint, microphone.position, "trackIndex of n° \(microphone.number)")
+        }
 
         // First = rightmost column, lowest; 4 = rightmost, highest; 5 = middle column, lowest.
         XCTAssertEqual(numbered[0].position.x, 0.30, accuracy: 0.02)

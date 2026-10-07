@@ -8,6 +8,8 @@ import simd
 struct NumberedMicrophone {
     /// 1-based channel order (row of the geometry file).
     var number: Int
+    /// Index of the source track in the array given to `MicrophoneNumbering.number`.
+    var trackIndex: Int
     /// 1 = rightmost column (seen facing the grid).
     var column: Int
     /// 1 = lowest microphone of its column.
@@ -23,15 +25,17 @@ enum MicrophoneNumbering {
     /// neighbours exceeds `columnGap`), then numbers them: rightmost column first, bottom to
     /// top, then the next column to the left, bottom to top, and so on.
     static func number(_ tracks: [MicroTrack], columnGap: Float) -> [NumberedMicrophone] {
-        let points = tracks
-            .filter { $0.state == .confirmed }
-            .compactMap { track -> (track: MicroTrack, local: SIMD3<Float>)? in
-                guard let local = track.localPoint else { return nil }
-                return (track, local)
+        typealias Point = (index: Int, track: MicroTrack, local: SIMD3<Float>)
+
+        let points = tracks.indices
+            .compactMap { index -> Point? in
+                let track = tracks[index]
+                guard track.state == .confirmed, let local = track.localPoint else { return nil }
+                return (index, track, local)
             }
             .sorted { $0.local.x > $1.local.x }
 
-        var columns: [[(track: MicroTrack, local: SIMD3<Float>)]] = []
+        var columns: [[Point]] = []
         for point in points {
             if let previous = columns.last?.last, previous.local.x - point.local.x <= columnGap {
                 columns[columns.count - 1].append(point)
@@ -46,6 +50,7 @@ enum MicrophoneNumbering {
                 result.append(
                     NumberedMicrophone(
                         number: result.count + 1,
+                        trackIndex: point.index,
                         column: columnIndex + 1,
                         row: rowIndex + 1,
                         position: point.local,

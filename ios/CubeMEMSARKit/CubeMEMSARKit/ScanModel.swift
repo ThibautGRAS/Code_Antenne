@@ -50,6 +50,16 @@ final class ScanModel: ObservableObject {
     @Published var numberedMicrophones: [NumberedMicrophone] = []
     /// A new column starts where the horizontal gap between microphones exceeds this.
     @Published var columnGapCm: Double = 8.0
+    /// Microphones mounted on one face of the real antenna.
+    @Published var expectedMicrophonesPerFace = 96
+    @Published var showMicrophoneNumbers = true
+    /// Ground-truth capsule count of the virtual antenna (set when it is placed).
+    @Published var virtualCapsuleCount = 0
+
+    /// Count the export is checked against.
+    var expectedMicrophones: Int {
+        virtualAntenna ? virtualCapsuleCount : expectedMicrophonesPerFace
+    }
     @Published var centerMode: CapsuleCenterMode = .compare
 
     // Test mode without the real antenna: virtual face placed in front of the phone,

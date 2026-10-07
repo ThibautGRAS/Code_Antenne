@@ -9,6 +9,7 @@ struct ContentView: View {
     @State private var exportFiles: [URL] = []
     @State private var showExport = false
     @State private var exportError: String?
+    @State private var confirmIncompleteExport = false
 
     var body: some View {
         ZStack {
@@ -85,6 +86,9 @@ struct ContentView: View {
                     }
 
                     Section("Export") {
+                        stepperRow("Micros attendus par face", "\(model.expectedMicrophonesPerFace)",
+                                   $model.expectedMicrophonesPerFace, 1...400, 1)
+                        Toggle("Afficher les numéros en AR", isOn: $model.showMicrophoneNumbers)
                         stepperRow("Écart min entre colonnes", String(format: "%.0f cm", model.columnGapCm),
                                    $model.columnGapCm, 2...50, 1)
                         Text("Numérotation vue de face, grille devant soi : n° 1 = micro en bas à droite, on remonte la colonne de droite, puis la colonne suivante vers la gauche, de bas en haut, etc. Une nouvelle colonne commence quand l'écart horizontal dépasse ce seuil.")
@@ -139,7 +143,7 @@ struct ContentView: View {
                         .clipShape(Capsule())
                 }
                 if !topExpanded {
-                    Text("\(model.confirmedMicros) micros")
+                    Text("\(model.confirmedMicros)/\(model.expectedMicrophones) micros")
                         .font(.caption.monospacedDigit())
                         .lineLimit(1)
                         .fixedSize()
@@ -160,7 +164,7 @@ struct ContentView: View {
             HStack(spacing: 8) {
                 metric("\(model.visibleMarkerIDs.count)", "visibles")
                 metric("\(model.mappedMarkerIDs.count)/4", "mappés")
-                metric("\(model.confirmedMicros)", "micros")
+                metric("\(model.confirmedMicros)/\(model.expectedMicrophones)", "micros")
                 metric("±\(Int(model.planeDeltaCm))", "cm plan")
             }
 
@@ -243,6 +247,12 @@ struct ContentView: View {
         }
         .padding(10)
         .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 14))
+        .alert("Nombre de micros différent", isPresented: $confirmIncompleteExport) {
+            Button("Exporter quand même") { writeExport() }
+            Button("Annuler", role: .cancel) {}
+        } message: {
+            Text("\(model.numberedMicrophones.count) micros verts pour \(model.expectedMicrophones) attendus : à partir du premier micro manquant ou en trop, les numéros ne correspondront plus aux voies réelles.")
+        }
     }
 
     private var bottomDetails: some View {
@@ -360,8 +370,18 @@ struct ContentView: View {
 
     // MARK: - Export
 
-    /// Writes the geometry file (beamforming format) and a detailed file, then opens the share sheet.
+    /// Asks for confirmation when the count differs from the expected one, then exports.
     private func exportMicrophones() {
+        guard !model.numberedMicrophones.isEmpty else { return }
+        if model.numberedMicrophones.count != model.expectedMicrophones {
+            confirmIncompleteExport = true
+        } else {
+            writeExport()
+        }
+    }
+
+    /// Writes the geometry file (beamforming format) and a detailed file, then opens the share sheet.
+    private func writeExport() {
         let microphones = model.numberedMicrophones
         guard !microphones.isEmpty else { return }
 

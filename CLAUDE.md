@@ -6,6 +6,8 @@ App iPhone native (ARKit) qui reconstruit la position 3D des ~240 capsules MEMS 
 
 Sortie visée par micro : identifiant, X/Y/Z dans un repère lié au cube, incertitude, export CSV/JSON.
 
+**96 micros par face** (réglage `expectedMicrophonesPerFace`). Numérotation des voies, vue de face devant la grille : n° 1 = en bas à droite, on remonte la colonne de droite, puis la colonne suivante vers la gauche de bas en haut, etc. (`Core/MicrophoneExport.swift`). Export : `…_<N>mu.csv` au format `data_geo` des outils de beamforming (`X;Y;Z`, m, `;`, une ligne par voie, repère de la face : origine centre des 4 ArUco, X droite, Y haut, Z vers l'opérateur) + `…_details.csv`. Numéros affichés en AR à côté des micros verts ; avertissement à l'export si le compte ≠ attendu.
+
 ## Dépôt et branches
 
 - Dépôt : `ThibautGRAS/Code_Antenne`, branche de travail **`calibration-app`** (créée au commit `923e95e`). Contenu : `README.md`, `.gitignore`, `ios/CubeMEMSARKit/` (app native, **référence**) et `web/` (prototype navigateur « Cube MEMS — scan V2 » : `index.html`, `app-v2.js`, `aruco-lite.js`, `style.css`).

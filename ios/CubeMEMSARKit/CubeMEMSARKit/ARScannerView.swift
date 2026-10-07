@@ -43,6 +43,11 @@ struct ARScannerView: UIViewRepresentable {
         private var microAnchor: AnchorEntity?
 
         private var reconstructor = TrackReconstructor()
+        /// Export number of each confirmed track (track index → number), refreshed every update.
+        private var numberByTrack: [Int: Int] = [:]
+        private var labelMeshes: [Int: MeshResource] = [:]
+        private lazy var confirmedSphere = MeshResource.generateSphere(radius: 0.018)
+        private lazy var candidateSphere = MeshResource.generateSphere(radius: 0.012)
         private var frameCounter = 0
         private var lastDetectionTime: TimeInterval = 0
         private var detectionRunning = false
@@ -124,6 +129,7 @@ struct ARScannerView: UIViewRepresentable {
             markerTransforms.removeAll()
             markerLocalTransforms.removeAll()
             reconstructor.reset()
+            numberByTrack.removeAll()
             frameCounter = 0
             lastCameraTransform = nil
             lastCameraTimestamp = nil
@@ -166,6 +172,7 @@ struct ARScannerView: UIViewRepresentable {
                 model.meanCenterDeltaMm = nil
                 model.sizeRejectedThisFrame = 0
                 model.virtualScore = nil
+                model.virtualCapsuleCount = 0
                 model.status = model.virtualAntenna
                     ? "Repère AR réinitialisé. Lance le scan : l'antenne virtuelle sera posée devant toi."
                     : "Repère AR réinitialisé. Montre les ArUco un par un."
@@ -661,8 +668,11 @@ struct ARScannerView: UIViewRepresentable {
             renderLockedFace()
             renderVirtualAntenna(antenna, face: transform)
 
+            let capsuleCount = antenna.capsulePositions.count
+
             Task { @MainActor in
                 model.faceLocked = true
+                model.virtualCapsuleCount = capsuleCount
                 model.mappedMarkerIDs = [0, 1, 2, 3]
                 model.referenceQuality = .good
                 model.distanceSinceRecalibrationM = 0
@@ -931,19 +941,26 @@ struct ARScannerView: UIViewRepresentable {
             reconstructor.parameters = reconstructionParameters()
             reconstructor.update(with: observations, frame: frameCounter, face: face)
 
+            let numbered = MicrophoneNumbering.number(
+                reconstructor.tracks,
+                columnGap: Float(model.columnGapCm / 100.0)
+            )
+            numberByTrack = Dictionary(uniqueKeysWithValues: numbered.map { ($0.trackIndex, $0.number) })
+
             renderMicros()
-            publishTrackStats()
+            publishTrackStats(numbered)
         }
 
         private func renderMicros() {
             guard let root = microAnchor else { return }
             root.children.removeAll()
 
-            for track in reconstructor.tracks {
+            let showNumbers = model.showMicrophoneNumbers
+
+            for (index, track) in reconstructor.tracks.enumerated() {
                 guard let point = track.worldPoint else { continue }
 
-                let radius: Float = track.state == .confirmed ? 0.018 : 0.012
-                let mesh = MeshResource.generateSphere(radius: radius)
+                let mesh = track.state == .confirmed ? confirmedSphere : candidateSphere
 
                 var material = SimpleMaterial()
                 let color: UIColor
@@ -962,17 +979,46 @@ struct ARScannerView: UIViewRepresentable {
                 let entity = ModelEntity(mesh: mesh, materials: [material])
                 entity.position = point
                 root.addChild(entity)
+
+                if showNumbers,
+                   track.state == .confirmed,
+                   let number = numberByTrack[index],
+                   let faceTransform
+                {
+                    root.addChild(numberLabel(number, at: point, face: faceTransform))
+                }
             }
         }
 
-        private func publishTrackStats() {
+        /// Export number written in the face plane (readable when facing the grid), next to the sphere.
+        private func numberLabel(_ number: Int, at point: SIMD3<Float>, face: simd_float4x4) -> ModelEntity {
+            let mesh: MeshResource
+            if let cached = labelMeshes[number] {
+                mesh = cached
+            } else {
+                mesh = MeshResource.generateText(
+                    "\(number)",
+                    extrusionDepth: 0.001,
+                    font: .boldSystemFont(ofSize: 0.035),
+                    containerFrame: .zero,
+                    alignment: .left,
+                    lineBreakMode: .byClipping
+                )
+                labelMeshes[number] = mesh
+            }
+
+            let label = ModelEntity(mesh: mesh, materials: [UnlitMaterial(color: .systemYellow)])
+            var rotation = face
+            rotation.columns.3 = SIMD4<Float>(0, 0, 0, 1)
+            label.transform = Transform(matrix: rotation)
+            label.position = point + face.rotation * SIMD3<Float>(0.022, 0.008, 0.01)
+            return label
+        }
+
+        private func publishTrackStats(_ numbered: [NumberedMicrophone]) {
             let confirmed = reconstructor.confirmedCount
             let provisional = reconstructor.provisionalCount
             let rejected = reconstructor.rejectedCount
-            let numbered = MicrophoneNumbering.number(
-                reconstructor.tracks,
-                columnGap: Float(model.columnGapCm / 100.0)
-            )
 
             Task { @MainActor in
                 model.confirmedMicros = confirmed
