@@ -107,6 +107,8 @@ Mode **enregistrement** (Réglages › Enregistrement, `ScanRecorder.swift`) : 1
 
 Antenne : **5 faces × 96 micros = 480 voies**, colonnes de 8 (coins d'une face : 1, 8, 89, 96). Approche retenue : **scan face par face**, chaque face avec ses 4 ArUco (même jeu déplacé) et son recalage par ses 4 coins dans le repère réel commun ; sélecteur de face dans l'app, décalage de voies (face k → 96(k−1)+1 … 96k), références mémorisées par face, accumulation des faces validées et export fusionné de 480 lignes au format `data_geo` (+ fichiers par face bruts/corrigés). Questions ouvertes pour l'utilisateur : ordre des faces dans les voies, sens « haut » de chaque face (surtout le dessus), source des positions réelles des coins (CAO / GEO nominal ou mesure).
 
+Face du dessus : impossible de se placer derrière les micros (au-dessus) → scan **par en dessous, depuis l'intérieur** ; ArUco collés sous les tubes, ordre ID0…ID3 défini vu d'en dessous ; distance faible (~0,5–1 m, tenir le téléphone bas) ; numérotation **miroir** à prévoir (option par face « vue de l'intérieur ») — en attente de la convention de numérotation de cette face. Idée validée à tester : **gommettes de couleur** (rose fluo ou bleu, 10–12 mm, centrées, sans masquer l'évent du MEMS, éventuellement alternées par colonne) pour une détection par couleur qui ignore le fond et les autres faces.
+
 Avant cela, l'essai réel sur une face doit valider : détection réelle, une seule vue caméra, sens de Z et signe de `planeOffsetCm`, numérotation, RMS du recalage par les coins.
 
 ## Architecture cible
