@@ -2,6 +2,34 @@ import CoreGraphics
 import CoreVideo
 import Foundation
 
+/// What the detector looks for on each capsule.
+enum DetectionMode: String, CaseIterable, Identifiable {
+    case whiteCapsule = "Capsule blanche"
+    case colorSticker = "Pastille de couleur"
+
+    var id: String { rawValue }
+}
+
+/// Colored sticker stuck on each capsule of the scanned face.
+/// Thresholds in full-range YCbCr (128 = neutral chroma); to be tuned on real recordings.
+enum StickerColor: String, CaseIterable, Identifiable {
+    case red = "Rouge"
+    case blue = "Bleu"
+    case green = "Vert"
+    case pink = "Rose"
+
+    var id: String { rawValue }
+
+    func matches(y: Int, cb: Int, cr: Int) -> Bool {
+        switch self {
+        case .red: return y >= 45 && cr >= 165 && cb <= 125 && cr - cb >= 50
+        case .blue: return y >= 35 && cb >= 155 && cr <= 125
+        case .green: return y >= 50 && cb <= 115 && cr <= 110
+        case .pink: return y >= 60 && cr >= 160 && cb >= 135
+        }
+    }
+}
+
 struct CapsuleDetection {
     enum Kind: Equatable {
         case white
@@ -20,7 +48,9 @@ enum CapsuleDetector {
     static func detect(
         pixelBuffer: CVPixelBuffer,
         mode: CapsuleCenterMode,
-        whiteThreshold: Double
+        whiteThreshold: Double,
+        target: DetectionMode = .whiteCapsule,
+        stickerColor: StickerColor = .red
     ) -> [CapsuleDetection] {
         guard CVPixelBufferGetPlaneCount(pixelBuffer) >= 2 else { return [] }
 
@@ -40,7 +70,8 @@ enum CapsuleDetector {
         let yBase = yBaseRaw.assumingMemoryBound(to: UInt8.self)
         let cbcrBase = cbcrBaseRaw.assumingMemoryBound(to: UInt8.self)
 
-        let step = 4
+        // Stickers are smaller than capsules: sample twice as finely.
+        let step = target == .colorSticker ? 2 : 4
         let gridW = max(1, width / step)
         let gridH = max(1, height / step)
 
@@ -59,6 +90,13 @@ enum CapsuleDetector {
                 let cr = Int(cbcrBase[chromaIndex + 1])
 
                 let idx = gy * gridW + gx
+
+                if target == .colorSticker {
+                    if stickerColor.matches(y: yy, cb: cb, cr: cr) {
+                        mask[idx] = 1
+                    }
+                    continue
+                }
 
                 // Orange/red test dot: high Cr, lower Cb.
                 if yy > 65 && cr > 150 && cb < 125 {
@@ -126,7 +164,11 @@ enum CapsuleDetector {
                 let aspect = Double(bboxW) / Double(max(1, bboxH))
                 let fill = Double(n) / Double(max(1, bboxW * bboxH))
 
-                if label == 1 {
+                if label == 1 && target == .colorSticker {
+                    guard diameterPx >= 4, diameterPx <= 100 else { continue }
+                    guard aspect > 0.42, aspect < 2.35 else { continue }
+                    guard fill > 0.30 else { continue }
+                } else if label == 1 {
                     guard diameterPx >= 6, diameterPx <= 100 else { continue }
                     guard aspect > 0.42, aspect < 2.35 else { continue }
                     guard fill > 0.18, fill < 0.98 else { continue }

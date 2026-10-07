@@ -39,8 +39,18 @@ def project(points_world, camera, intrinsics):
     return np.c_[u, v], depth
 
 
-def detect_app(rgb, white_threshold, step=4):
-    """Port of CapsuleDetector.swift (white blobs)."""
+STICKER_RULES = {   # same thresholds as StickerColor.matches in CapsuleDetector.swift
+    'red': lambda y, cb, cr: (y >= 45) & (cr >= 165) & (cb <= 125) & (cr - cb >= 50),
+    'blue': lambda y, cb, cr: (y >= 35) & (cb >= 155) & (cr <= 125),
+    'green': lambda y, cb, cr: (y >= 50) & (cb <= 115) & (cr <= 110),
+    'pink': lambda y, cb, cr: (y >= 60) & (cr >= 160) & (cb >= 135),
+}
+
+
+def detect_app(rgb, settings):
+    """Port of CapsuleDetector.swift: white capsules or colored stickers, per the recorded settings."""
+    sticker = settings.get('detectionMode') == 'sticker'
+    step = 2 if sticker else 4
     r, g, b = [rgb[..., i].astype(np.float32) for i in range(3)]
     y = 0.299 * r + 0.587 * g + 0.114 * b
     cb = 128 - 0.168736 * r - 0.331264 * g + 0.5 * b
@@ -49,7 +59,11 @@ def detect_app(rgb, white_threshold, step=4):
     ys = np.minimum(h - 1, np.arange(h // step) * step + step // 2)
     xs = np.minimum(w - 1, np.arange(w // step) * step + step // 2)
     Y, CB, CR = (a[np.ix_(ys, xs)] for a in (y, cb, cr))
-    mask = (Y >= int(white_threshold * 255)) & (np.abs(CB - 128) < 24) & (np.abs(CR - 128) < 24)
+    if sticker:
+        mask = STICKER_RULES[settings.get('stickerColor', 'red')](Y, CB, CR)
+    else:
+        white_threshold = settings.get('whiteThreshold', 0.82)
+        mask = (Y >= int(white_threshold * 255)) & (np.abs(CB - 128) < 24) & (np.abs(CR - 128) < 24)
     labels, _ = ndimage.label(mask)
     found = []
     for i, sl in enumerate(ndimage.find_objects(labels), start=1):
@@ -59,7 +73,11 @@ def detect_app(rgb, white_threshold, step=4):
             continue
         bh, bw = comp.shape
         dia = max(bw, bh) * step
-        if not (6 <= dia <= 100 and 0.42 < bw / max(1, bh) < 2.35 and 0.18 < n / max(1, bw * bh) < 0.98):
+        aspect, fill = bw / max(1, bh), n / max(1, bw * bh)
+        if sticker:
+            if not (4 <= dia <= 100 and 0.42 < aspect < 2.35 and fill > 0.30):
+                continue
+        elif not (6 <= dia <= 100 and 0.42 < aspect < 2.35 and 0.18 < fill < 0.98):
             continue
         cy_, cx_ = ndimage.center_of_mass(comp)
         found.append(((sl[1].start + cx_ + 0.5) * step, (sl[0].start + cy_ + 0.5) * step, dia))
@@ -109,7 +127,7 @@ def main():
             intrinsics = mat3(frame['intrinsics'])
             draw = ImageDraw.Draw(img)
 
-            detections = detect_app(np.asarray(img), settings.get('whiteThreshold', 0.82))
+            detections = detect_app(np.asarray(img), settings)
             for x, y, dia in detections:
                 rr = max(5, dia / 2)
                 draw.ellipse([x - rr, y - rr, x + rr, y + rr], outline=(255, 0, 255), width=3)

@@ -49,6 +49,14 @@ final class ScanModel: ObservableObject {
     @Published var minBaselineCm: Double = 30.0
     @Published var associationCm: Double = 4.5
     @Published var capsuleDiameterMm: Double = 20.0
+    @Published var detectionMode: DetectionMode = .whiteCapsule
+    @Published var stickerColor: StickerColor = .red
+    @Published var stickerDiameterMm: Double = 11.0
+
+    /// Physical size of what the detector finds (capsule or sticker), for the size filter.
+    var detectedDiameterMm: Double {
+        detectionMode == .colorSticker ? stickerDiameterMm : capsuleDiameterMm
+    }
     @Published var capsuleSizeTolerancePct: Double = 30.0
     @Published var minRays: Int = 7
     @Published var maxUncertaintyMm: Double = 8.0

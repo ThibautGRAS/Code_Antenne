@@ -301,6 +301,8 @@ struct ARScannerView: UIViewRepresentable {
             let pixelBuffer = frame.capturedImage
             let centerMode = model.centerMode
             let threshold = model.whiteThreshold
+            let target = model.detectionMode
+            let stickerColor = model.stickerColor
 
             detectorQueue.async { [weak self] in
                 guard let self else { return }
@@ -308,7 +310,9 @@ struct ARScannerView: UIViewRepresentable {
                 let detections = CapsuleDetector.detect(
                     pixelBuffer: pixelBuffer,
                     mode: centerMode,
-                    whiteThreshold: threshold
+                    whiteThreshold: threshold,
+                    target: target,
+                    stickerColor: stickerColor
                 )
 
                 DispatchQueue.main.async { [weak self] in
@@ -747,6 +751,9 @@ struct ARScannerView: UIViewRepresentable {
                     "planeOffsetCm": model.planeOffsetCm,
                     "planeDeltaCm": model.planeDeltaCm,
                     "capsuleDiameterMm": model.capsuleDiameterMm,
+                    "detectionMode": model.detectionMode == .colorSticker ? "sticker" : "white",
+                    "stickerColor": "\(model.stickerColor)",
+                    "stickerDiameterMm": model.stickerDiameterMm,
                     "capsuleSizeTolerancePct": model.capsuleSizeTolerancePct,
                     "whiteThreshold": model.whiteThreshold,
                     "associationCm": model.associationCm,
@@ -1047,7 +1054,7 @@ struct ARScannerView: UIViewRepresentable {
 
             return CapsuleSizeFilter.passes(
                 observedDiameterPixels: Float(detection.diameterPixels),
-                physicalDiameter: Float(model.capsuleDiameterMm / 1000.0),
+                physicalDiameter: Float(model.detectedDiameterMm / 1000.0),
                 depth: abs(cameraPoint.z),
                 focalPixels: focalPixels,
                 tolerance: Float(model.capsuleSizeTolerancePct / 100.0)

@@ -67,19 +67,41 @@ struct ContentView: View {
                     }
 
                     Section("Détection capsule") {
+                        Picker("Cible", selection: $model.detectionMode) {
+                            ForEach(DetectionMode.allCases) { mode in
+                                Text(mode.rawValue).tag(mode)
+                            }
+                        }
+                        .pickerStyle(.segmented)
+                        if model.detectionMode == .colorSticker {
+                            Picker("Couleur de la pastille", selection: $model.stickerColor) {
+                                ForEach(StickerColor.allCases) { color in
+                                    Text(color.rawValue).tag(color)
+                                }
+                            }
+                            stepperRow("Diamètre pastille", String(format: "%.0f mm", model.stickerDiameterMm),
+                                       $model.stickerDiameterMm, 4...40, 1)
+                            Text("Pastille centrée sur chaque capsule de la face scannée uniquement : le fond et les autres faces sont ignorés. La position mesurée est le centre de la pastille.")
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                        }
                         Picker("Centre utilisé", selection: $model.centerMode) {
                             ForEach(CapsuleCenterMode.allCases) { mode in
                                 Text(mode.rawValue).tag(mode)
                             }
                         }
-                        VStack(alignment: .leading, spacing: 4) {
-                            settingLabel("Seuil blanc", String(format: "%.2f", model.whiteThreshold))
-                            Slider(value: $model.whiteThreshold, in: 0.65...0.95)
+                        if model.detectionMode == .whiteCapsule {
+                            VStack(alignment: .leading, spacing: 4) {
+                                settingLabel("Seuil blanc", String(format: "%.2f", model.whiteThreshold))
+                                Slider(value: $model.whiteThreshold, in: 0.65...0.95)
+                            }
                         }
                         stepperRow("Association", String(format: "%.1f cm", model.associationCm),
                                    $model.associationCm, 2...30, 0.5)
-                        stepperRow("Diamètre capsule", String(format: "%.0f mm", model.capsuleDiameterMm),
-                                   $model.capsuleDiameterMm, 10...60, 1)
+                        if model.detectionMode == .whiteCapsule {
+                            stepperRow("Diamètre capsule", String(format: "%.0f mm", model.capsuleDiameterMm),
+                                       $model.capsuleDiameterMm, 10...60, 1)
+                        }
                         stepperRow("Tolérance taille", String(format: "±%.0f %%", model.capsuleSizeTolerancePct),
                                    $model.capsuleSizeTolerancePct, 20...100, 5)
                         stepperRow("Baseline mini", String(format: "%.0f cm", model.minBaselineCm),
