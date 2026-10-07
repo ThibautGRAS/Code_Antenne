@@ -136,7 +136,7 @@ def main():
                     draw.rectangle([u - 14, v - 14, u + 14, v + 14], outline=(0, 255, 255), width=4)
                     draw.text((u + 18, v - 10), f"ID{marker_id}", fill=(0, 255, 255))
 
-            draw.text((20, 20), f"#{frame['index']} {frame['tracking']} — {len(detections)} detections app",
+            draw.text((20, 20), f"#{frame['index']} {frame['tracking']} - {len(detections)} detections app",
                       fill=(255, 255, 0))
             img.save(f"{out_dir}/{frame['index']:06d}.jpg", quality=80)
 
