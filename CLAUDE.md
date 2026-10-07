@@ -97,6 +97,12 @@ Sur 42 capsules : ~220 micros verts même en salle vide (**~180 doublons**, caus
 7. Nouvel essai iPhone, puis comparaison des XYZ à des positions de référence (repères orange sur capsules connues).
 8. Seulement ensuite : export CSV/JSON finalisé, multi-face (repère cube global + transformation par face).
 
+## Capsules réelles et détection (7/10/2026)
+
+Capsules = disques blancs d'**environ 20 mm** clipsés sur des câbles verticaux noirs (colonnes), devant un filet souple qui ondule ; on voit à travers le cube les capsules des autres faces et le fond de dièdres blancs, souvent plus clairs que les capsules à l'ombre. iPhone **sans LiDAR**. Le détecteur actuel (seuil de luminance absolu) rate les capsules à l'ombre et prend des centaines de morceaux de fond (portage Python testé sur photos) ; à distance de scan, maille et capsule ont la même taille à l'écran → la discrimination repose sur la 3D. Défauts passés à diamètre 20 mm et plan ±5 cm.
+
+Mode **enregistrement** (Réglages › Enregistrement, `ScanRecorder.swift`) : 1 image JPEG / 0,5 s + `frames.jsonl` (pose caméra, intrinsèques, suivi, ArUco vus, face) + `meta.json` (réglages), zip partagé. Rejeu sur PC : `tools/replay/rejouer_enregistrement.py` (projection face/ArUco + détecteur app porté). Prochaine étape : régler le détecteur (contraste local, forme) sur un vrai enregistrement.
+
 ## Suite prévue : multi-face (en attente de l'essai réel sur une face, 7/10/2026)
 
 Antenne : **5 faces × 96 micros = 480 voies**, colonnes de 8 (coins d'une face : 1, 8, 89, 96). Approche retenue : **scan face par face**, chaque face avec ses 4 ArUco (même jeu déplacé) et son recalage par ses 4 coins dans le repère réel commun ; sélecteur de face dans l'app, décalage de voies (face k → 96(k−1)+1 … 96k), références mémorisées par face, accumulation des faces validées et export fusionné de 480 lignes au format `data_geo` (+ fichiers par face bruts/corrigés). Questions ouvertes pour l'utilisateur : ordre des faces dans les voies, sens « haut » de chaque face (surtout le dessus), source des positions réelles des coins (CAO / GEO nominal ou mesure).

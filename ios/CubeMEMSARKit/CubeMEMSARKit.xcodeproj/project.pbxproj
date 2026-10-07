@@ -18,6 +18,7 @@
 		A10000000000000000000009 /* FaceRecalibration.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000000000000000000000B /* FaceRecalibration.swift */; };
 		A1000000000000000000000A /* MicrophoneExport.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000000000000000000000C /* MicrophoneExport.swift */; };
 		A1000000000000000000000D /* RigidRegistration.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000000000000000000000F /* RigidRegistration.swift */; };
+		A1000000000000000000000E /* ScanRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000010 /* ScanRecorder.swift */; };
 		A1000000000000000000000B /* MarkerSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000000000000000000000D /* MarkerSheet.swift */; };
 		A1000000000000000000000C /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B1000000000000000000000E /* Assets.xcassets */; };
 /* End PBXBuildFile section */
@@ -30,6 +31,7 @@
 		B10000000000000000000005 /* ArucoReferenceFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArucoReferenceFactory.swift; sourceTree = "<group>"; };
 		B10000000000000000000006 /* CapsuleDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CapsuleDetector.swift; sourceTree = "<group>"; };
 		B10000000000000000000007 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		B10000000000000000000010 /* ScanRecorder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanRecorder.swift; sourceTree = "<group>"; };
 		B1000000000000000000000D /* MarkerSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkerSheet.swift; sourceTree = "<group>"; };
 		B1000000000000000000000E /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		B1000000000000000000000F /* RigidRegistration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RigidRegistration.swift; sourceTree = "<group>"; };
@@ -69,6 +71,7 @@
 				B10000000000000000000005 /* ArucoReferenceFactory.swift */,
 				B10000000000000000000006 /* CapsuleDetector.swift */,
 				B1000000000000000000000D /* MarkerSheet.swift */,
+				B10000000000000000000010 /* ScanRecorder.swift */,
 				B1000000000000000000000E /* Assets.xcassets */,
 				B10000000000000000000007 /* Info.plist */,
 				D10000000000000000000004 /* Core */,
@@ -172,6 +175,7 @@
 				A10000000000000000000005 /* ArucoReferenceFactory.swift in Sources */,
 				A10000000000000000000006 /* CapsuleDetector.swift in Sources */,
 				A1000000000000000000000B /* MarkerSheet.swift in Sources */,
+				A1000000000000000000000E /* ScanRecorder.swift in Sources */,
 				A10000000000000000000007 /* ReconstructionCore.swift in Sources */,
 				A10000000000000000000008 /* VirtualAntenna.swift in Sources */,
 				A10000000000000000000009 /* FaceRecalibration.swift in Sources */,

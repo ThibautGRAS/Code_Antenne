@@ -43,6 +43,7 @@ struct ARScannerView: UIViewRepresentable {
         private var microAnchor: AnchorEntity?
 
         private var reconstructor = TrackReconstructor()
+        private let recorder = ScanRecorder()
         /// Export number of each confirmed track (track index → number), refreshed every update.
         private var numberByTrack: [Int: Int] = [:]
         private var labelMeshes: [Int: MeshResource] = [:]
@@ -119,6 +120,10 @@ struct ARScannerView: UIViewRepresentable {
 
             faceAnchor?.findEntity(named: "faceAxes")?.isEnabled = model.showFaceAxes
 
+            if model.isRecording != recorder.isRecording {
+                toggleRecording()
+            }
+
             let virtualConfig = Self.virtualConfig(model)
             if virtualConfig != lastVirtualConfig {
                 lastVirtualConfig = virtualConfig
@@ -193,6 +198,25 @@ struct ARScannerView: UIViewRepresentable {
 
         func session(_ session: ARSession, didUpdate frame: ARFrame) {
             frameCounter += 1
+
+            if recorder.isRecording {
+                var markers: [Int: simd_float4x4] = [:]
+                for anchor in frame.anchors {
+                    guard let image = anchor as? ARImageAnchor, image.isTracked,
+                          let id = markerID(from: image.referenceImage.name) else { continue }
+                    markers[id] = image.transform
+                }
+                if recorder.record(
+                    frame: frame,
+                    face: faceTransform,
+                    faceSize: SIMD2<Float>(faceWidth, faceHeight),
+                    planeOffset: Float(model.planeOffsetCm / 100.0),
+                    markers: markers
+                ) {
+                    let count = recorder.frameCount
+                    Task { @MainActor in model.recordedFrames = count }
+                }
+            }
 
             let visible = Set(
                 frame.anchors.compactMap { anchor -> Int? in
@@ -669,6 +693,71 @@ struct ARScannerView: UIViewRepresentable {
             }
 
             return axes
+        }
+
+        // MARK: - Diagnostic recording
+
+        private func toggleRecording() {
+            if model.isRecording {
+                do {
+                    try recorder.start(meta: recordingMeta())
+                    Task { @MainActor in
+                        model.recordedFrames = 0
+                        model.recordingMessage = "Enregistrement en cours : une image toutes les 0,5 s."
+                    }
+                } catch {
+                    Task { @MainActor in
+                        model.isRecording = false
+                        model.recordingMessage = "Enregistrement impossible : \(error.localizedDescription)"
+                    }
+                }
+            } else {
+                let count = recorder.frameCount
+                Task { @MainActor in model.recordingMessage = "Préparation du fichier zip…" }
+                recorder.stop { [weak self] result in
+                    guard let self else { return }
+                    switch result {
+                    case .success(let url):
+                        let size = (try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0
+                        self.model.lastRecordingURL = url
+                        self.model.recordingMessage = String(
+                            format: "Enregistrement prêt : %d images, %.0f Mo.",
+                            count, Double(size) / 1_000_000
+                        )
+                    case .failure(let error):
+                        self.model.recordingMessage = "Échec de l'enregistrement : \(error.localizedDescription)"
+                    }
+                }
+            }
+        }
+
+        /// Settings snapshot stored with the recording, to replay with the same parameters.
+        private func recordingMeta() -> [String: Any] {
+            let info = Bundle.main.infoDictionary ?? [:]
+            return [
+                "format": "CubeMEMS-recording-1",
+                "app": "\(info["CFBundleShortVersionString"] ?? "?") (\(info["CFBundleVersion"] ?? "?"))",
+                "date": ISO8601DateFormatter().string(from: Date()),
+                "device": UIDevice.current.model,
+                "system": UIDevice.current.systemVersion,
+                "intervalSeconds": recorder.interval,
+                "virtualAntenna": model.virtualAntenna,
+                "settings": [
+                    "markerSizeCm": model.markerSizeCm,
+                    "planeOffsetCm": model.planeOffsetCm,
+                    "planeDeltaCm": model.planeDeltaCm,
+                    "capsuleDiameterMm": model.capsuleDiameterMm,
+                    "capsuleSizeTolerancePct": model.capsuleSizeTolerancePct,
+                    "whiteThreshold": model.whiteThreshold,
+                    "associationCm": model.associationCm,
+                    "minRays": model.minRays,
+                    "minBaselineCm": model.minBaselineCm,
+                    "maxUncertaintyMm": model.maxUncertaintyMm,
+                    "maxTravelSinceRecalM": model.maxTravelSinceRecalM,
+                    "expectedMicrophonesPerFace": model.expectedMicrophonesPerFace,
+                    "microphonesPerColumn": model.microphonesPerColumn
+                ]
+            ]
         }
 
         // MARK: - Virtual antenna (test without the real antenna)

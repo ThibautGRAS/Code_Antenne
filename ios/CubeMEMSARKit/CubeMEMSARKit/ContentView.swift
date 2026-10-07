@@ -161,6 +161,34 @@ struct ContentView: View {
                             .foregroundStyle(.secondary)
                     }
 
+                    Section("Enregistrement (diagnostic)") {
+                        Text("Enregistre une image caméra toutes les 0,5 s avec la pose ARKit, pour rejouer le scan sur PC et régler la détection. Démarrer avant le scan, arrêter à la fin, puis partager le zip (AirDrop, mail, Fichiers). Environ 30 Mo par minute.")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                        Button {
+                            model.isRecording.toggle()
+                        } label: {
+                            Label(
+                                model.isRecording
+                                    ? "Arrêter l'enregistrement (\(model.recordedFrames) images)"
+                                    : "Démarrer l'enregistrement",
+                                systemImage: model.isRecording ? "stop.circle" : "record.circle"
+                            )
+                        }
+                        if let message = model.recordingMessage {
+                            Text(message)
+                                .font(.footnote)
+                        }
+                        if let url = model.lastRecordingURL, !model.isRecording {
+                            Button {
+                                markerFiles = [url]
+                                showMarkerShare = true
+                            } label: {
+                                Label("Partager le dernier enregistrement", systemImage: "square.and.arrow.up")
+                            }
+                        }
+                    }
+
                     Section("Recalage du repère") {
                         stepperRow("Distance max sans ArUco", String(format: "%.1f m", model.maxTravelSinceRecalM),
                                    $model.maxTravelSinceRecalM, 0.5...10, 0.5)
@@ -209,6 +237,13 @@ struct ContentView: View {
                         .padding(.vertical, 5)
                         .background(referenceColor.opacity(0.22))
                         .clipShape(Capsule())
+                }
+                if model.isRecording {
+                    Text("● REC \(model.recordedFrames)")
+                        .font(.caption2.bold().monospacedDigit())
+                        .foregroundStyle(.red)
+                        .lineLimit(1)
+                        .fixedSize()
                 }
                 if !topExpanded {
                     Text("\(model.confirmedMicros)/\(model.expectedMicrophones) micros")
