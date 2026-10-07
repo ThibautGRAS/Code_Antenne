@@ -97,6 +97,12 @@ Sur 42 capsules : ~220 micros verts même en salle vide (**~180 doublons**, caus
 7. Nouvel essai iPhone, puis comparaison des XYZ à des positions de référence (repères orange sur capsules connues).
 8. Seulement ensuite : export CSV/JSON finalisé, multi-face (repère cube global + transformation par face).
 
+## Suite prévue : multi-face (en attente de l'essai réel sur une face, 7/10/2026)
+
+Antenne : **5 faces × 96 micros = 480 voies**, colonnes de 8 (coins d'une face : 1, 8, 89, 96). Approche retenue : **scan face par face**, chaque face avec ses 4 ArUco (même jeu déplacé) et son recalage par ses 4 coins dans le repère réel commun ; sélecteur de face dans l'app, décalage de voies (face k → 96(k−1)+1 … 96k), références mémorisées par face, accumulation des faces validées et export fusionné de 480 lignes au format `data_geo` (+ fichiers par face bruts/corrigés). Questions ouvertes pour l'utilisateur : ordre des faces dans les voies, sens « haut » de chaque face (surtout le dessus), source des positions réelles des coins (CAO / GEO nominal ou mesure).
+
+Avant cela, l'essai réel sur une face doit valider : détection réelle, une seule vue caméra, sens de Z et signe de `planeOffsetCm`, numérotation, RMS du recalage par les coins.
+
 ## Architecture cible
 
 - Stocker observations et points **dans le repère local du cube** (`rayon monde → monde→cube`), et ne passer au monde ARKit que pour l'affichage. Aujourd'hui, le recalage corrige rétroactivement les rayons/points en repère monde : acceptable pour le prototype, pas propre à terme.
