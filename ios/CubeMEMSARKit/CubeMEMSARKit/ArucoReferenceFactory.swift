@@ -39,6 +39,11 @@ enum ArucoReferenceFactory {
         ]
     ]
 
+    /// 6 × 6 cells (1 = white) including the black border, row 0 at the top.
+    static func cells(id: Int) -> [[UInt8]]? {
+        grids[id]
+    }
+
     static func makeReferenceImages(markerWidthMeters: CGFloat) -> Set<ARReferenceImage> {
         var output = Set<ARReferenceImage>()
 

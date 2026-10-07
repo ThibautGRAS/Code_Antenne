@@ -10,6 +10,8 @@ struct ContentView: View {
     @State private var showExport = false
     @State private var exportError: String?
     @State private var confirmIncompleteExport = false
+    @State private var markerFiles: [URL] = []
+    @State private var showMarkerShare = false
 
     var body: some View {
         ZStack {
@@ -39,6 +41,17 @@ struct ContentView: View {
         .sheet(isPresented: $showSettings) {
             NavigationStack {
                 Form {
+                    Section("Aide · Marqueurs ArUco") {
+                        Text("Imprimer les 4 marqueurs à 100 % (taille réelle), vérifier la règle de 100 mm, puis les coller à plat aux coins de la face, vus de face : ID0 en haut à gauche, ID1 en haut à droite, ID2 en bas à droite, ID3 en bas à gauche.")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                        Button {
+                            exportMarkerSheet()
+                        } label: {
+                            Label("Planche à imprimer (PDF)", systemImage: "printer")
+                        }
+                    }
+
                     Section("Géométrie") {
                         stepperRow("Taille ArUco", String(format: "%.1f cm", model.markerSizeCm),
                                    $model.markerSizeCm, 3...20, 0.5)
@@ -105,6 +118,9 @@ struct ContentView: View {
                     }
                 }
                 .navigationTitle("Réglages")
+                .sheet(isPresented: $showMarkerShare) {
+                    ActivityView(items: markerFiles)
+                }
                 .toolbar {
                     ToolbarItem(placement: .topBarTrailing) {
                         Button("Fermer") { showSettings = false }
@@ -369,6 +385,19 @@ struct ContentView: View {
     }
 
     // MARK: - Export
+
+    /// Printable PDF of the four markers at the configured size, shared from the settings sheet.
+    private func exportMarkerSheet() {
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent(String(format: "CubeMEMS_marqueurs_ArUco_%.0fmm.pdf", model.markerSizeCm * 10))
+        do {
+            try MarkerSheet.pdf(markerSizeMm: model.markerSizeCm * 10).write(to: url)
+            markerFiles = [url]
+            showMarkerShare = true
+        } catch {
+            exportError = error.localizedDescription
+        }
+    }
 
     /// Asks for confirmation when the count differs from the expected one, then exports.
     private func exportMicrophones() {
