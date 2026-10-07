@@ -17,6 +17,7 @@
 		A10000000000000000000008 /* VirtualAntenna.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000000000000000000000A /* VirtualAntenna.swift */; };
 		A10000000000000000000009 /* FaceRecalibration.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000000000000000000000B /* FaceRecalibration.swift */; };
 		A1000000000000000000000A /* MicrophoneExport.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000000000000000000000C /* MicrophoneExport.swift */; };
+		A1000000000000000000000D /* RigidRegistration.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000000000000000000000F /* RigidRegistration.swift */; };
 		A1000000000000000000000B /* MarkerSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000000000000000000000D /* MarkerSheet.swift */; };
 		A1000000000000000000000C /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B1000000000000000000000E /* Assets.xcassets */; };
 /* End PBXBuildFile section */
@@ -31,6 +32,7 @@
 		B10000000000000000000007 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		B1000000000000000000000D /* MarkerSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkerSheet.swift; sourceTree = "<group>"; };
 		B1000000000000000000000E /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		B1000000000000000000000F /* RigidRegistration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RigidRegistration.swift; sourceTree = "<group>"; };
 		B1000000000000000000000C /* MicrophoneExport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MicrophoneExport.swift; sourceTree = "<group>"; };
 		B1000000000000000000000B /* FaceRecalibration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FaceRecalibration.swift; sourceTree = "<group>"; };
 		B1000000000000000000000A /* VirtualAntenna.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VirtualAntenna.swift; sourceTree = "<group>"; };
@@ -81,6 +83,7 @@
 				B1000000000000000000000A /* VirtualAntenna.swift */,
 				B1000000000000000000000B /* FaceRecalibration.swift */,
 				B1000000000000000000000C /* MicrophoneExport.swift */,
+				B1000000000000000000000F /* RigidRegistration.swift */,
 			);
 			path = Core;
 			sourceTree = "<group>";
@@ -173,6 +176,7 @@
 				A10000000000000000000008 /* VirtualAntenna.swift in Sources */,
 				A10000000000000000000009 /* FaceRecalibration.swift in Sources */,
 				A1000000000000000000000A /* MicrophoneExport.swift in Sources */,
+				A1000000000000000000000D /* RigidRegistration.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

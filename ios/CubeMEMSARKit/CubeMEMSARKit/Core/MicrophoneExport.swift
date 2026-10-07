@@ -68,31 +68,36 @@ enum MicrophoneNumbering {
 enum MicrophoneExport {
     /// Same format as data/data_geo/*.csv of the beamforming tools: "X;Y;Z" in meters,
     /// one row per microphone in channel order.
-    static func geometryCSV(_ microphones: [NumberedMicrophone]) -> String {
+    /// With `transform`, positions are given in the real antenna frame (see RigidRegistration).
+    static func geometryCSV(_ microphones: [NumberedMicrophone], transform: RigidTransform? = nil) -> String {
         var lines = ["X;Y;Z"]
         for microphone in microphones {
-            lines.append(
-                String(
-                    format: "%.5f;%.5f;%.5f",
-                    microphone.position.x, microphone.position.y, microphone.position.z
-                )
-            )
+            let p = transform?.apply(microphone.position) ?? microphone.position
+            lines.append(String(format: "%.5f;%.5f;%.5f", p.x, p.y, p.z))
         }
         return lines.joined(separator: "\n") + "\n"
     }
 
     /// Everything known about each microphone, for checking the scan.
-    static func detailedCSV(_ microphones: [NumberedMicrophone]) -> String {
-        var lines = ["num;colonne;rang;X_m;Y_m;Z_m;incertitude_mm;rayons;residu_mm"]
+    /// Face-frame coordinates, plus the real-frame ones when `transform` is given.
+    static func detailedCSV(_ microphones: [NumberedMicrophone], transform: RigidTransform? = nil) -> String {
+        var header = "num;colonne;rang;X_m;Y_m;Z_m;incertitude_mm;rayons;residu_mm"
+        if transform != nil {
+            header += ";X_reel_m;Y_reel_m;Z_reel_m"
+        }
+        var lines = [header]
         for microphone in microphones {
-            lines.append(
-                String(
-                    format: "%d;%d;%d;%.5f;%.5f;%.5f;%.1f;%d;%.1f",
-                    microphone.number, microphone.column, microphone.row,
-                    microphone.position.x, microphone.position.y, microphone.position.z,
-                    microphone.uncertainty * 1000, microphone.rays, microphone.residual * 1000
-                )
+            var line = String(
+                format: "%d;%d;%d;%.5f;%.5f;%.5f;%.1f;%d;%.1f",
+                microphone.number, microphone.column, microphone.row,
+                microphone.position.x, microphone.position.y, microphone.position.z,
+                microphone.uncertainty * 1000, microphone.rays, microphone.residual * 1000
             )
+            if let transform {
+                let p = transform.apply(microphone.position)
+                line += String(format: ";%.5f;%.5f;%.5f", p.x, p.y, p.z)
+            }
+            lines.append(line)
         }
         return lines.joined(separator: "\n") + "\n"
     }

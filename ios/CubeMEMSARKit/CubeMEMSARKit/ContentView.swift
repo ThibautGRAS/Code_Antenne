@@ -113,6 +113,40 @@ struct ContentView: View {
                             .foregroundStyle(.secondary)
                     }
 
+                    Section("Repère réel de l'antenne") {
+                        Toggle("Exporter dans le repère réel", isOn: $model.useRealFrame)
+                        ForEach($model.referencePoints) { $reference in
+                            VStack(alignment: .leading, spacing: 6) {
+                                HStack {
+                                    Text("Voie")
+                                    TextField("n°", value: $reference.channel, format: .number)
+                                        .keyboardType(.numberPad)
+                                        .textFieldStyle(.roundedBorder)
+                                        .frame(width: 70)
+                                    Spacer()
+                                    Text(residualText(channel: reference.channel))
+                                        .font(.caption.monospacedDigit())
+                                        .foregroundStyle(.secondary)
+                                }
+                                HStack(spacing: 6) {
+                                    coordinateField("X", $reference.x)
+                                    coordinateField("Y", $reference.y)
+                                    coordinateField("Z", $reference.z)
+                                }
+                            }
+                        }
+                        .onDelete { model.referencePoints.remove(atOffsets: $0) }
+                        Button {
+                            let next = (model.referencePoints.map { $0.channel }.max() ?? 0) + 1
+                            model.referencePoints.append(ReferencePoint(channel: next, x: 0, y: 0, z: 0))
+                        } label: {
+                            Label("Ajouter une voie de référence", systemImage: "plus")
+                        }
+                        Text(registrationSummary)
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+
                     Section("Recalage du repère") {
                         stepperRow("Distance max sans ArUco", String(format: "%.1f m", model.maxTravelSinceRecalM),
                                    $model.maxTravelSinceRecalM, 0.5...10, 0.5)
@@ -388,6 +422,44 @@ struct ContentView: View {
         }
     }
 
+    // MARK: - Real antenna frame
+
+    private func coordinateField(_ name: String, _ value: Binding<Double>) -> some View {
+        HStack(spacing: 3) {
+            Text(name).font(.caption.bold())
+            TextField(name, value: value, format: .number.precision(.fractionLength(0...4)))
+                .keyboardType(.numbersAndPunctuation)
+                .textFieldStyle(.roundedBorder)
+        }
+    }
+
+    private func residualText(channel: Int) -> String {
+        guard case .success(let registration) = model.registration,
+              let error = registration.residualsMm[channel] else { return "" }
+        return String(format: "écart %.1f mm", error)
+    }
+
+    private var registrationSummary: String {
+        switch model.registration {
+        case .success(let registration) where registration.translationOnly:
+            return "1 référence : translation seule, les axes de la face sont supposés alignés sur le repère réel. Ajouter au moins 2 autres voies non alignées pour corriger aussi la rotation."
+        case .success(let registration):
+            let z = registration.transform.rotation * SIMD3<Double>(0, 0, 1)
+            return String(
+                format: "Recalage sur %d voies : RMS %.1f mm, rotation %.1f°. L'axe Z de la face devient (%.2f ; %.2f ; %.2f) dans le repère réel : il doit pointer vers l'extérieur du cube. Un écart > 10 mm signale une erreur de numérotation ou de scan.",
+                registration.residualsMm.count, registration.rmsMm, registration.transform.rotationDegrees, z.x, z.y, z.z
+            )
+        case .failure(.noReference):
+            return "Positions réelles en mètres (même repère que vos fichiers data_geo). Donner au moins 3 voies non alignées, idéalement les 4 coins de la face."
+        case .failure(.twoReferences):
+            return "2 références ne fixent pas la rotation : ajouter une 3e voie, non alignée avec les deux autres."
+        case .failure(.collinear):
+            return "Références presque alignées : choisir des voies sur au moins 2 colonnes et 2 hauteurs différentes."
+        case .failure(.missingChannels(let channels)):
+            return "Voies pas encore scannées (pas de micro vert avec ce numéro) : " + channels.map(String.init).joined(separator: ", ")
+        }
+    }
+
     // MARK: - Export
 
     /// Printable PDF of the four markers at the configured size, shared from the settings sheet.
@@ -418,18 +490,31 @@ struct ContentView: View {
         let microphones = model.numberedMicrophones
         guard !microphones.isEmpty else { return }
 
+        var transform: RigidTransform?
+        if model.useRealFrame {
+            switch model.registration {
+            case .success(let registration):
+                transform = registration.transform
+            case .failure:
+                exportError = "Recalage dans le repère réel impossible : \(registrationSummary)"
+                return
+            }
+        }
+
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyyMMdd-HHmmss"
         let stamp = formatter.string(from: Date())
-        let prefix = model.virtualAntenna ? "CubeMEMS_virtuel" : "CubeMEMS_face"
+        let prefix = (model.virtualAntenna ? "CubeMEMS_virtuel" : "CubeMEMS_face") + (transform != nil ? "_reel" : "")
         let directory = FileManager.default.temporaryDirectory
 
         let geometryURL = directory.appendingPathComponent("\(prefix)_\(stamp)_\(microphones.count)mu.csv")
         let detailsURL = directory.appendingPathComponent("\(prefix)_\(stamp)_details.csv")
 
         do {
-            try MicrophoneExport.geometryCSV(microphones).write(to: geometryURL, atomically: true, encoding: .utf8)
-            try MicrophoneExport.detailedCSV(microphones).write(to: detailsURL, atomically: true, encoding: .utf8)
+            try MicrophoneExport.geometryCSV(microphones, transform: transform)
+                .write(to: geometryURL, atomically: true, encoding: .utf8)
+            try MicrophoneExport.detailedCSV(microphones, transform: transform)
+                .write(to: detailsURL, atomically: true, encoding: .utf8)
             exportFiles = [geometryURL, detailsURL]
             showExport = true
         } catch {

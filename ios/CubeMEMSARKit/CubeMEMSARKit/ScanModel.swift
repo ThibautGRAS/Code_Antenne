@@ -16,6 +16,15 @@ enum CapsuleCenterMode: String, CaseIterable, Identifiable {
     var id: String { rawValue }
 }
 
+/// A channel whose position in the real antenna frame is known (meters).
+struct ReferencePoint: Identifiable, Codable, Equatable {
+    var id = UUID()
+    var channel: Int
+    var x: Double
+    var y: Double
+    var z: Double
+}
+
 final class ScanModel: ObservableObject {
     @Published var isScanning = false
     @Published var status = "Prêt. Démarre le scan puis montre les ArUco un par un."
@@ -57,6 +66,39 @@ final class ScanModel: ObservableObject {
     @Published var showFaceAxes = true
     /// Ground-truth capsule count of the virtual antenna (set when it is placed).
     @Published var virtualCapsuleCount = 0
+
+    // Real antenna frame: reference channels (kept between sessions) and export option.
+    @Published var referencePoints: [ReferencePoint] = ScanModel.loadReferences() {
+        didSet { saveReferences() }
+    }
+    @Published var useRealFrame = UserDefaults.standard.bool(forKey: "useRealFrame") {
+        didSet { UserDefaults.standard.set(useRealFrame, forKey: "useRealFrame") }
+    }
+
+    /// Fit of the current microphones onto the reference channels.
+    var registration: Result<ReferenceRegistration, ReferenceRegistrationError> {
+        var references: [Int: SIMD3<Double>] = [:]
+        for point in referencePoints {
+            references[point.channel] = SIMD3<Double>(point.x, point.y, point.z)
+        }
+        return RigidRegistration.register(microphones: numberedMicrophones, references: references)
+    }
+
+    private static let referencesKey = "referencePoints"
+
+    private static func loadReferences() -> [ReferencePoint] {
+        guard
+            let data = UserDefaults.standard.data(forKey: referencesKey),
+            let points = try? JSONDecoder().decode([ReferencePoint].self, from: data)
+        else { return [] }
+        return points
+    }
+
+    private func saveReferences() {
+        if let data = try? JSONEncoder().encode(referencePoints) {
+            UserDefaults.standard.set(data, forKey: Self.referencesKey)
+        }
+    }
 
     /// Count the export is checked against.
     var expectedMicrophones: Int {
