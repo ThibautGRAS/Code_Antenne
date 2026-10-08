@@ -67,12 +67,10 @@ struct ContentView: View {
                     }
 
                     Section("Détection capsule") {
-                        Picker("Cible", selection: $model.detectionMode) {
-                            ForEach(DetectionMode.allCases) { mode in
-                                Text(mode.rawValue).tag(mode)
-                            }
-                        }
-                        .pickerStyle(.segmented)
+                        Toggle("Détecter des pastilles de couleur", isOn: Binding(
+                            get: { model.detectionMode == .colorSticker },
+                            set: { model.detectionMode = $0 ? .colorSticker : .whiteCapsule }
+                        ))
                         if model.detectionMode == .colorSticker {
                             Picker("Couleur de la pastille", selection: $model.stickerColor) {
                                 ForEach(StickerColor.allCases) { color in
@@ -258,6 +256,16 @@ struct ContentView: View {
                         .padding(.horizontal, 8)
                         .padding(.vertical, 5)
                         .background(referenceColor.opacity(0.22))
+                        .clipShape(Capsule())
+                }
+                if model.detectionMode == .colorSticker {
+                    Text("PASTILLE \(model.stickerColor.rawValue.uppercased())")
+                        .font(.caption2.bold())
+                        .lineLimit(1)
+                        .fixedSize()
+                        .padding(.horizontal, 7)
+                        .padding(.vertical, 4)
+                        .background(Color.red.opacity(0.6))
                         .clipShape(Capsule())
                 }
                 if model.isRecording {
