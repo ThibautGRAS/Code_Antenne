@@ -16,6 +16,17 @@ enum CapsuleCenterMode: String, CaseIterable, Identifiable {
     var id: String { rawValue }
 }
 
+/// Folders of the app's Documents, visible in Files (Sur mon iPhone › Cube MEMS AR) and from a PC
+/// through iTunes › Partage de fichiers.
+enum AppFolders {
+    static func documents(_ name: String) -> URL {
+        let base = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        let folder = base.appendingPathComponent(name, isDirectory: true)
+        try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        return folder
+    }
+}
+
 /// A channel whose position in the real antenna frame is known (meters).
 struct ReferencePoint: Identifiable, Codable, Equatable {
     var id = UUID()

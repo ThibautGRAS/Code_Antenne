@@ -108,7 +108,8 @@ final class ScanRecorder {
             var result: Result<URL, Error> = .failure(CocoaError(.fileWriteUnknown))
             // .forUploading hands back a temporary zip of the folder.
             NSFileCoordinator().coordinate(readingItemAt: directory, options: .forUploading, error: &coordinatorError) { zipURL in
-                let destination = directory.deletingLastPathComponent()
+                // Kept in Documents/Enregistrements: visible in Files and iTunes file sharing.
+                let destination = AppFolders.documents("Enregistrements")
                     .appendingPathComponent(directory.lastPathComponent + ".zip")
                 do {
                     try? FileManager.default.removeItem(at: destination)

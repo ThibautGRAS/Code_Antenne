@@ -20,6 +20,10 @@
   <string>1</string>
   <key>LSRequiresIPhoneOS</key>
   <true/>
+  <key>UIFileSharingEnabled</key>
+  <true/>
+  <key>LSSupportsOpeningDocumentsInPlace</key>
+  <true/>
   <key>NSCameraUsageDescription</key>
   <string>La caméra est utilisée pour localiser les ArUco et reconstruire la position 3D des microphones.</string>
   <key>UIRequiredDeviceCapabilities</key>

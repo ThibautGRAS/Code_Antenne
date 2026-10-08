@@ -182,7 +182,7 @@ struct ContentView: View {
                     }
 
                     Section("Enregistrement (diagnostic)") {
-                        Text("Enregistre une image caméra toutes les 0,5 s avec la pose ARKit, pour rejouer le scan sur PC et régler la détection. Démarrer avant le scan, arrêter à la fin, puis partager le zip (AirDrop, mail, Fichiers). Environ 30 Mo par minute.")
+                        Text("Enregistre une image caméra toutes les 0,5 s avec la pose ARKit, pour rejouer le scan sur PC et régler la détection. Démarrer avant le scan, arrêter à la fin. Environ 30 Mo par minute. Les zips (dossier Enregistrements) et les exports CSV (dossier Exports) restent dans l'app : récupérables sur PC par câble, iTunes › iPhone › Partage de fichiers › Cube MEMS AR, ou dans Fichiers › Sur mon iPhone.")
                             .font(.footnote)
                             .foregroundStyle(.secondary)
                         Button {
@@ -543,7 +543,7 @@ struct ContentView: View {
 
     /// Printable PDF of the four markers at the configured size, shared from the settings sheet.
     private func exportMarkerSheet() {
-        let url = FileManager.default.temporaryDirectory
+        let url = AppFolders.documents("Marqueurs")
             .appendingPathComponent(String(format: "CubeMEMS_marqueurs_ArUco_%.0fmm.pdf", model.markerSizeCm * 10))
         do {
             try MarkerSheet.pdf(markerSizeMm: model.markerSizeCm * 10).write(to: url)
@@ -584,7 +584,7 @@ struct ContentView: View {
         formatter.dateFormat = "yyyyMMdd-HHmmss"
         let stamp = formatter.string(from: Date())
         let prefix = model.virtualAntenna ? "CubeMEMS_virtuel" : "CubeMEMS_face"
-        let directory = FileManager.default.temporaryDirectory
+        let directory = AppFolders.documents("Exports")
 
         // Raw geometry (face frame) is always exported; the corrected one (real frame) too when registered.
         let rawURL = directory.appendingPathComponent("\(prefix)_\(stamp)_brut_\(microphones.count)mu.csv")
