@@ -54,12 +54,14 @@ final class ScanModel: ObservableObject {
     @Published var sizeRejectedThisFrame = 0
 
     @Published var markerSizeCm: Double = 8.0
-    @Published var planeOffsetCm: Double = 3.0
-    @Published var planeDeltaCm: Double = 5.0
+    // Defaults measured on the real antenna (recording of 2026-10-08): the net sags inward,
+    // capsules lie 4–14 cm behind the ArUco plane; the detector sees the discs as ~27 mm.
+    @Published var planeOffsetCm: Double = -8.0
+    @Published var planeDeltaCm: Double = 10.0
     @Published var whiteThreshold: Double = 0.82
     @Published var minBaselineCm: Double = 30.0
     @Published var associationCm: Double = 4.5
-    @Published var capsuleDiameterMm: Double = 20.0
+    @Published var capsuleDiameterMm: Double = 27.0
     @Published var detectionMode: DetectionMode = .whiteCapsule
     @Published var stickerColor: StickerColor = .red
     @Published var stickerDiameterMm: Double = 11.0

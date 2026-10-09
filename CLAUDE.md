@@ -103,6 +103,13 @@ Capsules = disques blancs d'**environ 20 mm** clipsés sur des câbles verticaux
 
 Mode **enregistrement** (Réglages › Enregistrement, `ScanRecorder.swift`) : 1 image JPEG / 0,5 s + `frames.jsonl` (pose caméra, intrinsèques, suivi, ArUco vus, face) + `meta.json` (réglages), zip partagé. Rejeu sur PC : `tools/replay/rejouer_enregistrement.py` (projection face/ArUco + détecteur app porté). Prochaine étape : régler le détecteur (contraste local, forme) sur un vrai enregistrement.
 
+## Premier scan réel (8/10/2026, rejeu PC)
+
+- **ARKit ne reconnaît pas les ArUco imprimés** (0 détection sur 65 images) alors qu'OpenCV les lit à 35–120 px → détecteur ArUco maison `Core/ArucoDetector.swift` (référence Python `tools/replay/aruco_detector.py`, fixtures réelles dans les tests) : 37/37 + 4 ID3 sur papier gondolé, centre ±1,3 px. Centres triangulés multi-vues (≥ 3 vues, ≥ 15 cm de déplacement, résidu ≤ 3 cm), recalage par décalage perpendiculaire rayon/centre. Convention caméra validée (distances entre marqueurs cohérentes, face 1,95 × 1,83 m).
+- **Le filet n'est pas plan** : capsules 4 à 14 cm **derrière** les ArUco (ventre vers l'intérieur au centre de la face). Défauts passés à plan −8 cm ± 10 cm (sans risque pour les autres faces, à ≥ 1 m).
+- Capsules vues par le détecteur blanc ≈ **27 mm** (pas de grille 4 px) → défaut 27 mm.
+- Rejeu complet (`tools/replay/rejouer_complet.py`, mode `all`) : **35 micros verts, tous sur des capsules de la face scannée**, aucun faux vert ; scan de 32 s couvrant surtout la moitié basse → refaire un scan plus long couvrant toute la face, en filmant les 4 ArUco.
+
 ## Suite prévue : multi-face (en attente de l'essai réel sur une face, 7/10/2026)
 
 Antenne : **5 faces × 96 micros = 480 voies**, colonnes de 8 (coins d'une face : 1, 8, 89, 96). Approche retenue : **scan face par face**, chaque face avec ses 4 ArUco (même jeu déplacé) et son recalage par ses 4 coins dans le repère réel commun ; sélecteur de face dans l'app, décalage de voies (face k → 96(k−1)+1 … 96k), références mémorisées par face, accumulation des faces validées et export fusionné de 480 lignes au format `data_geo` (+ fichiers par face bruts/corrigés). Questions ouvertes pour l'utilisateur : ordre des faces dans les voies, sens « haut » de chaque face (surtout le dessus), source des positions réelles des coins (CAO / GEO nominal ou mesure).
