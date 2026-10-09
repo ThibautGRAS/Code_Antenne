@@ -129,6 +129,10 @@ struct ContentView: View {
                         stepperRow("Micros par colonne", "\(model.microphonesPerColumn)",
                                    $model.microphonesPerColumn, 1...100, 1)
                         Toggle("Afficher les numéros en AR", isOn: $model.showMicrophoneNumbers)
+                        Toggle("Grille régulière (colonnes × rangs)", isOn: $model.useGridNumbering)
+                        Text("Chaque micro prend le numéro de sa case dans une grille de \(model.gridLayout.columns) colonnes × \(model.gridLayout.rows) rangs, ajustée sur les micros trouvés : écartements inégaux et colonnes pas tout à fait droites sont acceptés. Un micro manquant laisse un trou au lieu de décaler les numéros suivants. Les positions exportées restent celles mesurées.")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
                         stepperRow("Écart min entre colonnes", String(format: "%.0f cm", model.columnGapCm),
                                    $model.columnGapCm, 2...50, 1)
                         Text("Numérotation vue de face, grille devant soi : n° 1 = micro en bas à droite, on remonte la colonne de droite, puis la colonne suivante vers la gauche, de bas en haut, etc. Une nouvelle colonne commence quand l'écart horizontal dépasse ce seuil.")
@@ -408,6 +412,13 @@ struct ContentView: View {
                     .foregroundStyle(.yellow)
             }
 
+            if let grid = model.gridSummary {
+                Text(grid)
+                    .font(.caption2.monospacedDigit())
+                    .foregroundStyle(.yellow)
+                    .lineLimit(2)
+            }
+
             if model.virtualAntenna, let score = model.virtualScore {
                 Text(score)
                     .font(.caption2.monospacedDigit())
@@ -601,11 +612,12 @@ struct ContentView: View {
 
         do {
             var files: [URL] = []
-            try MicrophoneExport.geometryCSV(microphones)
+            let slots = model.useGridNumbering && !model.virtualAntenna ? model.gridLayout.count : nil
+            try MicrophoneExport.geometryCSV(microphones, slotCount: slots)
                 .write(to: rawURL, atomically: true, encoding: .utf8)
             files.append(rawURL)
             if let transform {
-                try MicrophoneExport.geometryCSV(microphones, transform: transform)
+                try MicrophoneExport.geometryCSV(microphones, transform: transform, slotCount: slots)
                     .write(to: realURL, atomically: true, encoding: .utf8)
                 files.append(realURL)
             }

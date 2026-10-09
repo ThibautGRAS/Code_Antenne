@@ -84,6 +84,14 @@ final class ScanModel: ObservableObject {
     @Published var expectedMicrophonesPerFace = 96
     /// Microphones in one column of the real grid (96 = 12 columns × 8).
     @Published var microphonesPerColumn = 8
+    /// Number microphones by their slot in a columns × rows grid (holes instead of shifts).
+    @Published var useGridNumbering = true
+    @Published var gridSummary: String? = nil
+
+    var gridLayout: GridLayout {
+        let rows = max(1, microphonesPerColumn)
+        return GridLayout(columns: max(1, expectedMicrophonesPerFace / rows), rows: rows)
+    }
 
     /// Corner channels: bottom right, top right, bottom left, top left.
     var cornerChannels: [Int] {
@@ -167,6 +175,7 @@ final class ScanModel: ObservableObject {
         sizeRejectedThisFrame = 0
         virtualScore = nil
         numberedMicrophones = []
+        gridSummary = nil
         status = "Scan réinitialisé."
     }
 }

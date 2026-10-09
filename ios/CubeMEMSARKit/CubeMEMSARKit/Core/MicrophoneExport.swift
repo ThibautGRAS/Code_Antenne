@@ -69,9 +69,26 @@ enum MicrophoneExport {
     /// Same format as data/data_geo/*.csv of the beamforming tools: "X;Y;Z" in meters,
     /// one row per microphone in channel order.
     /// With `transform`, positions are given in the real antenna frame (see RigidRegistration).
-    static func geometryCSV(_ microphones: [NumberedMicrophone], transform: RigidTransform? = nil) -> String {
+    /// With `slotCount` (grid numbering), one row per channel 1 … slotCount and "nan" for empty
+    /// slots, so that row i is always channel i.
+    static func geometryCSV(
+        _ microphones: [NumberedMicrophone],
+        transform: RigidTransform? = nil,
+        slotCount: Int? = nil
+    ) -> String {
         var lines = ["X;Y;Z"]
-        for microphone in microphones {
+        let ordered: [NumberedMicrophone?]
+        if let slotCount {
+            let byNumber = Dictionary(uniqueKeysWithValues: microphones.map { ($0.number, $0) })
+            ordered = (1...max(1, slotCount)).map { byNumber[$0] }
+        } else {
+            ordered = microphones
+        }
+        for microphone in ordered {
+            guard let microphone else {
+                lines.append("nan;nan;nan")
+                continue
+            }
             let p = transform?.apply(microphone.position) ?? microphone.position
             lines.append(String(format: "%.5f;%.5f;%.5f", p.x, p.y, p.z))
         }

@@ -110,6 +110,10 @@ Mode **enregistrement** (Réglages › Enregistrement, `ScanRecorder.swift`) : 1
 - Capsules vues par le détecteur blanc ≈ **27 mm** (pas de grille 4 px) → défaut 27 mm.
 - Rejeu complet (`tools/replay/rejouer_complet.py`, mode `all`) : **35 micros verts, tous sur des capsules de la face scannée**, aucun faux vert ; scan de 32 s couvrant surtout la moitié basse → refaire un scan plus long couvrant toute la face, en filmant les 4 ArUco.
 
+## Numérotation par grille (option « Grille régulière », activée par défaut)
+
+`Core/GridNumbering.swift` (référence `tools/replay/grille.py`) : micros groupés en colonnes/rangs par les écarts entre eux (écartements inégaux et colonnes pas droites acceptés), 12 colonnes → placement direct ; scan partiel → placement des groupes observés dans les 12 cases au plus proche d'un pas uniforme (signalé « numéros provisoires » si ambigu) ; chaque colonne/rang recentré sur la médiane de ses micros ; un micro prend le numéro de sa case (trou au lieu de décalage). Export `_brut`/`_reel` : 96 lignes, `nan;nan;nan` pour les cases vides. Affichage « Grille 12×8 : N/96 cases — manquent … ». Les positions exportées restent les positions mesurées.
+
 ## Suite prévue : multi-face (en attente de l'essai réel sur une face, 7/10/2026)
 
 Antenne : **5 faces × 96 micros = 480 voies**, colonnes de 8 (coins d'une face : 1, 8, 89, 96). Approche retenue : **scan face par face**, chaque face avec ses 4 ArUco (même jeu déplacé) et son recalage par ses 4 coins dans le repère réel commun ; sélecteur de face dans l'app, décalage de voies (face k → 96(k−1)+1 … 96k), références mémorisées par face, accumulation des faces validées et export fusionné de 480 lignes au format `data_geo` (+ fichiers par face bruts/corrigés). Questions ouvertes pour l'utilisateur : ordre des faces dans les voies, sens « haut » de chaque face (surtout le dessus), source des positions réelles des coins (CAO / GEO nominal ou mesure).

@@ -1271,11 +1271,40 @@ struct ARScannerView: UIViewRepresentable {
             reconstructor.parameters = reconstructionParameters()
             reconstructor.update(with: observations, frame: frameCounter, face: face)
 
-            let numbered = MicrophoneNumbering.number(
-                reconstructor.tracks,
-                columnGap: Float(model.columnGapCm / 100.0)
-            )
+            let numbered: [NumberedMicrophone]
+            var gridSummary: String? = nil
+            if model.useGridNumbering && !model.virtualAntenna {
+                let layout = model.gridLayout
+                let grid = GridNumbering.number(
+                    reconstructor.tracks,
+                    layout: layout,
+                    faceWidth: faceWidth,
+                    faceHeight: faceHeight
+                )
+                numbered = grid.microphones
+                if !numbered.isEmpty {
+                    let shown = grid.missing.prefix(16).map(String.init).joined(separator: ", ")
+                    var text = "Grille \(layout.columns)×\(layout.rows) : \(numbered.count)/\(layout.count) cases"
+                    if !grid.missing.isEmpty {
+                        text += " — manquent \(shown)" + (grid.missing.count > 16 ? "…" : "")
+                    }
+                    if grid.unassigned > 0 {
+                        text += " — \(grid.unassigned) hors grille"
+                    }
+                    if grid.ambiguous {
+                        text += " — numéros provisoires : couvrir toute la face"
+                    }
+                    gridSummary = text
+                }
+            } else {
+                numbered = MicrophoneNumbering.number(
+                    reconstructor.tracks,
+                    columnGap: Float(model.columnGapCm / 100.0)
+                )
+            }
             numberByTrack = Dictionary(uniqueKeysWithValues: numbered.map { ($0.trackIndex, $0.number) })
+            let summary = gridSummary
+            Task { @MainActor in model.gridSummary = summary }
 
             renderMicros()
             publishTrackStats(numbered)
