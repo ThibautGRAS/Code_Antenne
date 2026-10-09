@@ -303,12 +303,20 @@ struct ContentView: View {
 
             HStack(spacing: 6) {
                 ForEach(0..<4, id: \.self) { id in
+                    // Blue = memorized, orange = in view but not memorized yet, grey = not seen.
+                    let mapped = model.mappedMarkerIDs.contains(id)
+                    let visible = model.visibleMarkerIDs.contains(id)
                     Text("ID\(id)")
                         .font(.caption2.bold())
-                        .foregroundStyle(model.mappedMarkerIDs.contains(id) ? .white : .secondary)
+                        .foregroundStyle(mapped || visible ? .white : .secondary)
                         .padding(.horizontal, 7)
                         .padding(.vertical, 4)
-                        .background(model.mappedMarkerIDs.contains(id) ? Color.blue.opacity(0.72) : Color.black.opacity(0.36))
+                        .background(
+                            mapped ? Color.blue.opacity(0.72)
+                                : visible ? Color.orange.opacity(0.75)
+                                : Color.black.opacity(0.36)
+                        )
+                        .overlay(Capsule().stroke(visible ? Color.white : .clear, lineWidth: 1.5))
                         .clipShape(Capsule())
                 }
                 Spacer()

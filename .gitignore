@@ -32,3 +32,6 @@ Thumbs.db
 # SwiftPM
 .build/
 .swiftpm/
+
+# Diagnostic recordings copied from the iPhone
+CubeMEMS_enregistrement_*.zip

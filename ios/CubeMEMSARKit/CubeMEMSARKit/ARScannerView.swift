@@ -34,6 +34,17 @@ struct ARScannerView: UIViewRepresentable {
         private var markerCenters: [Int: SIMD3<Float>] = [:]
         private var markerTransforms: [Int: simd_float4x4] = [:]
         private var markerLocalTransforms: [Int: simd_float4x4] = [:]
+
+        // Own ArUco detection (ARKit image anchors do not recognize the printed markers).
+        private let markerQueue = DispatchQueue(label: "CubeMEMS.ArucoDetector", qos: .userInitiated)
+        private var markerDetectionRunning = false
+        private var lastMarkerDetectionTime: TimeInterval = 0
+        /// World rays toward each marker center, accumulated until the face is locked.
+        private var markerRays: [Int: [RayObservation]] = [:]
+        /// Marker centers in the face frame, fixed at lock (used for recalibration).
+        private var markerLocalCenters: [Int: SIMD3<Float>] = [:]
+        /// Last time each marker was seen by the own detector.
+        private var markerLastSeen: [Int: TimeInterval] = [:]
         private var markerVisuals: [Int: AnchorEntity] = [:]
 
         private var faceTransform: simd_float4x4?
@@ -133,6 +144,9 @@ struct ARScannerView: UIViewRepresentable {
 
         private func resetAll() {
             markerCenters.removeAll()
+            markerRays.removeAll()
+            markerLocalCenters.removeAll()
+            markerLastSeen.removeAll()
             markerTransforms.removeAll()
             markerLocalTransforms.removeAll()
             reconstructor.reset()
@@ -218,12 +232,15 @@ struct ARScannerView: UIViewRepresentable {
                 }
             }
 
-            let visible = Set(
+            let anchorVisible = Set(
                 frame.anchors.compactMap { anchor -> Int? in
                     guard let image = anchor as? ARImageAnchor, image.isTracked else { return nil }
                     return markerID(from: image.referenceImage.name)
                 }
             )
+            let ownVisible = Set(markerLastSeen.filter { frame.timestamp - $0.value < 0.6 }.keys)
+            let visible = anchorVisible.union(ownVisible)
+            let pendingMarkers = visible.subtracting(markerCenters.keys).sorted()
 
             let tooFast = cameraMotionTooFast(frame)
             let trackingUsable: Bool
@@ -246,9 +263,14 @@ struct ARScannerView: UIViewRepresentable {
                 case .normal:
                     if model.isScanning {
                         if faceTransform == nil {
-                            model.status = model.virtualAntenna
-                                ? "Tracking AR OK. Vise devant toi : l'antenne virtuelle va être posée."
-                                : "Tracking AR OK. Parcours les quatre ArUco ; ils sont mémorisés."
+                            if model.virtualAntenna {
+                                model.status = "Tracking AR OK. Vise devant toi : l'antenne virtuelle va être posée."
+                            } else if !pendingMarkers.isEmpty {
+                                model.status = "ArUco " + pendingMarkers.map { "ID\($0)" }.joined(separator: ", ")
+                                    + " vu : décale-toi doucement de côté en le gardant dans l'image pour le mémoriser."
+                            } else {
+                                model.status = "Tracking AR OK. Parcours les quatre ArUco ; ils sont mémorisés."
+                            }
                         } else if model.virtualAntenna {
                             model.status = tooFast
                                 ? "Mouvement rapide : détection suspendue."
@@ -276,6 +298,10 @@ struct ARScannerView: UIViewRepresentable {
 
             if model.virtualAntenna, model.isScanning, faceTransform == nil, trackingUsable {
                 placeVirtualAntenna(frame)
+            }
+
+            if model.isScanning, !model.virtualAntenna, trackingUsable, !tooFast {
+                scheduleMarkerDetection(frame)
             }
 
             guard model.isScanning, faceTransform != nil, trackingUsable, !tooFast else { return }
@@ -577,6 +603,11 @@ struct ARScannerView: UIViewRepresentable {
 
             faceTransform = transform
 
+            markerLocalCenters.removeAll()
+            for (id, center) in markerCenters {
+                markerLocalCenters[id] = simd_inverse(transform).transformPoint(center)
+            }
+
             markerLocalTransforms.removeAll()
             for (id, markerWorld) in markerTransforms {
                 markerLocalTransforms[id] = simd_inverse(transform) * markerWorld
@@ -697,6 +728,161 @@ struct ARScannerView: UIViewRepresentable {
             }
 
             return axes
+        }
+
+        // MARK: - Own ArUco detection
+
+        private func scheduleMarkerDetection(_ frame: ARFrame) {
+            guard frame.timestamp - lastMarkerDetectionTime > 0.25, !markerDetectionRunning else { return }
+            lastMarkerDetectionTime = frame.timestamp
+            markerDetectionRunning = true
+
+            let pixelBuffer = frame.capturedImage
+            let camera = frame.camera.transform
+            let intrinsics = frame.camera.intrinsics
+            let timestamp = frame.timestamp
+
+            markerQueue.async { [weak self] in
+                let detections = Self.lumaImage(from: pixelBuffer).map { ArucoDetector.detect($0) } ?? []
+                DispatchQueue.main.async { [weak self] in
+                    guard let self else { return }
+                    self.markerDetectionRunning = false
+                    self.consumeMarkers(detections, camera: camera, intrinsics: intrinsics, timestamp: timestamp)
+                }
+            }
+        }
+
+        /// Copy of the Y plane of the captured image (full resolution, sensor orientation).
+        private static func lumaImage(from pixelBuffer: CVPixelBuffer) -> LumaImage? {
+            CVPixelBufferLockBaseAddress(pixelBuffer, .readOnly)
+            defer { CVPixelBufferUnlockBaseAddress(pixelBuffer, .readOnly) }
+            guard let base = CVPixelBufferGetBaseAddressOfPlane(pixelBuffer, 0) else { return nil }
+
+            let width = CVPixelBufferGetWidthOfPlane(pixelBuffer, 0)
+            let height = CVPixelBufferGetHeightOfPlane(pixelBuffer, 0)
+            let stride = CVPixelBufferGetBytesPerRowOfPlane(pixelBuffer, 0)
+            let source = base.assumingMemoryBound(to: UInt8.self)
+
+            var pixels = [UInt8](repeating: 0, count: width * height)
+            pixels.withUnsafeMutableBufferPointer { destination in
+                for y in 0..<height {
+                    (destination.baseAddress! + y * width).update(from: source + y * stride, count: width)
+                }
+            }
+            return LumaImage(width: width, height: height, pixels: pixels)
+        }
+
+        /// World ray through an image pixel (ARKit convention: camera looks along -Z, v down).
+        private func ray(through pixel: SIMD2<Double>, camera: simd_float4x4, intrinsics: simd_float3x3) -> RayObservation {
+            let fx = intrinsics.columns.0.x, fy = intrinsics.columns.1.y
+            let cx = intrinsics.columns.2.x, cy = intrinsics.columns.2.y
+            let direction = SIMD3<Float>((Float(pixel.x) - cx) / fx, -(Float(pixel.y) - cy) / fy, -1)
+            return RayObservation(
+                origin: camera.translation,
+                direction: simd_normalize(camera.rotation * direction)
+            )
+        }
+
+        private func consumeMarkers(
+            _ detections: [ArucoMarkerDetection],
+            camera: simd_float4x4,
+            intrinsics: simd_float3x3,
+            timestamp: TimeInterval
+        ) {
+            guard model.isScanning, !model.virtualAntenna, !detections.isEmpty else { return }
+
+            var recalibrationRays: [(id: Int, ray: RayObservation)] = []
+
+            for detection in detections {
+                markerLastSeen[detection.id] = timestamp
+                let observation = ray(through: detection.center, camera: camera, intrinsics: intrinsics)
+
+                if faceTransform == nil {
+                    var rays = markerRays[detection.id, default: []]
+                    rays.append(observation)
+                    if rays.count > 60 { rays.removeFirst() }
+                    markerRays[detection.id] = rays
+
+                    if let center = triangulatedMarkerCenter(rays) {
+                        markerCenters[detection.id] = center
+                        updateMarkerVisual(id: detection.id, position: center)
+                    }
+                } else if markerLocalCenters[detection.id] != nil {
+                    recalibrationRays.append((detection.id, observation))
+                }
+            }
+
+            if faceTransform == nil {
+                Task { @MainActor in
+                    model.mappedMarkerIDs = Set(markerCenters.keys)
+                }
+                lockFaceIfReady()
+            } else if !recalibrationRays.isEmpty {
+                recalibrate(with: recalibrationRays)
+            }
+        }
+
+        /// Marker center from several views: needs a little sideways motion (≥ 15 cm) and consistent rays.
+        private func triangulatedMarkerCenter(_ rays: [RayObservation]) -> SIMD3<Float>? {
+            guard rays.count >= 3, Triangulation.maximumBaseline(rays) >= 0.15,
+                  let solution = Triangulation.solve(rays),
+                  Triangulation.rmsResidual(rays, solution.point) <= 0.03
+            else { return nil }
+            return solution.point
+        }
+
+        /// Loop closure from re-observed marker centers: each ray constrains the marker to lie on it;
+        /// the face is translated by a fraction of the mean perpendicular offset.
+        private func recalibrate(with observations: [(id: Int, ray: RayObservation)]) {
+            guard let oldFace = faceTransform else { return }
+
+            var sum = SIMD3<Float>(repeating: 0)
+            for (id, observation) in observations {
+                guard let local = markerLocalCenters[id] else { continue }
+                let predicted = oldFace.transformPoint(local)
+                let d = simd_normalize(observation.direction)
+                let closest = observation.origin + d * simd_dot(predicted - observation.origin, d)
+                sum += closest - predicted
+            }
+            let offset = sum / Float(observations.count)
+            let offsetMm = simd_length(offset) * 1000
+
+            guard simd_length(offset) <= FaceRecalibration.maxTranslationJump else {
+                Task { @MainActor in
+                    model.referenceQuality = .poor
+                    model.status = String(format: "ArUco incohérent (écart %.0f mm) : correction ignorée.", offsetMm)
+                }
+                return
+            }
+
+            let alpha = FaceRecalibration.blendFactor(markerCount: Set(observations.map { $0.id }).count)
+            var newFace = oldFace
+            newFace.columns.3 += SIMD4<Float>(alpha * offset, 0)
+            faceTransform = newFace
+            if let face = currentFace() {
+                reconstructor.faceDidMove(to: face)
+            }
+            faceAnchor?.setTransformMatrix(newFace, relativeTo: nil)
+
+            for id in markerCenters.keys {
+                if let center = markerCenters[id] {
+                    markerCenters[id] = center + alpha * offset
+                    updateMarkerVisual(id: id, position: center + alpha * offset)
+                }
+            }
+
+            distanceSinceRecalibration = 0
+            lastReferenceCameraPosition = nil
+            renderMicros()
+
+            let count = Set(observations.map { $0.id }).count
+            Task { @MainActor in
+                model.referenceQuality = .good
+                model.distanceSinceRecalibrationM = 0
+                model.lastRecalibrationErrorMm = Double(offsetMm)
+                model.recalibrationCount += 1
+                model.status = String(format: "Repère recalé avec %d ArUco — écart %.1f mm.", count, offsetMm)
+            }
         }
 
         // MARK: - Diagnostic recording
