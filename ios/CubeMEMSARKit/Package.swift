@@ -18,7 +18,8 @@ let package = Package(
         .testTarget(
             name: "CubeMEMSCoreTests",
             dependencies: ["CubeMEMSCore"],
-            path: "Tests/CubeMEMSCoreTests"
+            path: "Tests/CubeMEMSCoreTests",
+            resources: [.copy("Fixtures")]
         )
     ]
 )

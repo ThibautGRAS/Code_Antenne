@@ -3,41 +3,8 @@ import CoreGraphics
 import ImageIO
 
 enum ArucoReferenceFactory {
-    // DICT_4X4_50 IDs 0...3, with the required 1-cell black border.
-    private static let grids: [Int: [[UInt8]]] = [
-        0: [
-            [0,0,0,0,0,0],
-            [0,1,0,1,1,0],
-            [0,0,1,0,1,0],
-            [0,0,0,1,1,0],
-            [0,0,0,1,0,0],
-            [0,0,0,0,0,0]
-        ],
-        1: [
-            [0,0,0,0,0,0],
-            [0,0,0,0,0,0],
-            [0,1,1,1,1,0],
-            [0,1,0,0,1,0],
-            [0,1,0,1,0,0],
-            [0,0,0,0,0,0]
-        ],
-        2: [
-            [0,0,0,0,0,0],
-            [0,0,0,1,1,0],
-            [0,0,0,1,1,0],
-            [0,0,0,1,0,0],
-            [0,1,1,0,1,0],
-            [0,0,0,0,0,0]
-        ],
-        3: [
-            [0,0,0,0,0,0],
-            [0,1,0,0,1,0],
-            [0,1,0,0,1,0],
-            [0,0,1,0,0,0],
-            [0,0,1,1,0,0],
-            [0,0,0,0,0,0]
-        ]
-    ]
+    // DICT_4X4_50 IDs 0...3, with the required 1-cell black border (shared with ArucoDetector).
+    private static let grids = ArucoDictionary.cells
 
     /// 6 × 6 cells (1 = white) including the black border, row 0 at the top.
     static func cells(id: Int) -> [[UInt8]]? {
