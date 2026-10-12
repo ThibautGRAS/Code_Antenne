@@ -100,6 +100,8 @@ final class ScanModel: ObservableObject {
         return Array(Set([1, perColumn, total - perColumn + 1, total])).sorted()
     }
     @Published var showMicrophoneNumbers = true
+    /// Show the orange (provisional) and red (rejected) candidates, not only the green microphones.
+    @Published var showCandidates = true
     /// X/Y/Z arrows of the export frame on the locked face.
     @Published var showFaceAxes = true
     /// Ground-truth capsule count of the virtual antenna (set when it is placed).

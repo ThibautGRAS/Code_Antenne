@@ -129,6 +129,7 @@ struct ContentView: View {
                         stepperRow("Micros par colonne", "\(model.microphonesPerColumn)",
                                    $model.microphonesPerColumn, 1...100, 1)
                         Toggle("Afficher les numéros en AR", isOn: $model.showMicrophoneNumbers)
+                        Toggle("Afficher les candidats orange / rouges", isOn: $model.showCandidates)
                         Toggle("Grille régulière (colonnes × rangs)", isOn: $model.useGridNumbering)
                         Text("Chaque micro prend le numéro de sa case dans une grille de \(model.gridLayout.columns) colonnes × \(model.gridLayout.rows) rangs, ajustée sur les micros trouvés : écartements inégaux et colonnes pas tout à fait droites sont acceptés. Un micro manquant laisse un trou au lieu de décaler les numéros suivants. Les positions exportées restent celles mesurées.")
                             .font(.footnote)
@@ -280,7 +281,7 @@ struct ContentView: View {
                         .fixedSize()
                 }
                 if !topExpanded {
-                    Text("\(model.confirmedMicros)/\(model.expectedMicrophones) micros")
+                    Text("\(displayedMicros)/\(model.expectedMicrophones) micros")
                         .font(.caption.monospacedDigit())
                         .lineLimit(1)
                         .fixedSize()
@@ -301,7 +302,7 @@ struct ContentView: View {
             HStack(spacing: 8) {
                 metric("\(model.visibleMarkerIDs.count)", "visibles")
                 metric("\(model.mappedMarkerIDs.count)/4", "mappés")
-                metric("\(model.confirmedMicros)/\(model.expectedMicrophones)", "micros")
+                metric("\(displayedMicros)/\(model.expectedMicrophones)", "micros")
                 metric("±\(Int(model.planeDeltaCm))", "cm plan")
             }
 
@@ -433,19 +434,19 @@ struct ContentView: View {
 
             ViewThatFits(in: .horizontal) {
                 HStack(spacing: 10) {
-                    legend(.green, "dans plan")
+                    legend(.green, "validé")
                     legend(.orange, "provisoire")
                     legend(.red, "hors plan")
-                    legend(.cyan, "orange")
+                    legend(.teal, "hors grille")
                 }
                 VStack(alignment: .leading, spacing: 4) {
                     HStack(spacing: 10) {
-                        legend(.green, "dans plan")
+                        legend(.green, "validé")
                         legend(.orange, "provisoire")
                     }
                     HStack(spacing: 10) {
                         legend(.red, "hors plan")
-                        legend(.cyan, "orange")
+                        legend(.teal, "hors grille")
                     }
                 }
             }
@@ -464,6 +465,11 @@ struct ContentView: View {
                 .frame(width: 28, height: 28)
         }
         .buttonStyle(.bordered)
+    }
+
+    /// With the grid, one microphone per slot; otherwise every green microphone.
+    private var displayedMicros: Int {
+        model.useGridNumbering && !model.virtualAntenna ? model.numberedMicrophones.count : model.confirmedMicros
     }
 
     private var referenceColor: Color {

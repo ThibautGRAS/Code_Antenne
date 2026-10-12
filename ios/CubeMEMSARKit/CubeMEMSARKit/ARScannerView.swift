@@ -45,6 +45,8 @@ struct ARScannerView: UIViewRepresentable {
         private var markerLocalCenters: [Int: SIMD3<Float>] = [:]
         /// Last time each marker was seen by the own detector.
         private var markerLastSeen: [Int: TimeInterval] = [:]
+        /// Recalibrations applied since the last reset (diagnostics).
+        private var recalibrationEvents = 0
         private var markerVisuals: [Int: AnchorEntity] = [:]
 
         private var faceTransform: simd_float4x4?
@@ -147,6 +149,7 @@ struct ARScannerView: UIViewRepresentable {
             markerRays.removeAll()
             markerLocalCenters.removeAll()
             markerLastSeen.removeAll()
+            recalibrationEvents = 0
             markerTransforms.removeAll()
             markerLocalTransforms.removeAll()
             reconstructor.reset()
@@ -220,12 +223,27 @@ struct ARScannerView: UIViewRepresentable {
                           let id = markerID(from: image.referenceImage.name) else { continue }
                     markers[id] = image.transform
                 }
+                let ownMarkers = markerLastSeen.filter { frame.timestamp - $0.value < 0.3 }.keys.sorted()
+                let appState: [String: Any] = [
+                    "scanning": model.isScanning,
+                    "green": reconstructor.confirmedCount,
+                    "orange": reconstructor.provisionalCount,
+                    "red": reconstructor.rejectedCount,
+                    "numbered": numberByTrack.count,
+                    "markersSeen": ownMarkers,
+                    "markersMapped": markerCenters.keys.sorted(),
+                    "travelSinceRecalibration": distanceSinceRecalibration,
+                    "detectionPaused": faceTransform != nil
+                        && distanceSinceRecalibration > Float(model.maxTravelSinceRecalM),
+                    "recalibrations": recalibrationEvents
+                ]
                 if recorder.record(
                     frame: frame,
                     face: faceTransform,
                     faceSize: SIMD2<Float>(faceWidth, faceHeight),
                     planeOffset: Float(model.planeOffsetCm / 100.0),
-                    markers: markers
+                    markers: markers,
+                    appState: appState
                 ) {
                     let count = recorder.frameCount
                     Task { @MainActor in model.recordedFrames = count }
@@ -267,7 +285,7 @@ struct ARScannerView: UIViewRepresentable {
                                 model.status = "Tracking AR OK. Vise devant toi : l'antenne virtuelle va être posée."
                             } else if !pendingMarkers.isEmpty {
                                 model.status = "ArUco " + pendingMarkers.map { "ID\($0)" }.joined(separator: ", ")
-                                    + " vu : décale-toi doucement de côté en le gardant dans l'image pour le mémoriser."
+                                    + " vu : décale-toi doucement de côté (30 cm) en le gardant dans l'image pour le mémoriser."
                             } else {
                                 model.status = "Tracking AR OK. Parcours les quatre ArUco ; ils sont mémorisés."
                             }
@@ -822,11 +840,11 @@ struct ARScannerView: UIViewRepresentable {
             }
         }
 
-        /// Marker center from several views: needs a little sideways motion (≥ 15 cm) and consistent rays.
+        /// Marker center from several views: needs sideways motion (≥ 30 cm, ≥ 5 views) and consistent rays.
         private func triangulatedMarkerCenter(_ rays: [RayObservation]) -> SIMD3<Float>? {
-            guard rays.count >= 3, Triangulation.maximumBaseline(rays) >= 0.15,
+            guard rays.count >= 5, Triangulation.maximumBaseline(rays) >= 0.30,
                   let solution = Triangulation.solve(rays),
-                  Triangulation.rmsResidual(rays, solution.point) <= 0.03
+                  Triangulation.rmsResidual(rays, solution.point) <= 0.02
             else { return nil }
             return solution.point
         }
@@ -873,6 +891,7 @@ struct ARScannerView: UIViewRepresentable {
 
             distanceSinceRecalibration = 0
             lastReferenceCameraPosition = nil
+            recalibrationEvents += 1
             renderMicros()
 
             let count = Set(observations.map { $0.id }).count
@@ -902,6 +921,7 @@ struct ARScannerView: UIViewRepresentable {
                     }
                 }
             } else {
+                recorder.attach(name: "etat_final.json", object: finalSnapshot())
                 let count = recorder.frameCount
                 Task { @MainActor in model.recordingMessage = "Préparation du fichier zip…" }
                 recorder.stop { [weak self] result in
@@ -919,6 +939,39 @@ struct ARScannerView: UIViewRepresentable {
                     }
                 }
             }
+        }
+
+        /// Everything the app had reconstructed when the recording stopped (diagnostics).
+        private func finalSnapshot() -> [String: Any] {
+            func list(_ v: SIMD3<Float>) -> [Float] { [v.x, v.y, v.z] }
+            let tracks: [[String: Any]] = reconstructor.tracks.enumerated().map { index, track in
+                var item: [String: Any] = [
+                    "state": "\(track.state)",
+                    "rays": track.rays.count,
+                    "baseline": track.baseline,
+                    "lastFrame": track.lastFrame
+                ]
+                if let local = track.localPoint {
+                    item["local"] = list(local)
+                    item["uncertainty"] = track.uncertainty
+                    item["residual"] = track.residual
+                    item["depthError"] = track.depthError
+                }
+                if let number = numberByTrack[index] { item["number"] = number }
+                return item
+            }
+            var snapshot: [String: Any] = [
+                "tracks": tracks,
+                "markerCenters": Dictionary(uniqueKeysWithValues: markerCenters.map { ("\($0.key)", list($0.value)) }),
+                "recalibrations": recalibrationEvents,
+                "frameCounter": frameCounter
+            ]
+            if let faceTransform {
+                snapshot["face"] = [faceTransform.columns.0, faceTransform.columns.1, faceTransform.columns.2, faceTransform.columns.3]
+                    .flatMap { [$0.x, $0.y, $0.z, $0.w] }
+                snapshot["faceSize"] = [faceWidth, faceHeight]
+            }
+            return snapshot
         }
 
         /// Settings snapshot stored with the recording, to replay with the same parameters.
@@ -1316,8 +1369,12 @@ struct ARScannerView: UIViewRepresentable {
 
             let showNumbers = model.showMicrophoneNumbers
 
+            let showCandidates = model.showCandidates
+            let gridMode = model.useGridNumbering && !model.virtualAntenna
+
             for (index, track) in reconstructor.tracks.enumerated() {
                 guard let point = track.worldPoint else { continue }
+                if !showCandidates && track.state != .confirmed { continue }
 
                 let mesh = track.state == .confirmed ? confirmedSphere : candidateSphere
 
@@ -1328,6 +1385,9 @@ struct ARScannerView: UIViewRepresentable {
                     color = .systemCyan
                 } else {
                     switch track.state {
+                    case .confirmed where gridMode && numberByTrack[index] == nil:
+                        // Green but in no grid slot (duplicate or not a capsule of this face).
+                        color = .systemTeal
                     case .confirmed: color = .systemGreen
                     case .provisional: color = .systemOrange
                     case .rejected: color = .systemRed

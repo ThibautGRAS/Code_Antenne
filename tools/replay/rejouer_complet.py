@@ -2,8 +2,9 @@
 ArUco (aruco_detector.py) -> centres triangulés -> face -> détection capsules blanches -> rayons -> TrackReconstructor.
 
 Usage :
-  python rejouer_complet.py <dossier de l'enregistrement dézippé> <app|all> <dossier de sortie>
-    app : face verrouillée quand les 4 ArUco sont mémorisés (comme sur l'iPhone)
+  python rejouer_complet.py <dossier de l'enregistrement dézippé> <app|all|rec> <dossier de sortie>
+    rec : face exactement telle que verrouillée par l'app (enregistrée avec chaque image)
+    app : face recalculée, verrouillée quand les 4 ArUco sont mémorisés (comme sur l'iPhone)
     all : face calculée avec toutes les vues des ArUco, puis toutes les images traitées
 Réglages : ceux de meta.json, surchargeables par variables d'environnement
   (capsuleDiameterMm, capsuleSizeTolerancePct, planeDeltaCm, planeOffsetCm, minBaselineCm, minRays, maxUncertaintyMm).
@@ -47,7 +48,7 @@ def pixel_ray(cam, K, u, v):
 # ---------------------------------------------------------------- core port (ReconstructionCore.swift V4)
 P = dict(associationRadius=S['associationCm'] / 100, minRays=S['minRays'], minBaseline=S['minBaselineCm'] / 100,
          planeTolerance=S['planeDeltaCm'] / 100, maxResidual=0.02, maxUncertainty=S['maxUncertaintyMm'] / 1000,
-         angularNoise=0.0015, outlierGate=0.01, mergeRadius=0.02, maxRaysPerTrack=60,
+         angularNoise=0.0015, outlierGate=0.01, mergeRadius=0.05, faceInset=0.05, maxRaysPerTrack=60,
          associationMaxFrameGap=40, pruneFrameGap=50)
 
 
@@ -152,7 +153,8 @@ class Recon:
             t['local'], t['res'], t['unc'] = r
             t['depth'] = abs(t['local'][2] - face.offset)
         enough = len(t['rays']) >= P['minRays'] and t['base'] >= P['minBaseline']
-        if enough and t['unc'] <= P['maxUncertainty'] and t['depth'] <= P['planeTolerance'] and t['res'] <= P['maxResidual']:
+        inside = t['local'] is not None and abs(t['local'][0]) <= face.w / 2 - P['faceInset'] and abs(t['local'][1]) <= face.h / 2 - P['faceInset']
+        if enough and inside and t['unc'] <= P['maxUncertainty'] and t['depth'] <= P['planeTolerance'] and t['res'] <= P['maxResidual']:
             t['state'] = 'confirmed'
         elif enough and t['depth'] > P['planeTolerance'] * 1.5 + 2 * t['unc']:
             t['state'] = 'rejected'
@@ -209,7 +211,13 @@ for f in frames:
     for m in AR.detect(cv2.cvtColor(rgb, cv2.COLOR_RGB2GRAY)):
         marker_obs.append((f['index'], m['id'], pixel_ray(cam, K, *m['center'])))
 
-if mode == 'all':
+if mode == 'rec':
+    # Face exactly as locked by the app (recorded with each frame).
+    f0 = next(f for f in frames if 'face' in f)
+    w, h = f0['faceSize']
+    face = Face(m4(f0['face']), w, h, f0.get('planeOffset', S['planeOffsetCm'] / 100))
+    lock_index = f0['index']
+elif mode == 'all':
     rays = {}
     for _, i, r in marker_obs: rays.setdefault(i, []).append(r)
     face = face_from_centers({i: tri(rs) for i, rs in rays.items()})

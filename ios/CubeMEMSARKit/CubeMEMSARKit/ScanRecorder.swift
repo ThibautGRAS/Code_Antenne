@@ -50,7 +50,8 @@ final class ScanRecorder {
         face: simd_float4x4?,
         faceSize: SIMD2<Float>,
         planeOffset: Float,
-        markers: [Int: simd_float4x4]
+        markers: [Int: simd_float4x4],
+        appState: [String: Any] = [:]
     ) -> Bool {
         guard let directory, let framesHandle, frame.timestamp - lastTimestamp >= interval else { return false }
         lastTimestamp = frame.timestamp
@@ -76,6 +77,9 @@ final class ScanRecorder {
             line["face"] = Self.array(face)
             line["faceSize"] = [faceSize.x, faceSize.y]
         }
+        if !appState.isEmpty {
+            line["app"] = appState
+        }
 
         // JPEG encoding off the ARKit delegate thread; the pixel buffer is retained only until then.
         queue.async { [context] in
@@ -93,6 +97,16 @@ final class ScanRecorder {
             }
         }
         return true
+    }
+
+    /// Adds a JSON file to the recording folder (written before zipping).
+    func attach(name: String, object: Any) {
+        guard let directory else { return }
+        queue.async {
+            if let data = try? JSONSerialization.data(withJSONObject: object, options: [.prettyPrinted, .sortedKeys]) {
+                try? data.write(to: directory.appendingPathComponent(name))
+            }
+        }
     }
 
     /// Finishes pending writes, zips the folder and returns the zip URL.

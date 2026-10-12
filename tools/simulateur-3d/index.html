@@ -293,7 +293,7 @@ function maximumBaseline(rays) {
 const DEFAULT_PARAMETERS = {
   associationRadius: 0.045, minRays: 7, minBaseline: 0.30, planeTolerance: 0.03,
   maxResidual: 0.02, maxUncertainty: 0.008, angularNoise: 0.0015, outlierGate: 0.01,
-  mergeRadius: 0.02, maxRaysPerTrack: 60, associationMaxFrameGap: 40, pruneFrameGap: 50,
+  mergeRadius: 0.05, faceInset: 0.05, maxRaysPerTrack: 60, associationMaxFrameGap: 40, pruneFrameGap: 50,
 };
 
 class TrackReconstructor {
@@ -383,7 +383,9 @@ class TrackReconstructor {
     }
     const enoughGeometry = t.rays.length >= p.minRays && t.baseline >= p.minBaseline;
     const wellConstrained = t.uncertainty <= p.maxUncertainty;
-    if (enoughGeometry && wellConstrained && t.depthError <= p.planeTolerance && t.residual <= p.maxResidual) {
+    const insideFace = !!t.localPoint && Math.abs(t.localPoint[0]) <= face.width / 2 - p.faceInset
+      && Math.abs(t.localPoint[1]) <= face.height / 2 - p.faceInset;
+    if (enoughGeometry && wellConstrained && insideFace && t.depthError <= p.planeTolerance && t.residual <= p.maxResidual) {
       t.state = 'confirmed';
     } else if (enoughGeometry && t.depthError > p.planeTolerance * 1.5 + 2 * t.uncertainty) {
       t.state = 'rejected';

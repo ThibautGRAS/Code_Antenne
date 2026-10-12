@@ -282,8 +282,11 @@ struct ReconstructionParameters {
     var angularNoise: Float = 0.0015
     /// Rays closer than this to the point are never treated as outliers (m).
     var outlierGate: Float = 0.01
-    /// Two confirmed tracks closer than this are merged (m).
-    var mergeRadius: Float = 0.02
+    /// Two confirmed tracks closer than this are merged (m). Capsules are ≥ 11 cm apart.
+    var mergeRadius: Float = 0.05
+    /// A track is only confirmed inside the face rectangle shrunk by this margin (m): keeps out the
+    /// first capsules of the side and top faces, which fall in the plane band near the edges.
+    var faceInset: Float = 0.05
     var maxRaysPerTrack = 60
     /// A non-confirmed track not updated for more frames than this can no longer receive observations.
     var associationMaxFrameGap = 40
@@ -445,9 +448,14 @@ struct TrackReconstructor {
             track.rays.count >= parameters.minRays &&
             track.baseline >= parameters.minBaseline
         let wellConstrained = track.uncertainty <= parameters.maxUncertainty
+        let insideFace = track.localPoint.map {
+            abs($0.x) <= face.width / 2 - parameters.faceInset &&
+            abs($0.y) <= face.height / 2 - parameters.faceInset
+        } ?? false
 
         if enoughGeometry &&
             wellConstrained &&
+            insideFace &&
             track.depthError <= parameters.planeTolerance &&
             track.residual <= parameters.maxResidual
         {
